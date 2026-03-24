@@ -1,0 +1,25 @@
+# ─── Dependencias ───────────────────────────────
+node_modules/
+
+# ─── Compilación ────────────────────────────────
+dist/
+
+# ─── Variables de entorno ───────────────────────
+.env
+.env.local
+.env.*.local
+
+# ─── Logs ───────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+
+# ─── OS ─────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─── Editores ───────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
