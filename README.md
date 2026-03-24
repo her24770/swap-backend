@@ -9,7 +9,10 @@ Backend service for **Swap** — a platform for student tutoring, academic mater
 | Runtime | Node.js 20 |
 | Framework | Express.js |
 | Language | TypeScript |
-| ORM | Prisma |
+| Real-time | Socket.io |
+| Validation | Zod |
+| Auth | JSON Web Token + bcrypt |
+| ORM | Prisma *(pendiente de configurar)* |
 | Database | PostgreSQL 16 |
 | Cache / Pub-Sub | Redis 7 |
 | Containerization | Docker + Docker Compose |
@@ -19,17 +22,21 @@ Backend service for **Swap** — a platform for student tutoring, academic mater
 ```
 swap-backend/
 ├── src/
-│   ├── api_rest/        # Express routers and entry point
-│   ├── controlador/     # Controllers (business logic delegation)
-│   ├── modelo/          # Domain models
-│   ├── repository/      # Data access layer (Prisma queries)
-│   ├── persistencia/    # Prisma client setup
-│   ├── tiempo_real/     # Socket.io WebSocket handlers
-│   └── infraestructura/ # DB, Redis, Cloudinary connectors
+│   ├── index.ts             # Entry point (Express + Socket.io)
+│   ├── api_rest/            # Express routers
+│   ├── controlador/         # Controllers (business logic delegation)
+│   ├── modelo/              # Domain models
+│   ├── repository/          # Data access layer (Prisma queries)
+│   ├── persistencia/        # Prisma client setup
+│   ├── tiempo_real/         # Socket.io WebSocket handlers
+│   └── infraestructura/     # DB, Redis, Cloudinary connectors
 ├── prisma/
-│   └── schema.prisma    # Database schema
+│   └── schema.prisma        # Database schema (pendiente)
 ├── Dockerfile
 ├── docker-compose.yml
+├── tsconfig.json
+├── package.json
+├── package-lock.json
 ├── .env.example
 └── README.md
 ```
@@ -42,42 +49,60 @@ swap-backend/
 | `postgres` | postgres:16 | 5432 |
 | `redis` | redis:7-alpine | 6379 |
 
-## Getting Started
-
-### Prerequisites
+## Prerequisites
 
 - [Docker](https://www.docker.com/) and Docker Compose installed
 
-### Setup
+## Getting Started
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/<org>/swap-backend.git
-   cd swap-backend
-   ```
+### 1. Clonar el repositorio
 
-2. Copy the environment file and fill in the values:
-   ```bash
-   cp .env.example .env
-   ```
+```bash
+git clone https://github.com/<org>/swap-backend.git
+cd swap-backend
+```
 
-3. Start all services:
-   ```bash
-   docker compose up --build
-   ```
+### 2. Configurar variables de entorno
 
-4. The API will be available at `http://localhost:3001`
+```bash
+cp .env.example .env
+```
 
-### Environment Variables
+Edita `.env` con tus valores reales. Variables clave:
 
-See `.env.example` for all required variables. Key ones:
 
-```env
-DATABASE_URL=postgresql://user:password@postgres:5432/swap
-REDIS_URL=redis://redis:6379
-JWT_SECRET=your_secret_here
-CLOUDINARY_URL=your_cloudinary_url
-PORT=3001
+### 3. Levantar todos los servicios
+
+```bash
+docker compose up -d --build
+```
+
+La API estará disponible en `http://localhost:3001`
+
+### 4. Verificar que todo corre
+
+```bash
+# Ver logs en tiempo real
+docker compose logs -f
+
+# Verificar el health endpoint
+curl http://localhost:3001/health
+```
+
+### Comandos útiles
+
+```bash
+# Detener servicios (conserva los datos)
+docker compose down
+
+# Detener y eliminar volúmenes (borra datos de DB y Redis)
+docker compose down -v
+
+# Reconstruir solo el backend
+docker compose up -d --build api
+
+# Ver logs de un servicio específico
+docker compose logs -f backend
 ```
 
 ## API
@@ -86,27 +111,44 @@ Base URL: `http://localhost:3001/api`
 
 | Resource | Endpoints |
 |---|---|
+| Health | `GET /health` |
 | Users | `/api/users` |
 | Publications | `/api/publications` |
 | Tutoring | `/api/tutoring` |
 | Moderation | `/api/moderation` |
 
-Full API documentation: _coming soon_
+Documentación completa: *coming soon*
 
-## Database
+## Database (Prisma)
 
-Managed with Prisma ORM. To run migrations manually:
+> Prisma está incluido en las dependencias pero pendiente de configurar el schema.
+
+Una vez configurado el `prisma/schema.prisma`, los comandos serán:
 
 ```bash
+# Correr migraciones dentro del contenedor
 docker compose exec backend npx prisma migrate dev
+
+# Abrir Prisma Studio
+docker compose exec backend npx prisma studio
+```
+
+## Development
+
+Para desarrollo local (requiere Node.js instalado):
+
+```bash
+npm install
+npm run dev   # hot-reload con ts-node-dev
 ```
 
 ## Contributing
 
-1. Create a branch from `main`: `git checkout -b feature/your-feature`
-2. Commit your changes
-3. Open a Pull Request
+1. Crear rama desde `main`: `git checkout -b feature/nombre-feature`
+2. Hacer commits con mensajes descriptivos
+3. Abrir un Pull Request hacia `main`
 
 ## Team
 
-Swap — Universidad del Valle de Guatemala, CC3090 Ingeniería de Software I, Semestre I 2026
+Swap — Universidad del Valle de Guatemala  
+CC3090 Ingeniería de Software I, Semestre I 2026
