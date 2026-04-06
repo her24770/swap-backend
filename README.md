@@ -12,7 +12,7 @@ Backend service for **Swap** — a platform for student tutoring, academic mater
 | Real-time | Socket.io |
 | Validation | Zod |
 | Auth | JSON Web Token + bcrypt |
-| ORM | Prisma *(pendiente de configurar)* |
+| ORM | Prisma |
 | Database | PostgreSQL 16 |
 | Cache / Pub-Sub | Redis 7 |
 | Containerization | Docker + Docker Compose |
@@ -37,10 +37,6 @@ Backend service for **Swap** — a platform for student tutoring, academic mater
 | `postgres` | postgres:16 | 5432 |
 | `redis` | redis:7-alpine | 6379 |
 
-## Prerequisites
-
-- [Docker](https://www.docker.com/) and Docker Compose installed
-
 ## Getting Started
 
 ### 1. Clonar el repositorio
@@ -56,8 +52,7 @@ cd swap-backend
 cp .env.example .env
 ```
 
-Edita `.env` con tus valores reales. Variables clave:
-
+Edita `.env` con tus valores reales.
 
 ### 3. Levantar todos los servicios
 
@@ -65,78 +60,41 @@ Edita `.env` con tus valores reales. Variables clave:
 docker compose up -d --build
 ```
 
-La API estará disponible en `http://localhost:3001`
-
-### 4. Verificar que todo corre
+### 4. Correr migraciones
 
 ```bash
-# Ver logs en tiempo real
-docker compose logs -f
+docker compose exec backend npx prisma migrate dev
+```
 
-# Verificar el health endpoint
+### 5. Verificar que todo corre
+
+```bash
 curl http://localhost:3001/health
 ```
 
 ### Comandos útiles
 
 ```bash
+# Ver logs en tiempo real
+docker compose logs -f backend
+
 # Detener servicios (conserva los datos)
 docker compose down
 
-# Detener y eliminar volúmenes (borra datos de DB y Redis)
+# Detener y eliminar volúmenes (borra datos de DB)
 docker compose down -v
-
-# Reconstruir solo el backend
-docker compose up -d --build api
-
-# Ver logs de un servicio específico
-docker compose logs -f backend
-```
-
-## API
-
-Base URL: `http://localhost:3001/api`
-
-| Resource | Endpoints |
-|---|---|
-| Health | `GET /health` |
-| Users | `/api/users` |
-| Publications | `/api/publications` |
-| Tutoring | `/api/tutoring` |
-| Moderation | `/api/moderation` |
-
-Documentación completa: *coming soon*
-
-## Database (Prisma)
-
-> Prisma está incluido en las dependencias pero pendiente de configurar el schema.
-
-Una vez configurado el `prisma/schema.prisma`, los comandos serán:
-
-```bash
-# Correr migraciones dentro del contenedor
-docker compose exec backend npx prisma migrate dev
 
 # Abrir Prisma Studio
 docker compose exec backend npx prisma studio
 ```
 
-## Development
-
-Para desarrollo local (requiere Node.js instalado):
-
-```bash
-npm install
-npm run dev   # hot-reload con ts-node-dev
-```
-
 ## Contributing
 
-1. Crear rama desde `main`: `git checkout -b feature/nombre-feature`
+1. Crear rama desde `develop`: `git checkout -b feature/nombre-feature`
 2. Hacer commits con mensajes descriptivos
-3. Abrir un Pull Request hacia `main`
+3. Abrir un Pull Request hacia `develop`
 
 ## Team
 
-Swap — Universidad del Valle de Guatemala  
+Swap — Universidad del Valle de Guatemala
 CC3090 Ingeniería de Software I, Semestre I 2026
