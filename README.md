@@ -19,27 +19,15 @@ Backend service for **Swap** — a platform for student tutoring, academic mater
 
 ## Project Structure
 
-```
-swap-backend/
-├── src/
-│   ├── index.ts             # Entry point (Express + Socket.io)
-│   ├── api_rest/            # Express routers
-│   ├── controlador/         # Controllers (business logic delegation)
-│   ├── modelo/              # Domain models
-│   ├── repository/          # Data access layer (Prisma queries)
-│   ├── persistencia/        # Prisma client setup
-│   ├── tiempo_real/         # Socket.io WebSocket handlers
-│   └── infraestructura/     # DB, Redis, Cloudinary connectors
-├── prisma/
-│   └── schema.prisma        # Database schema (pendiente)
-├── Dockerfile
-├── docker-compose.yml
-├── tsconfig.json
-├── package.json
-├── package-lock.json
-├── .env.example
-└── README.md
-```
+| Carpeta | Qué va ahí |
+|---|---|
+| `api_rest/` | Routers de Express — solo enrutan, sin lógica. Ej: `routerAuth.ts`, `routerPublicacion.ts` |
+| `controlador/` | Lógica de negocio. Recibe la request, llama al repositorio, devuelve respuesta. Ej: `controlUsuario.ts` |
+| `modelo/` | Interfaces y tipos TypeScript del dominio. Ej: `Usuario.ts`, `Publicacion.ts` |
+| `repository/` | Queries a Prisma. Solo acceso a datos, sin lógica de negocio. Ej: `repositorioUsuario.ts` |
+| `persistencia/` | Singleton de `PrismaClient` — un único cliente para toda la app. Solo `prismaClient.ts` |
+| `autenticacion/` | Lógica de JWT y bcrypt: generar/verificar tokens, hashear contraseñas. Ej: `servicioJWT.ts`, `servicioBcrypt.ts` |
+| `tiempo_real/` | Handlers de Socket.io — eventos de chat y notificaciones. Ej: `socketHandlers.ts` |
 
 ## Services (Docker)
 
