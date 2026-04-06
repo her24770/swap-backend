@@ -1,0 +1,294 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id_usuario          Int      @id @default(autoincrement())
+  nombre              String   @db.VarChar(100)
+  carnet              Int      @unique
+  email_institucional String   @unique @db.VarChar(100)
+  password            String   @db.VarChar(255)
+  url_foto_perfil     String   @db.VarChar(255)
+  descripcion         String?
+  calificacion        Decimal? @db.Decimal(5, 2)
+  reportes_recibidos  Int      @default(0)
+  tiempo_suspendido   Int      @default(0)
+
+  contactos           Contacto[]
+  tiemposDisponibles  TiempoDisponible[]
+  certificaciones     Certificacion[]
+  anuncios            Anuncio[]
+  publicaciones       Publicacion[]
+  resenasEmitidas     Resena[]       @relation("EmisorResena")
+  resenasRecibidas    Resena[]       @relation("ReceptorResena")
+  conversaciones1     Conversacion[] @relation("Usuario1Conversacion")
+  conversaciones2     Conversacion[] @relation("Usuario2Conversacion")
+  mensajes            Mensaje[]
+  acuerdos            Acuerdo[]
+  reportesEmitidos    Reporte[]      @relation("EmisorReporte")
+  reportesRecibidos2  Reporte[]      @relation("ReceptorReporte")
+  notificaciones      Notificacion[]
+  etiquetas           UsuarioEtiqueta[]
+}
+
+model Moderador {
+  id_moderador Int      @id @default(autoincrement())
+  usuario      String   @unique @db.VarChar(100)
+  password     String   @db.VarChar(255)
+
+  reportes     Reporte[]
+}
+
+model Etiqueta {
+  id_etiqueta       Int       @id @default(autoincrement())
+  nombre            String    @unique @db.VarChar(100)
+  descripcion       String    @db.VarChar(255)
+  id_etiqueta_padre Int?
+
+  padre             Etiqueta?  @relation("EtiquetaJerarquia", fields: [id_etiqueta_padre], references: [id_etiqueta])
+  hijas             Etiqueta[] @relation("EtiquetaJerarquia")
+  certificaciones   Certificacion[]
+  usuarios          UsuarioEtiqueta[]
+  publicaciones     PublicacionEtiqueta[]
+}
+
+model MotivoReporte {
+  id_motivo Int      @id @default(autoincrement())
+  motivo    String   @unique
+
+  reportes  Reporte[]
+
+  @@map("Motivo_Reporte")
+}
+
+model PalabraRestringida {
+  id_palabra Int    @id @default(autoincrement())
+  palabra    String @unique @db.VarChar(100)
+
+  @@map("Palabra_Restringida")
+}
+
+model TipoPerfil {
+  id_tipo_perfil Int    @id @default(autoincrement())
+  tipo_perfil    String @unique @db.VarChar(100)
+
+  publicaciones  Publicacion[]
+  resenas        Resena[]
+
+  @@map("Tipo_Perfil")
+}
+
+model TipoContacto {
+  id_tipo_contacto Int       @id @default(autoincrement())
+  tipo_contacto    String    @unique @db.VarChar(100)
+
+  contactos        Contacto[]
+
+  @@map("Tipo_Contacto")
+}
+
+model Estado {
+  id_estado Int    @id @default(autoincrement())
+  estado    String @unique @db.VarChar(100)
+
+  tiemposDisponibles TiempoDisponible[]
+  publicaciones      Publicacion[]
+  conversaciones     Conversacion[]
+  mensajes           Mensaje[]
+  acuerdos           Acuerdo[]
+  reportes           Reporte[]
+}
+
+model Contacto {
+  id_contacto   Int          @id @default(autoincrement())
+  id_usuario    Int
+  tipo_contacto Int
+  valor         String       @db.VarChar(255)
+
+  usuario       Usuario      @relation(fields: [id_usuario], references: [id_usuario])
+  tipoContacto  TipoContacto @relation(fields: [tipo_contacto], references: [id_tipo_contacto])
+
+  @@map("Contactos")
+}
+
+model TiempoDisponible {
+  id_tiempo        Int      @id @default(autoincrement())
+  id_usuario       Int
+  inicio_intervalo DateTime
+  fin_intervalo    DateTime
+  estado           Int
+
+  usuario          Usuario  @relation(fields: [id_usuario], references: [id_usuario])
+  estadoRel        Estado   @relation(fields: [estado], references: [id_estado])
+  tutorias         Tutoria[]
+
+  @@map("Tiempo_Disponible")
+}
+
+model Certificacion {
+  id_certificacion Int      @id @default(autoincrement())
+  id_usuario       Int
+  ruta_pdf         String   @db.VarChar(255)
+  lugar_emision    String   @db.VarChar(100)
+  id_etiqueta      Int
+
+  usuario          Usuario  @relation(fields: [id_usuario], references: [id_usuario])
+  etiqueta         Etiqueta @relation(fields: [id_etiqueta], references: [id_etiqueta])
+}
+
+model Anuncio {
+  id_anuncio  Int     @id @default(autoincrement())
+  titulo      String  @db.VarChar(100)
+  imagen_url  String  @db.VarChar(255)
+  descripcion String  @db.VarChar(255)
+  id_usuario  Int
+
+  usuario     Usuario @relation(fields: [id_usuario], references: [id_usuario])
+}
+
+model Publicacion {
+  id_publicacion    Int      @id @default(autoincrement())
+  titulo            String   @db.VarChar(100)
+  descripcion       String   @db.VarChar(255)
+  precio            Decimal  @default(0.0) @db.Decimal(5, 2)
+  estado            Int
+  tipo_publicacion  Int
+  me_gusta          Int      @default(0)
+  fecha_publicacion DateTime @default(now())
+  id_usuario        Int
+
+  estadoRel         Estado      @relation(fields: [estado], references: [id_estado])
+  tipoPerfil        TipoPerfil  @relation(fields: [tipo_publicacion], references: [id_tipo_perfil])
+  usuario           Usuario     @relation(fields: [id_usuario], references: [id_usuario])
+  imagenes          ImagenPublicacion[]
+  acuerdos          Acuerdo[]
+  etiquetas         PublicacionEtiqueta[]
+}
+
+model ImagenPublicacion {
+  id_imagen      Int         @id @default(autoincrement())
+  url_imagen     String      @db.VarChar(255)
+  id_publicacion Int
+
+  publicacion    Publicacion @relation(fields: [id_publicacion], references: [id_publicacion])
+
+  @@map("Imagen_Publicacion")
+}
+
+model Resena {
+  id_resena      Int        @id @default(autoincrement())
+  contenido      String
+  calificacion   Int        @default(0)
+  me_gusta       Int        @default(0)
+  id_emisor      Int
+  id_receptor    Int
+  id_tipo_resena Int
+
+  emisor         Usuario    @relation("EmisorResena", fields: [id_emisor], references: [id_usuario])
+  receptor       Usuario    @relation("ReceptorResena", fields: [id_receptor], references: [id_usuario])
+  tipoResena     TipoPerfil @relation(fields: [id_tipo_resena], references: [id_tipo_perfil])
+}
+
+model Conversacion {
+  id_conversacion     Int      @id @default(autoincrement())
+  id_usuario_1        Int
+  id_usuario_2        Int
+  estado_conversacion Int
+
+  usuario1            Usuario  @relation("Usuario1Conversacion", fields: [id_usuario_1], references: [id_usuario])
+  usuario2            Usuario  @relation("Usuario2Conversacion", fields: [id_usuario_2], references: [id_usuario])
+  estadoRel           Estado   @relation(fields: [estado_conversacion], references: [id_estado])
+  mensajes            Mensaje[]
+
+  @@unique([id_usuario_1, id_usuario_2])
+}
+
+model Mensaje {
+  id_mensaje      Int          @id @default(autoincrement())
+  id_conversacion Int
+  id_emisor       Int
+  mensaje         String
+  estado_mensaje  Int
+  fecha_enviado   DateTime     @default(now())
+
+  conversacion    Conversacion @relation(fields: [id_conversacion], references: [id_conversacion])
+  emisor          Usuario      @relation(fields: [id_emisor], references: [id_usuario])
+  estadoRel       Estado       @relation(fields: [estado_mensaje], references: [id_estado])
+}
+
+model Acuerdo {
+  id_acuerdo     Int         @id @default(autoincrement())
+  id_usuario     Int
+  id_publicacion Int
+  fecha_entrega  DateTime
+  lugar_entrega  String      @db.VarChar(100)
+  estado         Int
+
+  usuario        Usuario     @relation(fields: [id_usuario], references: [id_usuario])
+  publicacion    Publicacion @relation(fields: [id_publicacion], references: [id_publicacion])
+  estadoRel      Estado      @relation(fields: [estado], references: [id_estado])
+  tutorias       Tutoria[]
+}
+
+model Reporte {
+  id_reporte    Int           @id @default(autoincrement())
+  id_emisor     Int
+  id_receptor   Int
+  motivo        Int
+  observaciones String
+  fecha         DateTime      @default(now())
+  estado        Int
+  id_moderador  Int?
+
+  emisor        Usuario       @relation("EmisorReporte", fields: [id_emisor], references: [id_usuario])
+  receptor      Usuario       @relation("ReceptorReporte", fields: [id_receptor], references: [id_usuario])
+  motivoRel     MotivoReporte @relation(fields: [motivo], references: [id_motivo])
+  estadoRel     Estado        @relation(fields: [estado], references: [id_estado])
+  moderador     Moderador?    @relation(fields: [id_moderador], references: [id_moderador])
+}
+
+model Notificacion {
+  id_notificacion Int      @id @default(autoincrement())
+  mensaje         String
+  id_usuario      Int
+  fecha           DateTime @default(now())
+
+  usuario         Usuario  @relation(fields: [id_usuario], references: [id_usuario])
+}
+
+model UsuarioEtiqueta {
+  id_usuario  Int
+  id_etiqueta Int
+
+  usuario     Usuario  @relation(fields: [id_usuario], references: [id_usuario])
+  etiqueta    Etiqueta @relation(fields: [id_etiqueta], references: [id_etiqueta])
+
+  @@id([id_usuario, id_etiqueta])
+  @@map("Usuario_Etiqueta")
+}
+
+model PublicacionEtiqueta {
+  id_publicacion Int
+  id_etiqueta    Int
+
+  publicacion    Publicacion @relation(fields: [id_publicacion], references: [id_publicacion])
+  etiqueta       Etiqueta    @relation(fields: [id_etiqueta], references: [id_etiqueta])
+
+  @@id([id_publicacion, id_etiqueta])
+  @@map("Publicacion_Etiquetas")
+}
+
+model Tutoria {
+  id_acuerdo Int
+  id_tiempo  Int
+
+  acuerdo    Acuerdo          @relation(fields: [id_acuerdo], references: [id_acuerdo])
+  tiempo     TiempoDisponible @relation(fields: [id_tiempo], references: [id_tiempo])
+
+  @@id([id_acuerdo, id_tiempo])
+}
