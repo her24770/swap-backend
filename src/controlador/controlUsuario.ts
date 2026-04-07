@@ -4,7 +4,7 @@ import {
     actualizarUsuario,
     guardarContacto,
     buscarContactosPorUsuario,
-    actualizarContacto,
+    //actualizarContacto,
 } from "../repository/repositorioUsuario";
 
 /**
