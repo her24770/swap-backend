@@ -57,6 +57,10 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD:-redissecret}@redis:6379
     ports:
       - "3001:3001"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/dist
     depends_on:
       postgres:
         condition: service_healthy
