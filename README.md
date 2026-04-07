@@ -37,6 +37,8 @@ Backend service for **Swap** — a platform for student tutoring, academic mater
 | `postgres` | postgres:16 | 5432 |
 | `redis` | redis:7-alpine | 6379 |
 
+---
+
 ## Getting Started
 
 ### 1. Clonar el repositorio
@@ -52,47 +54,94 @@ cd swap-backend
 cp .env.example .env
 ```
 
-Edita `.env` con tus valores reales.
+Edita `.env` con tus valores. Para desarrollo local los valores por defecto funcionan sin cambios.
 
 ### 3. Levantar todos los servicios
 
 ```bash
-docker compose up -d --build
+docker compose up  --build
 ```
 
-### 4. Correr migraciones
+Esto inicia PostgreSQL, Redis y el backend. El contenedor de la API corre automáticamente `prisma db push` al arrancar, así que el esquema ya queda creado.
 
-```bash
-docker compose exec backend npx prisma migrate dev
-```
-
-### 5. Verificar que todo corre
+### 4. Verificar que todo corre
 
 ```bash
 curl http://localhost:3001/health
+# Respuesta esperada: {"status":"ok"}
 ```
 
-### Comandos útiles
+---
+
+## Datos de prueba (Seed)
+
+> **El seed NO corre automáticamente con Docker.** Cada integrante lo ejecuta manualmente cuando lo necesita.
+
+El seed crea:
+- 1 usuario vendedor de prueba (`vendedor@uvg.edu.gt`)
+- 1 moderador de prueba (`moderador1`)
+- Etiquetas de carrera y cursos (ICC, Biología, etc.)
+- 15 publicaciones de muestra (5 materiales · 5 tutorías · 5 negocios)
+- Catálogos base: estados, tipos de perfil, tipos de contacto, motivos de reporte, palabras restringidas
+
+### Correr el seed (primera vez o cuando se necesiten datos frescos)
+
+Con los contenedores corriendo, ejecuta desde tu máquina:
+
+```bash
+docker compose exec api npx ts-node --transpile-only prisma/seed.ts
+```
+
+### Credenciales de prueba
+
+| Rol | Email / Usuario | Contraseña |
+|---|---|---|
+| Usuario (vendedor) | `vendedor@uvg.edu.gt` | `Vendedor123!` |
+| Moderador | `moderador1` | `Moderador123!` |
+
+---
+
+## Comandos útiles
 
 ```bash
 # Ver logs en tiempo real
-docker compose logs -f backend
+docker compose logs -f api
 
 # Detener servicios (conserva los datos)
 docker compose down
 
-# Detener y eliminar volúmenes (borra datos de DB)
+# Detener y eliminar volúmenes (borra datos de DB — equivale a reset completo)
 docker compose down -v
 
-# Abrir Prisma Studio
-docker compose exec backend npx prisma studio
+# Abrir Prisma Studio (visualizar la BD en el navegador)
+docker compose exec api npx prisma studio
+
+# Aplicar cambios al schema sin migraciones (desarrollo)
+docker compose exec api npx prisma db push
+
+# Generar cliente Prisma después de cambiar el schema
+docker compose exec api npx prisma generate
 ```
+
+---
+
+## Flujo de trabajo recomendado al integrarse al proyecto
+
+1. Clonar el repo y copiar `.env.example` → `.env`
+2. `docker compose up -d --build`
+3. Verificar `curl http://localhost:3001/health`
+4. Correr el seed si necesitas datos: `docker compose exec backend npx ts-node --transpile-only prisma/seed.ts`
+5. (Opcional) Abrir Prisma Studio para explorar la BD: `docker compose exec backend npx prisma studio`
+
+---
 
 ## Contributing
 
 1. Crear rama desde `develop`: `git checkout -b feature/nombre-feature`
 2. Hacer commits con mensajes descriptivos
 3. Abrir un Pull Request hacia `develop`
+
+---
 
 ## Team
 
