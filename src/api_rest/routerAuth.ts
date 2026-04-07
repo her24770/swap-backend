@@ -1,15 +1,12 @@
 import { Router } from "express";
+import { registro, iniciarSesion } from "../controlador/controlAuth.js";
 
 const router = Router();
 
 //Ruta para registrar un nuevo usuario
-router.post("/register", (_req, res) => {
-    res.json({ message: "Register" });
-});
+router.post("/register", registro);
 
 //Ruta para iniciar sesión
-router.post("/login", (_req, res) => {
-    res.json({ message: "Login" });
-});
+router.post("/login", iniciarSesion);
 
 export default router;
