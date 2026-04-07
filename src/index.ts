@@ -1,7 +1,8 @@
-import express, { NextFunction, Request, Response } from "express";
+import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import cors from "cors";
+import routes from "./api_rest/routes";
 
 const app = express();
 const httpServer = createServer(app);
@@ -13,16 +14,10 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.get("/health", (_req, res) => {
-    res.json({ status: "ok" });
-});
+app.use("/api", routes);
 
 io.on("connection", (socket) => {
     console.log(`Socket connected: ${socket.id}`);
-});
-
-app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    res.status(err.status || 500).json({ message: err.message || "Internal Server Error" });
 });
 
 httpServer.listen(PORT, () => {
