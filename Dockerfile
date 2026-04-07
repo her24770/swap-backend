@@ -12,10 +12,10 @@ RUN npm ci
 # Copy source and compile TypeScript
 COPY tsconfig.json ./
 COPY src ./src
-#COPY prisma ./prisma
+COPY prisma ./prisma
 
 # Generate Prisma client
-#RUN npx prisma generate
+RUN npx prisma generate
 
 # Build TypeScript → JavaScript
 RUN npm run build
@@ -34,11 +34,13 @@ ENV NODE_ENV=production
 COPY package*.json ./
 RUN npm ci --omit=dev
 
-# Copy compiled output and Prisma artifacts
+# Copy compiled output and all Prisma artifacts
 COPY --from=builder /app/dist ./dist
-#COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-#COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-#COPY prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
+COPY prisma ./prisma
 
 # Create non-root user for security
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
@@ -47,5 +49,4 @@ USER appuser
 EXPOSE 3001
 
 # Run migrations then start the server
-CMD ["node", "dist/index.js"]
-#CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+CMD ["sh", "-c", "npx prisma db push && node dist/index.js"]
