@@ -52,6 +52,19 @@ export async function eliminarPublicacion(id: number): Promise<Publicacion> {
     return prisma.publicacion.delete({ where: { id_publicacion: id } });
 }
 
+export async function buscarPublicacionesPorTipoYUsuario(tipoPerfil: string, idUsuario: number): Promise<Publicacion[]> {
+    return prisma.publicacion.findMany({
+        where: {
+            id_usuario: idUsuario,
+            tipoPerfil: {
+                tipo_perfil: tipoPerfil
+            }
+        },
+        include: { imagenes: true, etiquetas: { include: { etiqueta: true } } },
+        orderBy: { fecha_publicacion: "desc" },
+    });
+}
+
 // ─────────────────────────────────────────────
 // Imagen de Publicacion
 // ─────────────────────────────────────────────

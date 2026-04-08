@@ -1,10 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 import bcrypt from "bcrypt";
+import { ServicioJWT, PayloadToken } from "../autenticacion/ServicioJWT.js";
 import {
     buscarUsuarioPorEmail,
     buscarUsuarioPorCarnet,
     guardarUsuario,
-} from "../repository/repositorioUsuario";
+} from "../repository/repositorioUsuario.js";
 
 const SALT_ROUNDS = 10;
 
@@ -56,6 +57,58 @@ export async function registro(req: Request, res: Response, next: NextFunction):
                 descripcion: nuevoUsuario.descripcion,
             },
         });
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function iniciarSesion(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const { email_institucional, password } = req.body;
+
+        if (!email_institucional || !password) {
+            res.status(400).json({ message: "Faltan credenciales." });
+            return;
+        }
+
+        // Verificar email
+        const usuario = await buscarUsuarioPorEmail(email_institucional);
+        if (usuario) {
+            // Verificar contraseña
+            const esPasswordCorrecta = await bcrypt.compare(password, usuario.password);
+            if (!esPasswordCorrecta) {
+                res.status(401).json({ message: "Credenciales inválidas." });
+                return;
+            }
+
+            // Generar token
+            const payload: PayloadToken = {
+                sub: String(usuario.id_usuario),
+                email: usuario.email_institucional,
+                rol: "estudiante",
+            };
+            const token = ServicioJWT.generarToken(payload);
+
+            res.status(200).json({
+                message: "Inicio de sesión exitoso.",
+                token: token,
+                usuario: {
+                    email: usuario.email_institucional,
+                    rol: "estudiante",
+                }
+            });
+            return;
+        }
+
+        const moderador = ""; //Agregar parte de moderación
+        if (moderador == "") {
+            res.status(200).json({
+                message: "Parte de moderación faltante"
+            })
+        }
+
+        res.status(401).json({ message: "Credenciales inválidas." });
+        return;
     } catch (error) {
         next(error);
     }
