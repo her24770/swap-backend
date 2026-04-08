@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { buscarPublicacionesPorTipoYUsuario } from "../repository/repositorioPublicacion.js";
+import { buscarPublicacionesPorTipoYUsuario, buscarTodasLasPublicaciones } from "../repository/repositorioPublicacion.js";
 
 
 export async function obtenerPublicacionesUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -35,6 +35,21 @@ export async function obtenerPublicacionesUsuario(req: Request, res: Response, n
         ]);
 
         res.status(200).json({ productos, servicios, negocios });
+        return;
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function obtenerTodasLasPublicaciones(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const publicaciones = await buscarTodasLasPublicaciones();
+        if (!publicaciones || publicaciones.length == 0) {
+            res.status(404).json({ error: "No se encontraron publicaciones" });
+            return;
+        }
+
+        res.status(200).json({ message: "Publicaciones obtenidas exitosamente", data: publicaciones });
         return;
     } catch (error) {
         next(error);
