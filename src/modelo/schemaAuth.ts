@@ -8,12 +8,14 @@ export const schemaRegistro = z.object({
     nombre: z
         .string({ required_error: "El nombre es obligatorio." })
         .min(2, "El nombre debe tener al menos 2 caracteres.")
-        .max(100, "El nombre no puede superar 100 caracteres."),
+        .max(100, "El nombre no puede superar 100 caracteres.")
+        .regex(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/, "El nombre solo puede contener letras y espacios."),
 
     carnet: z
         .number({ required_error: "El carnet es obligatorio.", invalid_type_error: "El carnet es un número." })
         .int("El carnet debe ser un número entero.")
-        .positive("El carnet debe ser un número positivo."),
+        .positive("El carnet debe ser un número positivo.")
+        .regex(/^\d{5}$/, "El carnet debe tener exactamente 5 dígitos."),
 
     email_institucional: z
         .string({ required_error: "El correo institucional es obligatorio." })
