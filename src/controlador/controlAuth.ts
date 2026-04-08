@@ -85,17 +85,15 @@ export async function iniciarSesion(req: Request, res: Response, next: NextFunct
             const payload: PayloadToken = {
                 sub: String(usuario.id_usuario),
                 email: usuario.email_institucional,
-                rol: "estudiante",
+                rol: "usuario",
             };
             const token = ServicioJWT.generarToken(payload);
+            const { password: _, ...usuarioPublico } = usuario;
 
             res.status(200).json({
-                message: "Inicio de sesión exitoso.",
                 token: token,
-                usuario: {
-                    email: usuario.email_institucional,
-                    rol: "estudiante",
-                }
+                rol: "usuario",
+                usuario: usuarioPublico
             });
             return;
         }
