@@ -73,34 +73,42 @@ export async function iniciarSesion(req: Request, res: Response, next: NextFunct
 
         // Verificar email
         const usuario = await buscarUsuarioPorEmail(email_institucional);
-        if (!usuario) {
-            res.status(401).json({ message: "Credenciales inválidas." });
-            return;
-        }
-
-        // Verificar contraseña
-        const esPasswordCorrecta = await bcrypt.compare(password, usuario.password);
-        if (!esPasswordCorrecta) {
-            res.status(401).json({ message: "Credenciales inválidas." });
-            return;
-        }
-
-        // Generar token
-        const payload: PayloadToken = {
-            sub: usuario.id_usuario,
-            email: usuario.email_institucional,
-            rol: usuario.rol,
-        };
-        const token = ServicioJWT.generarToken(payload);
-
-        res.status(200).json({
-            message: "Inicio de sesión exitoso.",
-            token: token,
-            usuario: {
-                email: usuario.email_institucional,
-                rol: usuario.rol,
+        if (usuario) {
+            // Verificar contraseña
+            const esPasswordCorrecta = await bcrypt.compare(password, usuario.password);
+            if (!esPasswordCorrecta) {
+                res.status(401).json({ message: "Credenciales inválidas." });
+                return;
             }
-        });
+
+            // Generar token
+            const payload: PayloadToken = {
+                sub: String(usuario.id_usuario),
+                email: usuario.email_institucional,
+                rol: "estudiante",
+            };
+            const token = ServicioJWT.generarToken(payload);
+
+            res.status(200).json({
+                message: "Inicio de sesión exitoso.",
+                token: token,
+                usuario: {
+                    email: usuario.email_institucional,
+                    rol: "estudiante",
+                }
+            });
+            return;
+        }
+
+        const moderador = ""; //Agregar parte de moderación
+        if (moderador == "") {
+            res.status(200).json({
+                message: "Parte de moderación faltante"
+            })
+        }
+
+        res.status(401).json({ message: "Credenciales inválidas." });
+        return;
     } catch (error) {
         next(error);
     }
