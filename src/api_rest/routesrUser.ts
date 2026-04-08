@@ -10,7 +10,7 @@ router.get("/:id", obtenerUsuario);
 router.patch("/:id", actualizarPerfil);
 
 //Ruta para agregar un contacto al usuario
-router.post("/contacto/:id", agregarContacto);
+router.post("/contactos/:id", agregarContacto);
 
 //Ruta para obtener los contactos del usuario
 router.get("/contactos/:id", obtenerContactos);
