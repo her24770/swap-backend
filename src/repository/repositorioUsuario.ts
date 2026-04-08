@@ -48,8 +48,13 @@ export async function buscarContactosPorUsuario(idUsuario: number): Promise<Cont
     return prisma.contacto.findMany({ where: { id_usuario: idUsuario } });
 }
 
-export async function guardarContacto(data: Prisma.ContactoCreateInput): Promise<Contacto> {
-    return prisma.contacto.create({ data });
+export async function guardarContacto(data: Prisma.ContactoCreateInput | Prisma.ContactoCreateInput[]): Promise<Contacto | Contacto[]> {
+    const datosArray = Array.isArray(data) ? data : [data]; //Si es un solo objeto se convierte en array
+    const resultados = await prisma.$transaction(
+        datosArray.map(data => prisma.contacto.create({ data })) //Se almacenan todos dentro de una transacción
+    );
+
+    return Array.isArray(data) ? resultados : resultados[0];
 }
 
 export async function actualizarContacto(

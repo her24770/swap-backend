@@ -44,7 +44,8 @@ export async function actualizarPerfil(
 ): Promise<void> {
     try {
         // El middleware de auth inyecta el id del usuario autenticado
-        const idUsuario = (req as Request & { usuarioId: number }).usuarioId;
+        /*const idUsuario = (req as Request & { usuarioId: number }).usuarioId; */
+        const idUsuario = Number(req.params.id);
 
         const { nombre, url_foto_perfil, descripcion } = req.body;
 
@@ -80,16 +81,61 @@ export async function agregarContacto(
     next: NextFunction
 ): Promise<void> {
     try {
+        /*Middleware
         const idUsuario = (req as Request & { usuarioId: number }).usuarioId;
-        const { tipo_contacto, valor } = req.body;
+        */
+        const idUsuario = Number(req.params.id);
+        const { contactos } = req.body;
 
-        const contacto = await guardarContacto({
-            valor,
-            usuario: { connect: { id_usuario: idUsuario } },
-            tipoContacto: { connect: { id_tipo_contacto: Number(tipo_contacto) } },
+        if (isNaN(idUsuario)) {
+            res.status(400).json({ message: "ID de usuario inválido" });
+            return;
+        }
+
+        if (!contactos) {
+            res.status(400).json({ message: "No se enviaron contactos." });
+            return;
+        }
+
+        const prepararContacto = (contacto: any) => ({
+            valor: contacto.valor,
+            usuario: {
+                connect: { id_usuario: idUsuario }
+            },
+            tipoContacto: {
+                connect: { id_tipo_contacto: Number(contacto.tipo_contacto) }
+            }
         });
 
-        res.status(201).json({ message: "Contacto agregado.", contacto });
+        let resultados;
+
+        if (Array.isArray(contactos)) {
+            if (contactos.length === 0) {
+                res.status(400).json({
+                    message: "El array de contactos está vacío"
+                });
+                return;
+            }
+
+            const datosContactos = contactos.map(prepararContacto);
+            resultados = await guardarContacto(datosContactos);
+
+            res.status(201).json({
+                message: `Contactos agregados exitosamente`,
+                contactos: resultados
+            });
+        }
+
+        else {
+            const contactoData = prepararContacto(contactos);
+            resultados = await guardarContacto(contactoData);
+
+            res.status(201).json({
+                message: "Contacto agregado exitosamente",
+                contacto: resultados
+            });
+        }
+
     } catch (error) {
         next(error);
     }
