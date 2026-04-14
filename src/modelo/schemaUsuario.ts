@@ -29,7 +29,7 @@ export const schemaActualizarPerfil = z.object({
 /**
  * Schema para POST /api/usuarios/perfil/contacto
  */
-export const schemaAgregarContacto = z.object({
+const contactoSchema = z.object({
     tipo_contacto: z
         .number({ required_error: "El tipo de contacto es obligatorio.", invalid_type_error: "El tipo de contacto debe ser un número." })
         .int()
@@ -41,5 +41,23 @@ export const schemaAgregarContacto = z.object({
         .max(255, "El valor no puede superar 255 caracteres."),
 });
 
+export const schemaAgregarContactos = z.object({
+    contactos: z.union([
+        contactoSchema,
+        z.array(contactoSchema)
+    ], {
+        required_error: "Debe enviar al menos un contacto.",
+        invalid_type_error: "Debe enviar un contacto o un array de contactos."
+    }).refine(
+        (data) => {
+            if (Array.isArray(data) && data.length === 0) {
+                return false;
+            }
+            return true;
+        },
+        { message: "Debe enviar al menos un contacto." }
+    )
+});
+
 export type ActualizarPerfilInput = z.infer<typeof schemaActualizarPerfil>;
-export type AgregarContactoInput = z.infer<typeof schemaAgregarContacto>;
+export type AgregarContactoInput = z.infer<typeof schemaAgregarContactos>;
