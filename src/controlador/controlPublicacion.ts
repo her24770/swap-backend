@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { buscarPublicacionesPorTipoYUsuario, buscarTodasLasPublicaciones } from "../repository/repositorioPublicacion.js";
+import { buscarPublicacionesPorTipoYUsuario, buscarPublicacionesPaginadas } from "../repository/repositorioPublicacion.js";
 
 
 export async function obtenerPublicacionesUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -41,15 +41,36 @@ export async function obtenerPublicacionesUsuario(req: Request, res: Response, n
     }
 }
 
-export async function obtenerTodasLasPublicaciones(_req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function obtenerTodasLasPublicaciones(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-        const publicaciones = await buscarTodasLasPublicaciones();
-        if (!publicaciones || publicaciones.length == 0) {
+        const page = Math.max(1, Number(req.query.page) || 1);
+        const limit = Math.min(100, Number(req.query.limit) || 10);
+        const sort = req.query.sort as string || 'fecha';
+        const order = req.query.order as string === 'asc' ? 'asc' : 'desc';
+        const tipo = req.query.tipo as string;
+
+        const sortsValidos = ['fecha', 'me_gusta', 'precio'];
+        if (sort && !sortsValidos.includes(sort)) {
+            res.status(400).json({
+                error: "El parámetro sort debe ser uno de los siguientes: fecha, me_gusta, precio"
+            });
+            return;
+        }
+
+        const resultado = await buscarPublicacionesPaginadas({
+            page,
+            limit,
+            sort: sort as any,
+            order,
+            tipo
+        });
+
+        if (!resultado || resultado.length == 0) {
             res.status(404).json({ error: "No se encontraron publicaciones" });
             return;
         }
 
-        res.status(200).json({ message: "Publicaciones obtenidas exitosamente", data: publicaciones });
+        res.status(200).json({ message: "Publicaciones obtenidas exitosamente", data: resultado });
         return;
     } catch (error) {
         next(error);
