@@ -1,6 +1,6 @@
 import { Prisma, Publicacion, ImagenPublicacion, Etiqueta } from "@prisma/client";
 import prisma from "../persistencia/prismaClient";
-
+import { PaginationOption } from "./types";
 // ─────────────────────────────────────────────
 // Publicacion
 // ─────────────────────────────────────────────
@@ -27,11 +27,45 @@ export async function buscarPublicacionesPorUsuario(idUsuario: number): Promise<
     });
 }
 
-export async function buscarPublicacionesPorTipo(tipoPerfil: number): Promise<Publicacion[]> {
-    return prisma.publicacion.findMany({
-        where: { tipo_publicacion: tipoPerfil },
+export async function buscarPublicacionesPaginadas(options: PaginationOption): Promise<Publicacion[]> {
+    //Valores por defecto
+    const { page = 1, limit = 10, sort = 'fecha', order = 'desc', tipo } = options;
+
+    //Cálculo de paginación
+    const skip = (page - 1) * limit;
+
+    const orderBy: any = {}
+    switch (sort) {
+        case 'fecha':
+            orderBy.fecha_publicacion = order;
+            break;
+        case 'me_gusta':
+            orderBy.me_gusta = order;
+            break;
+        case 'precio':
+            orderBy.precio = order;
+            break;
+        default:
+            orderBy.fecha_publicacion = order;
+            break;
+    }
+
+    const where: any = {};
+    if (tipo) {
+        const tipoPerfil = await prisma.tipoPerfil.findUnique({
+            where: { tipo_perfil: options.tipo }
+        })
+        if (tipoPerfil) {
+            where.tipo_publicacion = tipoPerfil.id_tipo_perfil;
+        }
+    }
+
+    return await prisma.publicacion.findMany({
+        where,
         include: { imagenes: true, etiquetas: { include: { etiqueta: true } } },
-        orderBy: { fecha_publicacion: "desc" },
+        orderBy,
+        skip,
+        take: limit
     });
 }
 

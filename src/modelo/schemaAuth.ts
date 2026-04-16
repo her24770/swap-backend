@@ -15,7 +15,10 @@ export const schemaRegistro = z.object({
         .number({ required_error: "El carnet es obligatorio.", invalid_type_error: "El carnet es un número." })
         .int("El carnet debe ser un número entero.")
         .positive("El carnet debe ser un número positivo.")
-        .regex(/^\d{5}$/, "El carnet debe tener exactamente 5 dígitos."),
+        .refine(
+            (value: number) => value >= 10000 && value <= 99999999,
+            "El carnet debe tener entre 5 y 8 dígitos."
+        ),
 
     email_institucional: z
         .string({ required_error: "El correo institucional es obligatorio." })

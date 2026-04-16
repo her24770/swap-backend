@@ -1,13 +1,11 @@
 import { Request, Response, NextFunction } from "express";
-import bcrypt from "bcrypt";
 import { ServicioJWT, PayloadToken } from "../autenticacion/ServicioJWT.js";
+import { ServicioBcrypt } from "../autenticacion/ServicioBcrypt.js";
 import {
     buscarUsuarioPorEmail,
     buscarUsuarioPorCarnet,
     guardarUsuario,
 } from "../repository/repositorioUsuario.js";
-
-const SALT_ROUNDS = 10;
 
 /**
  * POST /api/auth/registro
@@ -16,34 +14,33 @@ const SALT_ROUNDS = 10;
  */
 export async function registro(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-        const { nombre, carnet, email_institucional, password, url_foto_perfil, descripcion } =
-            req.body;
+        const reqData = req.body;
 
         // Verificar email duplicado
-        const emailExistente = await buscarUsuarioPorEmail(email_institucional);
+        const emailExistente = await buscarUsuarioPorEmail(reqData.email_institucional);
         if (emailExistente) {
             res.status(409).json({ message: "El correo institucional ya está registrado." });
             return;
         }
 
         // Verificar carnet duplicado
-        const carnetExistente = await buscarUsuarioPorCarnet(Number(carnet));
+        const carnetExistente = await buscarUsuarioPorCarnet(reqData.carnet);
         if (carnetExistente) {
             res.status(409).json({ message: "El carnet ya está registrado." });
             return;
         }
 
         // Hashear contraseña
-        const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+        const passwordHash = await ServicioBcrypt.hashearPassword(reqData.password);
 
         // Guardar usuario
         const nuevoUsuario = await guardarUsuario({
-            nombre,
-            carnet: Number(carnet),
-            email_institucional,
+            nombre: reqData.nombre,
+            carnet: reqData.carnet,
+            email_institucional: reqData.email_institucional,
             password: passwordHash,
-            url_foto_perfil: url_foto_perfil ?? "",
-            descripcion: descripcion ?? null,
+            url_foto_perfil: reqData.url_foto_perfil ?? "",
+            descripcion: reqData.descripcion ?? null,
         });
 
         res.status(201).json({
@@ -64,18 +61,13 @@ export async function registro(req: Request, res: Response, next: NextFunction):
 
 export async function iniciarSesion(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-        const { email_institucional, password } = req.body;
-
-        if (!email_institucional || !password) {
-            res.status(400).json({ message: "Faltan credenciales." });
-            return;
-        }
+        const reqData = req.body;
 
         // Verificar email
-        const usuario = await buscarUsuarioPorEmail(email_institucional);
+        const usuario = await buscarUsuarioPorEmail(reqData.email_institucional);
         if (usuario) {
             // Verificar contraseña
-            const esPasswordCorrecta = await bcrypt.compare(password, usuario.password);
+            const esPasswordCorrecta = await ServicioBcrypt.compararPassword(reqData.password, usuario.password);
             if (!esPasswordCorrecta) {
                 res.status(401).json({ message: "Credenciales inválidas." });
                 return;

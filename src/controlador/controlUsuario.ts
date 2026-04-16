@@ -3,8 +3,7 @@ import {
     buscarUsuarioPorId,
     actualizarUsuario,
     guardarContacto,
-    buscarContactosPorUsuario,
-    //actualizarContacto,
+    buscarContactosPorUsuario
 } from "../repository/repositorioUsuario";
 
 /**
@@ -47,7 +46,7 @@ export async function actualizarPerfil(
         /*const idUsuario = (req as Request & { usuarioId: number }).usuarioId; */
         const idUsuario = Number(req.params.id);
 
-        const { nombre, url_foto_perfil, descripcion } = req.body;
+        const data = req.body;
 
         const usuarioExistente = await buscarUsuarioPorId(idUsuario);
         if (!usuarioExistente) {
@@ -56,9 +55,9 @@ export async function actualizarPerfil(
         }
 
         const usuarioActualizado = await actualizarUsuario(idUsuario, {
-            ...(nombre && { nombre }),
-            ...(url_foto_perfil && { url_foto_perfil }),
-            ...(descripcion !== undefined && { descripcion }),
+            ...(data.nombre && { nombre: data.nombre }),
+            ...(data.url_foto_perfil && { url_foto_perfil: data.url_foto_perfil }),
+            ...(data.descripcion !== undefined && { descripcion: data.descripcion }),
         });
 
         const { password: _, ...usuarioPublico } = usuarioActualizado;
@@ -85,56 +84,33 @@ export async function agregarContacto(
         const idUsuario = (req as Request & { usuarioId: number }).usuarioId;
         */
         const idUsuario = Number(req.params.id);
-        const { contactos } = req.body;
 
         if (isNaN(idUsuario)) {
             res.status(400).json({ message: "ID de usuario inválido" });
             return;
         }
 
-        if (!contactos) {
-            res.status(400).json({ message: "No se enviaron contactos." });
+        const contactos = req.body.contactos;
+
+        const usuarioExistente = await buscarUsuarioPorId(idUsuario);
+        if (!usuarioExistente) {
+            res.status(404).json({ message: "Usuario no encontrado." });
             return;
         }
 
         const prepararContacto = (contacto: any) => ({
             valor: contacto.valor,
-            usuario: {
-                connect: { id_usuario: idUsuario }
-            },
-            tipoContacto: {
-                connect: { id_tipo_contacto: Number(contacto.tipo_contacto) }
-            }
+            usuario: { connect: { id_usuario: idUsuario } },
+            tipoContacto: { connect: { id_tipo_contacto: Number(contacto.tipo_contacto) } }
         });
 
-        let resultados;
+        const datosContactos = contactos.map(prepararContacto);
+        const resultado = await guardarContacto(datosContactos);
 
-        if (Array.isArray(contactos)) {
-            if (contactos.length === 0) {
-                res.status(400).json({
-                    message: "El array de contactos está vacío"
-                });
-                return;
-            }
-
-            const datosContactos = contactos.map(prepararContacto);
-            resultados = await guardarContacto(datosContactos);
-
-            res.status(201).json({
-                message: `Contactos agregados exitosamente`,
-                contactos: resultados
-            });
-        }
-
-        else {
-            const contactoData = prepararContacto(contactos);
-            resultados = await guardarContacto(contactoData);
-
-            res.status(201).json({
-                message: "Contacto agregado exitosamente",
-                contacto: resultados
-            });
-        }
+        res.status(201).json({
+            message: "Contacto agregado exitosamente",
+            contacto: resultado
+        });
 
     } catch (error) {
         next(error);
