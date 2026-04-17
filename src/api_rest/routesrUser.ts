@@ -1,20 +1,21 @@
 import { Router } from "express";
 import { obtenerUsuario, actualizarPerfil, agregarContacto, obtenerContactos } from "../controlador/controlUsuario.js";
 import { validar } from "../autenticacion/middelwareValidacion.js";
+import { autenticar, gestorPermisos } from "../autenticacion/GestorPermisos.js";
 import { schemaActualizarPerfil, schemaAgregarContactos } from "../modelo/schemaUsuario.js";
 
 const router = Router();
 
 //Ruta para obtener datos del usuario así como sus publicaciones
-router.get("/:id", obtenerUsuario);
+router.get("/:id", autenticar, obtenerUsuario);
 
 //Ruta para actualizar datos del usuario
-router.patch("/:id", validar(schemaActualizarPerfil), actualizarPerfil);
+router.patch("/:id", autenticar, gestorPermisos("usuario", "moderador"), validar(schemaActualizarPerfil), actualizarPerfil);
 
 //Ruta para agregar un contacto al usuario
-router.post("/contactos/:id", validar(schemaAgregarContactos), agregarContacto);
+router.post("/contactos/:id", autenticar, gestorPermisos("usuario", "moderador"), validar(schemaAgregarContactos), agregarContacto);
 
 //Ruta para obtener los contactos del usuario
-router.get("/contactos/:id", obtenerContactos);
+router.get("/contactos/:id", autenticar, obtenerContactos);
 
 export default router;
