@@ -3,11 +3,12 @@ import { buscarPublicacionesPorTipoYUsuario, buscarPublicacionesPaginadas } from
 import { obtenerTipoPerfilPorNombre } from "../repository/repositorioTipoPerfil.js";
 import { buscarUsuarioPorId } from "../repository/repositorioUsuario.js";
 
-
 export async function obtenerPublicacionesUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-        const idUsuario = Number(req.params.id);
-        const tipo = req.query.tipo as string;
+        const idUsuario = Number(req.params.id); //Id del usuario
+        const tipo = req.query.tipo as string; //Tipo de publicacion
+        const all = req.query.all === "true"; //Indicador para obtener todas las publicaciones o solo las activas
+        const estado = all ? undefined : 'activo'; //Si all es true, se obtienen todas las publicaciones, si no, solo las activas
 
         if (isNaN(idUsuario)) {
             res.status(400).json({ error: "El id del usuario no es valido" });
@@ -30,7 +31,7 @@ export async function obtenerPublicacionesUsuario(req: Request, res: Response, n
             return;
         }
 
-        const publicaciones = await buscarPublicacionesPorTipoYUsuario(tipo, idUsuario);
+        const publicaciones = await buscarPublicacionesPorTipoYUsuario(tipo, idUsuario, estado);
 
         res.status(200).json({ message: "Publicaciones obtenidas exitosamente", data: publicaciones });
         return;
@@ -41,11 +42,13 @@ export async function obtenerPublicacionesUsuario(req: Request, res: Response, n
 
 export async function obtenerTodasLasPublicaciones(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-        const page = Math.max(1, Number(req.query.page) || 1);
-        const limit = Math.min(100, Number(req.query.limit) || 10);
-        const sort = req.query.sort as string || 'fecha';
-        const order = req.query.order as string === 'asc' ? 'asc' : 'desc';
-        const tipo = req.query.tipo as string;
+        const page = Math.max(1, Number(req.query.page) || 1); //Pagina actual
+        const limit = Math.min(100, Number(req.query.limit) || 10); //Cantidad de publicaciones por pagina
+        const sort = req.query.sort as string || 'fecha'; //Ordenar por fecha, me_gusta o precio
+        const order = req.query.order as string === 'asc' ? 'asc' : 'desc'; //Orden ascendente o descendente
+        const tipo = req.query.tipo as string; //Tipo de publicacion
+        const all = req.query.all === "true"; //Indicador para obtener todas las publicaciones o solo las activas
+        const estado = all ? undefined : 'activo'; //Si all es true, se obtienen todas las publicaciones, si no, solo las activas
 
         const sortsValidos = ['fecha', 'me_gusta', 'precio'];
         if (sort && !sortsValidos.includes(sort)) {
@@ -54,6 +57,7 @@ export async function obtenerTodasLasPublicaciones(req: Request, res: Response, 
             });
             return;
         }
+
         const tipoPerfil = await obtenerTipoPerfilPorNombre(tipo);
         if (!tipoPerfil) {
             res.status(404).json({ error: "El tipo de publicacion no existe" });
@@ -65,7 +69,8 @@ export async function obtenerTodasLasPublicaciones(req: Request, res: Response, 
             limit,
             sort: sort as any,
             order,
-            tipo
+            tipo,
+            estado
         });
 
         if (!resultado || resultado.length == 0) {

@@ -29,7 +29,7 @@ export async function buscarPublicacionesPorUsuario(idUsuario: number): Promise<
 
 export async function buscarPublicacionesPaginadas(options: PaginationOption): Promise<Publicacion[]> {
     //Valores por defecto
-    const { page = 1, limit = 10, sort = 'fecha', order = 'desc', tipo } = options;
+    const { page = 1, limit = 10, sort = 'fecha', order = 'desc', tipo, estado } = options;
 
     //Cálculo de paginación
     const skip = (page - 1) * limit;
@@ -53,10 +53,18 @@ export async function buscarPublicacionesPaginadas(options: PaginationOption): P
     const where: any = {};
     if (tipo) {
         const tipoPerfil = await prisma.tipoPerfil.findUnique({
-            where: { tipo_perfil: options.tipo }
+            where: { tipo_perfil: tipo }
         })
         if (tipoPerfil) {
             where.tipo_publicacion = tipoPerfil.id_tipo_perfil;
+        }
+    }
+    if (estado) {
+        const estadoObtenido = await prisma.estado.findUnique({
+            where: { estado: estado }
+        })
+        if (estadoObtenido) {
+            where.estado = estadoObtenido.id_estado;
         }
     }
 
@@ -86,14 +94,24 @@ export async function eliminarPublicacion(id: number): Promise<Publicacion> {
     return prisma.publicacion.delete({ where: { id_publicacion: id } });
 }
 
-export async function buscarPublicacionesPorTipoYUsuario(tipoPerfil: string, idUsuario: number): Promise<Publicacion[]> {
+export async function buscarPublicacionesPorTipoYUsuario(tipoPerfil: string, idUsuario: number, estado?: string): Promise<Publicacion[]> {
+    const where: any = {
+        id_usuario: idUsuario,
+        tipoPerfil: {
+            tipo_perfil: tipoPerfil
+        }
+    }
+    if (estado) {
+        const estadoObtenido = await prisma.estado.findUnique({
+            where: { estado: estado }
+        })
+        if (estadoObtenido) {
+            where.estado = estadoObtenido.id_estado;
+        }
+    }
+
     return prisma.publicacion.findMany({
-        where: {
-            id_usuario: idUsuario,
-            tipoPerfil: {
-                tipo_perfil: tipoPerfil
-            }
-        },
+        where,
         include: { imagenes: true, etiquetas: { include: { etiqueta: true } } },
         orderBy: { fecha_publicacion: "desc" },
     });
