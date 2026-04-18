@@ -1,40 +1,38 @@
 import { Request, Response, NextFunction } from "express";
 import { buscarPublicacionesPorTipoYUsuario, buscarPublicacionesPaginadas } from "../repository/repositorioPublicacion.js";
+import { obtenerTipoPerfilPorNombre } from "../repository/repositorioTipoPerfil.js";
+import { buscarUsuarioPorId } from "../repository/repositorioUsuario.js";
 
 
 export async function obtenerPublicacionesUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
         const idUsuario = Number(req.params.id);
+        const tipo = req.query.tipo as string;
 
         if (isNaN(idUsuario)) {
             res.status(400).json({ error: "El id del usuario no es valido" });
             return;
         }
+        if (!tipo) {
+            res.status(400).json({ error: "El tipo de publicacion es requerido para obtener las publicaciones" });
+            return;
+        }
 
-        /*
-        //Se obtienen todas las publicaciones de un usuario
-        const publicaciones = await buscarPublicacionesPorUsuario(idUsuario);
+        const usuario = await buscarUsuarioPorId(idUsuario);
+        if (!usuario) {
+            res.status(404).json({ error: "El usuario no existe" });
+            return;
+        }
 
-        Primera forma: Se obtienen todas las publicaciones del usuario y luego se filtran
-        //Se filtra en base al id del tipo de perfil con el que fue publicado
-        const productos = publicaciones.filter(
-            (publicacion) => publicacion.tipo_publicacion.tipo_perfil === "material"
-        );
-        const servicios = publicaciones.filter(
-            (publicacion) => publicacion.tipo_publicacion.tipo_perfil === "tutoria"
-        );
-        const negocios = publicaciones.filter(
-            (publicacion) => publicacion.tipo_publicacion.tipo_perfil === "negocio"
-        ); */
+        const tipoPerfil = await obtenerTipoPerfilPorNombre(tipo);
+        if (!tipoPerfil) {
+            res.status(404).json({ error: "El tipo de publicacion no existe" });
+            return;
+        }
 
-        //Segunda forma: Se hacen consultas separadas
-        const [productos, servicios, negocios] = await Promise.all([
-            buscarPublicacionesPorTipoYUsuario("material", idUsuario),
-            buscarPublicacionesPorTipoYUsuario("tutoria", idUsuario),
-            buscarPublicacionesPorTipoYUsuario("negocio", idUsuario)
-        ]);
+        const publicaciones = await buscarPublicacionesPorTipoYUsuario(tipo, idUsuario);
 
-        res.status(200).json({ productos, servicios, negocios });
+        res.status(200).json({ message: "Publicaciones obtenidas exitosamente", data: publicaciones });
         return;
     } catch (error) {
         next(error);
@@ -54,6 +52,11 @@ export async function obtenerTodasLasPublicaciones(req: Request, res: Response, 
             res.status(400).json({
                 error: "El parámetro sort debe ser uno de los siguientes: fecha, me_gusta, precio"
             });
+            return;
+        }
+        const tipoPerfil = await obtenerTipoPerfilPorNombre(tipo);
+        if (!tipoPerfil) {
+            res.status(404).json({ error: "El tipo de publicacion no existe" });
             return;
         }
 
