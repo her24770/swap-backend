@@ -18,6 +18,7 @@ export async function obtenerTipoPerfilPorId(id: number): Promise<TipoPerfil | n
 /**
  * Obtener un tipo de perfil por su nombre
  */
-export async function obtenerTipoPerfilPorNombre(nombre: string): Promise<TipoPerfil | null> {
+export async function obtenerTipoPerfilPorNombre(nombre: string | undefined): Promise<TipoPerfil | null> {
+    if (!nombre || nombre === "") return null;
     return await prisma.tipoPerfil.findUnique({ where: { tipo_perfil: nombre } });
 }
