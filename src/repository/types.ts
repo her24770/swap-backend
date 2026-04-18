@@ -7,4 +7,5 @@ export interface PaginationOption {
     sort?: 'fecha' | 'me_gusta' | 'precio';
     order?: 'asc' | 'desc';
     tipo?: string;
+    estado?: string;
 }
