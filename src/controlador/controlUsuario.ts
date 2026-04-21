@@ -3,7 +3,8 @@ import {
     buscarUsuarioPorId,
     actualizarUsuario,
     guardarContacto,
-    buscarContactosPorUsuario
+    buscarContactosPorUsuario,
+    eliminarContacto
 } from "../repository/repositorioUsuario";
 
 /**
@@ -90,7 +91,12 @@ export async function agregarContacto(
             return;
         }
 
-        const contactos = req.body.contactos;
+        const { contactos } = req.body;
+
+        if (!contactos || !Array.isArray(contactos)) {
+            res.status(400).json({ message: "Se requiere uno o más contactos" });
+            return;
+        }
 
         const usuarioExistente = await buscarUsuarioPorId(idUsuario);
         if (!usuarioExistente) {
@@ -98,19 +104,28 @@ export async function agregarContacto(
             return;
         }
 
-        const prepararContacto = (contacto: any) => ({
-            valor: contacto.valor,
-            usuario: { connect: { id_usuario: idUsuario } },
-            tipoContacto: { connect: { id_tipo_contacto: Number(contacto.tipo_contacto) } }
-        });
+        await eliminarContacto(idUsuario);
 
-        const datosContactos = contactos.map(prepararContacto);
-        const resultado = await guardarContacto(datosContactos);
+        if (contactos.length > 0) {
+            const prepararContacto = (contacto: any) => ({
+                valor: contacto.valor,
+                usuario: { connect: { id_usuario: idUsuario } },
+                tipoContacto: { connect: { id_tipo_contacto: Number(contacto.tipo_contacto) } }
+            });
 
-        res.status(201).json({
-            message: "Contacto agregado exitosamente",
-            contacto: resultado
-        });
+            const datosContactos = contactos.map(prepararContacto);
+            const resultado = await guardarContacto(datosContactos);
+
+            res.status(201).json({
+                message: "Contactos actualizados correctamente",
+                contacto: resultado
+            });
+        } else {
+            res.status(200).json({
+                message: "Todos los contactos han sido eliminados",
+                contacto: []
+            });
+        }
 
     } catch (error) {
         next(error);

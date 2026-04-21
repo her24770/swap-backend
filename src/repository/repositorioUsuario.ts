@@ -57,13 +57,14 @@ export async function guardarContacto(data: Prisma.ContactoCreateInput | Prisma.
     return Array.isArray(data) ? resultados : resultados[0];
 }
 
+export async function eliminarContacto(id: number): Promise<number> {
+    const result = await prisma.contacto.deleteMany({ where: { id_usuario: id } });
+    return result.count;
+}
+
 export async function actualizarContacto(
     id: number,
     data: Prisma.ContactoUpdateInput
 ): Promise<Contacto> {
     return prisma.contacto.update({ where: { id_contacto: id }, data });
-}
-
-export async function eliminarContacto(id: number): Promise<Contacto> {
-    return prisma.contacto.delete({ where: { id_contacto: id } });
 }

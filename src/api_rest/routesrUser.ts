@@ -12,10 +12,10 @@ router.get("/:id", autenticar, obtenerUsuario);
 //Ruta para actualizar datos del usuario
 router.patch("/:id", autenticar, gestorPermisos("usuario", "moderador"), validar(schemaActualizarPerfil), actualizarPerfil);
 
-//Ruta para agregar un contacto al usuario
-router.post("/contactos/:id", autenticar, gestorPermisos("usuario", "moderador"), validar(schemaAgregarContactos), agregarContacto);
+//Ruta para agregar/actualizar/eliminar los contactos del usuario
+router.put("/:id/contactos", autenticar, gestorPermisos("usuario", "moderador"), validar(schemaAgregarContactos), agregarContacto);
 
 //Ruta para obtener los contactos del usuario
-router.get("/contactos/:id", autenticar, obtenerContactos);
+router.get("/:id/contactos", autenticar, obtenerContactos);
 
 export default router;
