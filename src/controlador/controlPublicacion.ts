@@ -46,7 +46,7 @@ export async function obtenerTodasLasPublicaciones(req: Request, res: Response, 
         const limit = Math.min(100, Number(req.query.limit) || 10); //Cantidad de publicaciones por pagina
         const sort = req.query.sort as string || 'fecha'; //Ordenar por fecha, me_gusta o precio
         const order = req.query.order as string === 'asc' ? 'asc' : 'desc'; //Orden ascendente o descendente
-        const tipo = req.query.tipo as string; //Tipo de publicacion
+        const tipo = req.query.tipo as string | undefined; //Tipo de publicacion
         const all = req.query.all === "true"; //Indicador para obtener todas las publicaciones o solo las activas
         const estado = all ? undefined : 'activo'; //Si all es true, se obtienen todas las publicaciones, si no, solo las activas
 
@@ -58,10 +58,12 @@ export async function obtenerTodasLasPublicaciones(req: Request, res: Response, 
             return;
         }
 
-        const tipoPerfil = await obtenerTipoPerfilPorNombre(tipo);
-        if (!tipoPerfil) {
-            res.status(404).json({ error: "El tipo de publicacion no existe" });
-            return;
+        if (tipo) {
+            const tipoPerfil = await obtenerTipoPerfilPorNombre(tipo);
+            if (!tipoPerfil) {
+                res.status(404).json({ error: "El tipo de publicacion no existe" });
+                return;
+            }
         }
 
         const resultado = await buscarPublicacionesPaginadas({
