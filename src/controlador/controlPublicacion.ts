@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { buscarPublicacionesPorTipoYUsuario, buscarPublicacionesPaginadas, guardarPublicacion, buscarPublicacionPorId, guardarImagen } from "../repository/repositorioPublicacion.js";
+import { buscarPublicacionesPorTipoYUsuario, buscarPublicacionesPaginadas, buscarPublicacionPorId } from "../repository/repositorioPublicacion.js";
 import { obtenerTipoPerfilPorNombre } from "../repository/repositorioTipoPerfil.js";
 import { buscarUsuarioPorId } from "../repository/repositorioUsuario.js";
 import { subirImagenR2 } from "../servicios/servicioR2.js";
@@ -108,7 +108,7 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
         }
 
         // Obtener ID de usuario del token
-        const idUsuario = (req.user as any).id_usuario;
+        const idUsuario = Number(req.usuario?.sub);
         if (!idUsuario) {
             res.status(401).json({ error: "Usuario no autenticado" });
             return;
@@ -155,16 +155,21 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
         const idEstado = validacion.data.estado || estadoActivo?.id_estado || 1;
 
         // Crear publicación
-        const publicacion = await guardarPublicacion({
-            titulo: validacion.data.titulo,
-            descripcion: validacion.data.descripcion,
-            precio: validacion.data.precio,
-            tipo_publicacion: tipoPerfil.id_tipo_perfil,
-            estado: idEstado,
-            id_usuario: idUsuario,
-            imagenes: urlImagen ? {
-                create: [{ url_imagen: urlImagen }]
-            } : undefined
+        const prisma = require("../persistencia/prismaClient.js").default;
+        const publicacion = await prisma.publicacion.create({
+            data: {
+                titulo: validacion.data.titulo,
+                descripcion: validacion.data.descripcion,
+                precio: validacion.data.precio,
+                tipo_publicacion: tipoPerfil.id_tipo_perfil,
+                estado: idEstado,
+                id_usuario: idUsuario,
+                ...(urlImagen && {
+                    imagenes: {
+                        create: [{ url_imagen: urlImagen }]
+                    }
+                })
+            }
         });
 
         res.status(201).json({
@@ -217,9 +222,12 @@ export async function agregarOActualizarImagen(req: Request, res: Response, next
         }
 
         // Guardar imagen en BD
-        const imagen = await guardarImagen({
-            url_imagen: urlImagen,
-            publicacion: { connect: { id_publicacion: idPublicacion } }
+        const prisma = require("../persistencia/prismaClient.js").default;
+        const imagen = await prisma.imagenPublicacion.create({
+            data: {
+                url_imagen: urlImagen,
+                id_publicacion: idPublicacion
+            }
         });
 
         res.status(200).json({
