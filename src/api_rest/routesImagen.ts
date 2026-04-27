@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { subirImagen, subirFotoPerfil, subirFotoPublicacion } from "../controlador/controlImagen.js";
-import { autenticar } from "../autenticacion/GestorPermisos.js";
+import { autenticar, verificarPropietario } from "../autenticacion/GestorPermisos.js";
 import { uploadImagen } from "../servicios/middlewareMulter.js";
 
 const router = Router();
@@ -13,7 +13,7 @@ router.post("/upload", autenticar, uploadImagen.single("imagen"), subirImagen);
 // PUT /api/imagen/perfil/:id
 // Sube/reemplaza foto de perfil (user_id.png)
 // Si existe, la elimina primero
-router.put("/perfil/:id", autenticar, uploadImagen.single("imagen"), subirFotoPerfil);
+router.put("/perfil/:id", autenticar, verificarPropietario, uploadImagen.single("imagen"), subirFotoPerfil);
 
 // PUT /api/imagen/publicacion/:id
 // Sube/reemplaza foto de publicación (post_id.png)

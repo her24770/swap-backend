@@ -31,28 +31,24 @@ export async function registro(req: Request, res: Response, next: NextFunction):
         }
 
         // Hashear contraseña
-        const passwordHash = await ServicioBcrypt.hashearPassword(reqData.password);
+        reqData.password = await ServicioBcrypt.hashearPassword(reqData.password);
 
         // Guardar usuario
-        const nuevoUsuario = await guardarUsuario({
-            nombre: reqData.nombre,
-            carnet: reqData.carnet,
-            email_institucional: reqData.email_institucional,
-            password: passwordHash,
-            url_foto_perfil: reqData.url_foto_perfil ?? "",
-            descripcion: reqData.descripcion ?? null,
-        });
+        const nuevoUsuario = await guardarUsuario(reqData);
+
+        const payload: PayloadToken = {
+            sub: String(nuevoUsuario.id_usuario),
+            email: nuevoUsuario.email_institucional,
+            rol: "usuario",
+        };
+        const token = ServicioJWT.generarToken(payload);
+        const { password: _, ...usuarioPublico } = nuevoUsuario;
 
         res.status(201).json({
             message: "Usuario creado exitosamente.",
-            usuario: {
-                id_usuario: nuevoUsuario.id_usuario,
-                nombre: nuevoUsuario.nombre,
-                carnet: nuevoUsuario.carnet,
-                email_institucional: nuevoUsuario.email_institucional,
-                url_foto_perfil: nuevoUsuario.url_foto_perfil,
-                descripcion: nuevoUsuario.descripcion,
-            },
+            token: token,
+            rol: "usuario",
+            usuario: usuarioPublico,
         });
     } catch (error) {
         next(error);
