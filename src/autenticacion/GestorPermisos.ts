@@ -46,3 +46,23 @@ export function gestorPermisos(...rolesPermitidos: string[]) {
     next();
   };
 }
+
+
+// Middleware: verificar si id dentro del token es igual al id de la ruta
+export function verificarPropietario(req: Request, res: Response, next: NextFunction): void {
+  const id = req.params.id; // id de la ruta
+  const idToken = req.usuario?.sub; // id del token
+
+  if (!idToken) {
+    res.status(401).json({ message: "Token de autenticación requerido." });
+    return;
+  }
+
+  //Si el id dentro del token y el id de la ruta no son iguales, se lanza un error
+  if (id !== idToken) {
+    res.status(403).json({ message: "No tienes permisos para realizar esta acción." });
+    return;
+  }
+
+  next(); // si todo esta bien, se pasa al siguiente middleware
+}

@@ -196,6 +196,13 @@ export async function agregarOActualizarImagen(req: Request, res: Response, next
 
         // Validar que exista la publicación
         const publicacion = await buscarPublicacionPorId(idPublicacion);
+
+        //Validar que el usuario sea el dueño de la publicación
+        if (publicacion?.id_usuario !== Number(req.usuario?.sub)) {
+            res.status(403).json({ error: "No tienes permiso para editar esta publicación" });
+            return;
+        }
+
         if (!publicacion) {
             res.status(404).json({ error: "Publicación no encontrada" });
             return;
