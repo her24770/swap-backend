@@ -90,6 +90,10 @@ export async function actualizarPublicacion(
     return prisma.publicacion.update({ where: { id_publicacion: id }, data });
 }
 
+export async function actualizarEstadoPublicacion(id: number, id_estado: number): Promise<Publicacion> {
+    return prisma.publicacion.update({ where: { id_publicacion: id }, data: { estado: id_estado } });
+}
+
 export async function eliminarPublicacion(id: number): Promise<Publicacion> {
     return prisma.publicacion.delete({ where: { id_publicacion: id } });
 }
