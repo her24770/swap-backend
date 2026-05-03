@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { buscarPublicacionesPorTipoYUsuario, buscarPublicacionesPaginadas, buscarPublicacionPorId, actualizarPublicacion } from "../repository/repositorioPublicacion.js";
+import { buscarPublicacionesPorTipoYUsuario, buscarPublicacionesPaginadas, buscarPublicacionPorId, actualizarPublicacion, actualizarEstadoPublicacion } from "../repository/repositorioPublicacion.js";
 import { obtenerTipoPerfilPorNombre } from "../repository/repositorioTipoPerfil.js";
 import { buscarUsuarioPorId } from "../repository/repositorioUsuario.js";
 import { subirImagenR2 } from "../servicios/servicioR2.js";
@@ -269,6 +269,14 @@ export async function editarPublicacion(req: Request, res: Response, next: NextF
             return;
         }
 
+        //Validar que el usuario sea el dueño de la publicación
+        if (publicacion.id_usuario !== Number(req.usuario?.sub)) {
+            res.status(403).json({
+                error: "No tienes permiso para editar esta publicacion. Solo el propietario puede hacer cambios"
+            });
+            return;
+        }
+
         //Obtener estados activo e inactivo por nombre para validar el dato
         const estadoActivo = await obtenerEstadoPorNombre("activo");
         const estadoInactivo = await obtenerEstadoPorNombre("inactivo");
@@ -285,18 +293,96 @@ export async function editarPublicacion(req: Request, res: Response, next: NextF
             return;
         }
 
-        //Validar que el usuario sea el dueño de la publicación
-        if (publicacion.id_usuario !== Number(req.usuario?.sub)) {
-            res.status(403).json({
-                error: `No tienes permiso para editar esta publicacion.
-                    Solo el propietario puede hacer cambios`});
-            return;
-        }
 
         //Actualizar la publicación
         const publicacionActualizada = await actualizarPublicacion(id_publicacion, data);
         res.status(200).json({ message: "Publicacion actualizada exitosamente", data: publicacionActualizada });
         return;
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function cambiarEstadoPublicacion(
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> {
+    try {
+        const idPublicacion = Number(req.params.id);
+        const { estado_id } = req.body; // El ID del nuevo estado
+        //Validar ID de publicación
+        if (isNaN(idPublicacion)) {
+            res.status(400).json({ message: "El ID de la publicación no es válido." });
+            return;
+        }
+
+        //Validar que se envió el estado
+        if (!estado_id) {
+            res.status(400).json({ message: "Se requiere el ID del nuevo estado." });
+            return;
+        }
+
+        //Verificar existencia de la publicación
+        const publicacion = await buscarPublicacionPorId(idPublicacion);
+        if (!publicacion) {
+            res.status(404).json({ message: "Publicación no encontrada." });
+            return;
+        }
+
+        //Verificar que el usuario es el propietario
+        const idToken = Number(req.usuario?.sub);
+        if (publicacion.id_usuario !== idToken) {
+            res.status(403).json({
+                message: "No tienes permiso para modificar esta publicación. Solo el propietario puede cambiar su estado."
+            });
+            return;
+        }
+
+        //Obtener estados permitidos (activo e inactivo)
+        const estadoActivo = await obtenerEstadoPorNombre("activo");
+        const estadoInactivo = await obtenerEstadoPorNombre("inactivo");
+
+        //Validar que los estados existen en la BD
+        if (!estadoActivo || !estadoInactivo) {
+            res.status(500).json({
+                message: "Error de configuración: Estados 'activo' o 'inactivo' no encontrados."
+            });
+            return;
+        }
+
+        //Verificar que el estado solicitado es válido (activo o inactivo)
+        const estadosPermitidos = [estadoActivo.id_estado, estadoInactivo.id_estado];
+        if (!estadosPermitidos.includes(estado_id)) {
+            res.status(400).json({
+                message: `Estado inválido. Solo se puede cambiar a activo (${estadoActivo.id_estado}) o inactivo (${estadoInactivo.id_estado}).`
+            });
+            return;
+        }
+
+        //Verificar que no sea el mismo estado actual
+        if (publicacion.estado === estado_id) {
+            res.status(400).json({
+                message: `La publicación ya está en estado ${estado_id === estadoActivo.id_estado ? 'activo' : 'inactivo'}.`
+            });
+            return;
+        }
+
+        //Actualizar el estado
+        const publicacionActualizada = await actualizarEstadoPublicacion(idPublicacion, estado_id);
+
+        //Respuesta exitosa
+        const nombreEstado = estado_id === estadoActivo.id_estado ? "activo" : "inactivo";
+        res.status(200).json({
+            message: `Publicación marcada como ${nombreEstado} exitosamente.`,
+            data: {
+                id_publicacion: publicacionActualizada.id_publicacion,
+                titulo: publicacionActualizada.titulo,
+                estado: publicacionActualizada.estado,
+                estado_nombre: nombreEstado
+            }
+        });
+
     } catch (error) {
         next(error);
     }
