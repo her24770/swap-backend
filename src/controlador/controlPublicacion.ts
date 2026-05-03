@@ -96,7 +96,7 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
             titulo: req.body.titulo,
             descripcion: req.body.descripcion,
             precio: req.body.precio ? Number(req.body.precio) : 0,
-            tipo_publicacion: req.body.tipo_publicacion ? Number(req.body.tipo_publicacion) : undefined,
+            tipo_publicacion: req.body.tipo_publicacion,
             estado: req.body.estado ? Number(req.body.estado) : undefined,
             imagenes: []
         };
@@ -121,10 +121,8 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
             return;
         }
 
-        // Obtener el tipo de perfil por ID
-        const tipoPerfil = await (require("../persistencia/prismaClient.js").default as any).tipoPerfil.findUnique({
-            where: { id_tipo_perfil: validacion.data.tipo_publicacion }
-        });
+        // Obtener el tipo de perfil por nombre
+        const tipoPerfil = await obtenerTipoPerfilPorNombre(validacion.data.tipo_publicacion);
 
         if (!tipoPerfil) {
             res.status(404).json({ error: "Tipo de publicación no encontrado" });
