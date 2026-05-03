@@ -21,9 +21,10 @@ export const schemaCrearPublicacion = z.object({
         .default(0),
 
     tipo_publicacion: z
-        .number({ required_error: "El tipo de publicación es obligatorio.", invalid_type_error: "El tipo de publicación debe ser un número." })
-        .int()
-        .positive("El tipo de publicación debe ser un ID válido."),
+        .enum(["material", "tutoria", "negocio"] as const, {
+            required_error: "El tipo de publicación es obligatorio.",
+            invalid_type_error: "El tipo debe ser 'material', 'tutoria' o 'negocio'.",
+        }),
 
     estado: z
         .number({ invalid_type_error: "El estado debe ser un número." })
