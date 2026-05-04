@@ -14,14 +14,16 @@ declare global {
 // ─── Middleware: verificar JWT ────────────────────────────────────────────────
 
 export function autenticar(req: Request, res: Response, next: NextFunction): void {
-  const authHeader = req.headers.authorization;
+  const token =
+    req.cookies?.["swap-token"] ??
+    (req.headers.authorization?.startsWith("Bearer ")
+      ? req.headers.authorization.split(" ")[1]
+      : null);
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  if (!token) {
     res.status(401).json({ message: "Token de autenticación requerido." });
     return;
   }
-
-  const token = authHeader.split(" ")[1];
 
   try {
     req.usuario = ServicioJWT.verificarToken(token);

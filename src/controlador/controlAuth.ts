@@ -44,15 +44,26 @@ export async function registro(req: Request, res: Response, next: NextFunction):
         const token = ServicioJWT.generarToken(payload);
         const { password: _, ...usuarioPublico } = nuevoUsuario;
 
+        res.cookie("swap-token", token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: 1000 * 60 * 60 * 8,
+        });
+
         res.status(201).json({
             message: "Usuario creado exitosamente.",
-            token: token,
             rol: "usuario",
             usuario: usuarioPublico,
         });
     } catch (error) {
         next(error);
     }
+}
+
+export async function cerrarSesion(_req: Request, res: Response): Promise<void> {
+    res.clearCookie("swap-token", { httpOnly: true, sameSite: "lax" });
+    res.status(200).json({ message: "Sesión cerrada." });
 }
 
 export async function iniciarSesion(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -78,19 +89,18 @@ export async function iniciarSesion(req: Request, res: Response, next: NextFunct
             const token = ServicioJWT.generarToken(payload);
             const { password: _, ...usuarioPublico } = usuario;
 
+            res.cookie("swap-token", token, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "lax",
+                maxAge: 1000 * 60 * 60 * 8, // 8h igual que JWT_EXPIRACION
+            });
+
             res.status(200).json({
-                token: token,
                 rol: "usuario",
                 usuario: usuarioPublico
             });
             return;
-        }
-
-        const moderador = ""; //Agregar parte de moderación
-        if (moderador == "") {
-            res.status(200).json({
-                message: "Parte de moderación faltante"
-            })
         }
 
         res.status(401).json({ message: "Credenciales inválidas." });

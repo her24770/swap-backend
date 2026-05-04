@@ -5,12 +5,7 @@ FROM node:20-alpine AS builder
 
 RUN apk add --no-cache \
     openssl \
-    openssl-dev \
-    libc6-compat \
-    python3 \
-    make \
-    g++ \
-    build-base
+    libc6-compat
 WORKDIR /app
 
 COPY package*.json ./
