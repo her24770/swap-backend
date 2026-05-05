@@ -4,6 +4,7 @@ import { Server } from "socket.io";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import routes from "./api_rest/routes";
+import { conectarRedis } from "./persistencia/redisClient";
 
 const app = express();
 const httpServer = createServer(app);
@@ -24,6 +25,10 @@ app.use("/api", routes);
 io.on("connection", (socket) => {
     console.log(`Socket connected: ${socket.id}`);
 });
+
+conectarRedis()
+    .then(() => console.log("Redis conectado"))
+    .catch((err) => console.error("Error conectando Redis:", err));
 
 httpServer.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { ServicioJWT, PayloadToken } from "../autenticacion/ServicioJWT.js";
 import { ServicioBcrypt } from "../autenticacion/ServicioBcrypt.js";
+import { revocarToken } from "../autenticacion/blacklist.js";
+import { registrarIntentoFallido, estaBloqueado, limpiarIntentos } from "../autenticacion/rateLimiter.js";
 import {
     buscarUsuarioPorEmail,
     buscarUsuarioPorCarnet,
@@ -61,13 +63,30 @@ export async function registro(req: Request, res: Response, next: NextFunction):
     }
 }
 
-export async function cerrarSesion(_req: Request, res: Response): Promise<void> {
+export async function cerrarSesion(req: Request, res: Response): Promise<void> {
+    const token = req.cookies?.["swap-token"];
+    if (token) {
+        try {
+            const payload = ServicioJWT.verificarToken(token);
+            const ttl = (payload.exp ?? 0) - Math.floor(Date.now() / 1000);
+            if (ttl > 0) await revocarToken(token, ttl);
+        } catch {
+            // token ya expirado, no hace falta revocar
+        }
+    }
     res.clearCookie("swap-token", { httpOnly: true, sameSite: "lax" });
     res.status(200).json({ message: "Sesión cerrada." });
 }
 
 export async function iniciarSesion(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+        const ip = req.ip ?? "unknown";
+
+        if (await estaBloqueado(ip)) {
+            res.status(429).json({ message: "Demasiados intentos fallidos. Intenta de nuevo en 15 minutos." });
+            return;
+        }
+
         const reqData = req.body;
 
         // Verificar email
@@ -76,9 +95,12 @@ export async function iniciarSesion(req: Request, res: Response, next: NextFunct
             // Verificar contraseña
             const esPasswordCorrecta = await ServicioBcrypt.compararPassword(reqData.password, usuario.password);
             if (!esPasswordCorrecta) {
+                await registrarIntentoFallido(ip);
                 res.status(401).json({ message: "Credenciales inválidas." });
                 return;
             }
+
+            await limpiarIntentos(ip);
 
             // Generar token
             const payload: PayloadToken = {

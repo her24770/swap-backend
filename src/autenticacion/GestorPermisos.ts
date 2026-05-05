@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { ServicioJWT, TokenVerificado } from "./ServicioJWT.js";
+import { estaRevocado } from "./blacklist.js";
 
 // ─── Extensión del tipo Request ───────────────────────────────────────────────
 
@@ -13,7 +14,7 @@ declare global {
 
 // ─── Middleware: verificar JWT ────────────────────────────────────────────────
 
-export function autenticar(req: Request, res: Response, next: NextFunction): void {
+export async function autenticar(req: Request, res: Response, next: NextFunction): Promise<void> {
   const token =
     req.cookies?.["swap-token"] ??
     (req.headers.authorization?.startsWith("Bearer ")
@@ -26,6 +27,11 @@ export function autenticar(req: Request, res: Response, next: NextFunction): voi
   }
 
   try {
+    const revocado = await estaRevocado(token);
+    if (revocado) {
+      res.status(401).json({ message: "Sesión cerrada. Por favor inicia sesión nuevamente." });
+      return;
+    }
     req.usuario = ServicioJWT.verificarToken(token);
     next();
   } catch (error) {
