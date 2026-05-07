@@ -7,9 +7,58 @@ import { PaginationOption } from "./types";
 
 export async function buscarPublicacionPorId(id: number): Promise<Publicacion | null> {
     return prisma.publicacion.findUnique({
-        where: { id_publicacion: id },
-        include: { imagenes: true, etiquetas: { include: { etiqueta: true } } },
+        where: { id_publicacion: id }
     });
+}
+
+export async function buscarPublicacionPorIdDetallado(id: number): Promise<any | null> {
+    const publicacion = await prisma.publicacion.findUnique({
+        where: { id_publicacion: id },
+        include: {
+            imagenes: {
+                select: {
+                    id_imagen: true,
+                    url_imagen: true
+                }
+            },
+            etiquetas: {
+                include: {
+                    etiqueta: {
+                        select: {
+                            id_etiqueta: true,
+                            nombre: true,
+                            descripcion: true,
+                            id_etiqueta_padre: true
+                        }
+                    }
+                }
+            },
+            estadoRel: {
+                select: {
+                    id_estado: true,
+                    estado: true
+                }
+            },
+            tipoPerfil: {
+                select: {
+                    id_tipo_perfil: true,
+                    tipo_perfil: true
+                }
+            },
+            usuario: {
+                select: {
+                    id_usuario: true,
+                    nombre: true,
+                    email_institucional: true,
+                    url_foto_perfil: true,
+                    calificacion: true
+                }
+            }
+        },
+    });
+
+    if (!publicacion) return null;
+    return publicacion;
 }
 
 export async function buscarTodasLasPublicaciones(): Promise<Publicacion[]> {

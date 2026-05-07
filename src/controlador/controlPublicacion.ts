@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { buscarPublicacionesPorTipoYUsuario, buscarPublicacionesPaginadas, buscarPublicacionPorId, actualizarPublicacion, actualizarEstadoPublicacion } from "../repository/repositorioPublicacion.js";
+import { buscarPublicacionesPorTipoYUsuario, buscarPublicacionesPaginadas, buscarPublicacionPorId, actualizarPublicacion, actualizarEstadoPublicacion, buscarPublicacionPorIdDetallado } from "../repository/repositorioPublicacion.js";
 import { obtenerTipoPerfilPorNombre } from "../repository/repositorioTipoPerfil.js";
 import { buscarUsuarioPorId } from "../repository/repositorioUsuario.js";
 import { subirImagenR2 } from "../servicios/servicioR2.js";
@@ -84,6 +84,26 @@ export async function obtenerTodasLasPublicaciones(req: Request, res: Response, 
         }
 
         res.status(200).json({ message: "Publicaciones obtenidas exitosamente", data: resultado });
+        return;
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function obtenerPublicacionPorId(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const id = Number(req.params.id);
+        if (isNaN(id)) {
+            res.status(400).json({ message: "El id de la publicacion no es valido" });
+            return;
+        }
+        const publicacion = await buscarPublicacionPorIdDetallado(id);
+        if (!publicacion) {
+            res.status(404).json({ message: "Publicación no encontrada" });
+            return;
+        }
+
+        res.status(200).json({ message: "Publicación obtenida exitosamente", data: publicacion });
         return;
     } catch (error) {
         next(error);
