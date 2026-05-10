@@ -9,6 +9,8 @@ export const schemaActualizarPerfil = z.object({
         .string()
         .min(2, "El nombre debe tener al menos 2 caracteres.")
         .max(100, "El nombre no puede superar 100 caracteres.")
+        .regex(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/,
+            "El nombre solo puede contener letras y espacios.")
         .optional(),
 
     url_foto_perfil: z

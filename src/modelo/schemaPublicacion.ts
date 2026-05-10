@@ -67,14 +67,25 @@ export const schemaEditarPublicacion = z.object({
     precio: z
         .number({ invalid_type_error: "El precio debe ser un número." })
         .min(0, "El precio no puede ser negativo.")
+        .max(999.99, "El precio no puede superar Q999.99.")
         .optional(),
 
     estado: z
-        .number({ invalid_type_error: "El estado debe ser un número." })
-        .int()
-        .positive()
+        .number({ invalid_type_error: "El estado debe ser un número positivo." })
+        .int("El estado debe ser un número entero.")
+        .positive("El estado debe ser un ID válido.")
         .optional(),
-}).refine(
+
+    etiquetas: z
+            .array(
+                z.number({ invalid_type_error: "Cada etiqueta debe ser un ID válido." })
+                    .int()
+                    .positive("Cada etiqueta debe ser un ID válido.")
+            )
+            .optional(),
+})
+.strict()
+.refine(
     (data) => Object.keys(data).length > 0,
     { message: "Debe enviar al menos un campo para actualizar." }
 );
