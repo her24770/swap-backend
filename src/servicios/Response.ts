@@ -9,7 +9,7 @@ import { Response } from "express";
  */
 export const exitoResponse = (
     res: Response,
-    data: any,
+    data: any = [],
     message: string = "Operacion exitosa",
     status: number = 200
 ): void => {

@@ -5,6 +5,7 @@ import { buscarUsuarioPorId } from "../repository/repositorioUsuario.js";
 import { subirImagenR2 } from "../servicios/servicioR2.js";
 import { schemaCrearPublicacion, } from "../modelo/schemaPublicacion.js";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
+import { errorResponse, exitoResponse } from "../servicios/Response.js";
 
 export async function obtenerPublicacionesUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -14,29 +15,29 @@ export async function obtenerPublicacionesUsuario(req: Request, res: Response, n
         const estado = all ? undefined : 'activo'; //Si all es true, se obtienen todas las publicaciones, si no, solo las activas
 
         if (isNaN(idUsuario)) {
-            res.status(400).json({ error: "El id del usuario no es valido" });
+            errorResponse(res, "El id del usuario no es valido", 400);
             return;
         }
         if (!tipo) {
-            res.status(400).json({ error: "El tipo de publicacion es requerido para obtener las publicaciones" });
+            errorResponse(res, "El tipo de publicacion es requerido para obtener las publicaciones", 400);
             return;
         }
 
         const usuario = await buscarUsuarioPorId(idUsuario);
         if (!usuario) {
-            res.status(404).json({ error: "El usuario no existe" });
+            errorResponse(res, "El usuario no existe", 404);
             return;
         }
 
         const tipoPerfil = await obtenerTipoPerfilPorNombre(tipo);
         if (!tipoPerfil) {
-            res.status(404).json({ error: "El tipo de publicacion no existe" });
+            errorResponse(res, "El tipo de publicacion no existe", 404);
             return;
         }
 
         const publicaciones = await buscarPublicacionesPorTipoYUsuario(tipo, idUsuario, estado);
 
-        res.status(200).json({ message: "Publicaciones obtenidas exitosamente", data: publicaciones });
+        exitoResponse(res, publicaciones, "Publicaciones obtenidas exitosamente", 200);
         return;
     } catch (error) {
         next(error);
@@ -55,16 +56,14 @@ export async function obtenerTodasLasPublicaciones(req: Request, res: Response, 
 
         const sortsValidos = ['fecha', 'me_gusta', 'precio'];
         if (sort && !sortsValidos.includes(sort)) {
-            res.status(400).json({
-                error: "El parámetro sort debe ser uno de los siguientes: fecha, me_gusta, precio"
-            });
+            errorResponse(res, "El parámetro sort debe ser uno de los siguientes: fecha, me_gusta, precio", 400);
             return;
         }
 
         if (tipo) {
             const tipoPerfil = await obtenerTipoPerfilPorNombre(tipo);
             if (!tipoPerfil) {
-                res.status(404).json({ error: "El tipo de publicacion no existe" });
+                errorResponse(res, "El tipo de publicacion no existe", 404);
                 return;
             }
         }
@@ -79,11 +78,11 @@ export async function obtenerTodasLasPublicaciones(req: Request, res: Response, 
         });
 
         if (!resultado || resultado.length == 0) {
-            res.status(404).json({ error: "No se encontraron publicaciones" });
+            errorResponse(res, "No se encontraron publicaciones", 404);
             return;
         }
 
-        res.status(200).json({ message: "Publicaciones obtenidas exitosamente", data: resultado });
+        exitoResponse(res, resultado, "Publicaciones obtenidas exitosamente", 200);
         return;
     } catch (error) {
         next(error);
@@ -94,16 +93,16 @@ export async function obtenerPublicacionPorId(req: Request, res: Response, next:
     try {
         const id = Number(req.params.id);
         if (isNaN(id)) {
-            res.status(400).json({ message: "El id de la publicacion no es valido" });
+            errorResponse(res, "El id de la publicacion no es valido", 400);
             return;
         }
         const publicacion = await buscarPublicacionPorIdDetallado(id);
         if (!publicacion) {
-            res.status(404).json({ message: "Publicación no encontrada" });
+            errorResponse(res, "Publicacion no encontrada", 404);
             return;
         }
 
-        res.status(200).json({ message: "Publicación obtenida exitosamente", data: publicacion });
+        exitoResponse(res, publicacion, "Publicacion obtenida exitosamente", 200);
         return;
     } catch (error) {
         next(error);
@@ -124,21 +123,21 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
 
         const validacion = schemaCrearPublicacion.safeParse(bodyData);
         if (!validacion.success) {
-            res.status(400).json({ error: validacion.error.errors });
+            errorResponse(res, validacion.error.errors, 400);
             return;
         }
 
         // Obtener ID de usuario del token
         const idUsuario = Number(req.usuario?.sub);
         if (!idUsuario) {
-            res.status(401).json({ error: "Usuario no autenticado" });
+            errorResponse(res, "Usuario no autenticado", 401);
             return;
         }
 
         // Validar que exista el usuario
         const usuario = await buscarUsuarioPorId(idUsuario);
         if (!usuario) {
-            res.status(404).json({ error: "Usuario no encontrado" });
+            errorResponse(res, "Usuario no encontrado", 404);
             return;
         }
 
@@ -146,7 +145,7 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
         const tipoPerfil = await obtenerTipoPerfilPorNombre(validacion.data.tipo_publicacion);
 
         if (!tipoPerfil) {
-            res.status(404).json({ error: "Tipo de publicación no encontrado" });
+            errorResponse(res, "Tipo de publicacion no encontrado", 404);
             return;
         }
 
@@ -161,7 +160,7 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
                     `post_temp_${Date.now()}`
                 );
             } catch (error) {
-                res.status(500).json({ error: "Error subiendo imagen a R2" });
+                errorResponse(res, "Error subiendo imagen a R2", 500);
                 return;
             }
         }
@@ -191,13 +190,10 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
             }
         });
 
-        res.status(201).json({
-            message: "Publicación creada exitosamente",
-            data: {
-                id_publicacion: publicacion.id_publicacion,
-                imagen_url: urlImagen
-            }
-        });
+        exitoResponse(res, {
+            id_publicacion: publicacion.id_publicacion,
+            imagen_url: urlImagen
+        }, "Publicacion creada exitosamente", 201);
         return;
     } catch (error) {
         next(error);
@@ -209,7 +205,7 @@ export async function agregarOActualizarImagen(req: Request, res: Response, next
         const idPublicacion = Number(req.params.id);
 
         if (isNaN(idPublicacion)) {
-            res.status(400).json({ error: "El ID de la publicación no es válido" });
+            errorResponse(res, "El ID de la publicacion no es valido", 400);
             return;
         }
 
@@ -218,18 +214,18 @@ export async function agregarOActualizarImagen(req: Request, res: Response, next
 
         //Validar que el usuario sea el dueño de la publicación
         if (publicacion?.id_usuario !== Number(req.usuario?.sub)) {
-            res.status(403).json({ error: "No tienes permiso para editar esta publicación" });
+            errorResponse(res, "No tienes permiso para editar esta publicacion", 403);
             return;
         }
 
         if (!publicacion) {
-            res.status(404).json({ error: "Publicación no encontrada" });
+            errorResponse(res, "Publicacion no encontrada", 404);
             return;
         }
 
         // Validar que haya archivo
         if (!req.file) {
-            res.status(400).json({ error: "No se proporcionó archivo de imagen" });
+            errorResponse(res, "No se proporciono archivo de imagen", 400);
             return;
         }
 
@@ -243,7 +239,7 @@ export async function agregarOActualizarImagen(req: Request, res: Response, next
                 `post_${idPublicacion}`
             );
         } catch (error) {
-            res.status(500).json({ error: "Error subiendo imagen a R2" });
+            errorResponse(res, "Error subiendo imagen a R2", 500);
             return;
         }
 
@@ -256,13 +252,10 @@ export async function agregarOActualizarImagen(req: Request, res: Response, next
             }
         });
 
-        res.status(200).json({
-            message: "Imagen agregada a la publicación",
-            data: {
-                id_imagen: imagen.id_imagen,
-                url_imagen: urlImagen
-            }
-        });
+        exitoResponse(res, {
+            id_imagen: imagen.id_imagen,
+            url_imagen: urlImagen
+        }, "Imagen agregada a la publicacion", 200);
         return;
     } catch (error) {
         next(error);
@@ -276,22 +269,20 @@ export async function editarPublicacion(req: Request, res: Response, next: NextF
 
         //Validar que el ID sea un número
         if (isNaN(id_publicacion)) {
-            res.status(400).json({ error: "El ID de la publicacion no es válido." });
+            errorResponse(res, "El ID de la publicacion no es valido", 400);
             return;
         }
 
         //Validar que exista la publicación
         const publicacion = await buscarPublicacionPorId(id_publicacion);
         if (!publicacion) { //Si no existe la publicacion lanza error 404
-            res.status(404).json({ error: "Publicacion no encontrada." });
+            errorResponse(res, "Publicacion no encontrada", 404);
             return;
         }
 
         //Validar que el usuario sea el dueño de la publicación
         if (publicacion.id_usuario !== Number(req.usuario?.sub)) {
-            res.status(403).json({
-                error: "No tienes permiso para editar esta publicacion. Solo el propietario puede hacer cambios"
-            });
+            errorResponse(res, "No tienes permiso para editar esta publicacion. Solo el propietario puede hacer cambios", 403);
             return;
         }
 
@@ -301,20 +292,20 @@ export async function editarPublicacion(req: Request, res: Response, next: NextF
 
         //Validar que existan los estados
         if (!estadoActivo || !estadoInactivo) {
-            res.status(500).json({ error: "Error de configuración: Estados no encontrados" });
+            errorResponse(res, "Error de configuracion: Estados no encontrados", 500);
             return;
         }
 
         //Validar que el estado sea activo o inactivo ya que son los únicos posibles para las publicaciones
         if (data.estado !== estadoActivo.id_estado && data.estado !== estadoInactivo.id_estado) {
-            res.status(400).json({ error: `No es posible cambiar a este estado. Solo puede ser  activo (${estadoActivo.id_estado}) o inactivo (${estadoInactivo.id_estado}).` });
+            errorResponse(res, `No es posible cambiar a este estado. Solo puede ser  activo (${estadoActivo.id_estado}) o inactivo (${estadoInactivo.id_estado}).`, 400);
             return;
         }
 
 
         //Actualizar la publicación
         const publicacionActualizada = await actualizarPublicacion(id_publicacion, data);
-        res.status(200).json({ message: "Publicacion actualizada exitosamente", data: publicacionActualizada });
+        exitoResponse(res, publicacionActualizada, "Publicacion actualizada exitosamente", 200);
         return;
     } catch (error) {
         next(error);
@@ -331,29 +322,27 @@ export async function cambiarEstadoPublicacion(
         const { estado_id } = req.body; // El ID del nuevo estado
         //Validar ID de publicación
         if (isNaN(idPublicacion)) {
-            res.status(400).json({ message: "El ID de la publicación no es válido." });
+            errorResponse(res, "El ID de la publicacion no es valido", 400);
             return;
         }
 
         //Validar que se envió el estado
         if (!estado_id) {
-            res.status(400).json({ message: "Se requiere el ID del nuevo estado." });
+            errorResponse(res, "El ID del nuevo estado es requerido", 400);
             return;
         }
 
         //Verificar existencia de la publicación
         const publicacion = await buscarPublicacionPorId(idPublicacion);
         if (!publicacion) {
-            res.status(404).json({ message: "Publicación no encontrada." });
+            errorResponse(res, "Publicacion no encontrada", 404);
             return;
         }
 
         //Verificar que el usuario es el propietario
         const idToken = Number(req.usuario?.sub);
         if (publicacion.id_usuario !== idToken) {
-            res.status(403).json({
-                message: "No tienes permiso para modificar esta publicación. Solo el propietario puede cambiar su estado."
-            });
+            errorResponse(res, "No tienes permiso para modificar esta publicacion. Solo el propietario puede cambiar su estado", 403);
             return;
         }
 
@@ -363,26 +352,20 @@ export async function cambiarEstadoPublicacion(
 
         //Validar que los estados existen en la BD
         if (!estadoActivo || !estadoInactivo) {
-            res.status(500).json({
-                message: "Error de configuración: Estados 'activo' o 'inactivo' no encontrados."
-            });
+            errorResponse(res, "Error de configuracion: Estados 'activo' o 'inactivo' no encontrados", 500);
             return;
         }
 
         //Verificar que el estado solicitado es válido (activo o inactivo)
         const estadosPermitidos = [estadoActivo.id_estado, estadoInactivo.id_estado];
         if (!estadosPermitidos.includes(estado_id)) {
-            res.status(400).json({
-                message: `Estado inválido. Solo se puede cambiar a activo (${estadoActivo.id_estado}) o inactivo (${estadoInactivo.id_estado}).`
-            });
+            errorResponse(res, `Estado invalido. Solo se puede cambiar a activo (${estadoActivo.id_estado}) o inactivo (${estadoInactivo.id_estado})`, 400);
             return;
         }
 
         //Verificar que no sea el mismo estado actual
         if (publicacion.estado === estado_id) {
-            res.status(400).json({
-                message: `La publicación ya está en estado ${estado_id === estadoActivo.id_estado ? 'activo' : 'inactivo'}.`
-            });
+            errorResponse(res, `La publicación ya está en estado ${estado_id === estadoActivo.id_estado ? 'activo' : 'inactivo'}`, 400);
             return;
         }
 
@@ -391,16 +374,13 @@ export async function cambiarEstadoPublicacion(
 
         //Respuesta exitosa
         const nombreEstado = estado_id === estadoActivo.id_estado ? "activo" : "inactivo";
-        res.status(200).json({
-            message: `Publicación marcada como ${nombreEstado} exitosamente.`,
-            data: {
-                id_publicacion: publicacionActualizada.id_publicacion,
-                titulo: publicacionActualizada.titulo,
-                estado: publicacionActualizada.estado,
-                estado_nombre: nombreEstado
-            }
-        });
-
+        exitoResponse(res, {
+            id_publicacion: publicacionActualizada.id_publicacion,
+            titulo: publicacionActualizada.titulo,
+            estado: publicacionActualizada.estado,
+            estado_nombre: nombreEstado
+        }, `Publicacion marcada como ${nombreEstado} exitosamente`, 200);
+        return;
     } catch (error) {
         next(error);
     }

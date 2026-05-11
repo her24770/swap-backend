@@ -6,6 +6,7 @@ import {
     buscarContactosPorUsuario,
     eliminarContacto
 } from "../repository/repositorioUsuario";
+import { exitoResponse, errorResponse } from "../servicios/Response";
 
 /**
  * GET /api/usuarios/:id
@@ -21,12 +22,12 @@ export async function obtenerUsuario(
         const usuario = await buscarUsuarioPorId(id);
 
         if (!usuario) {
-            res.status(404).json({ message: "Usuario no encontrado." });
+            errorResponse(res, "Usuario no encontrado", 404);
             return;
         }
 
         const { password: _, ...usuarioPublico } = usuario;
-        res.json(usuarioPublico);
+        exitoResponse(res, usuarioPublico, "Usuario obtenido exitosamente", 200);
     } catch (error) {
         next(error);
     }
@@ -51,7 +52,7 @@ export async function actualizarPerfil(
 
         const usuarioExistente = await buscarUsuarioPorId(idUsuario);
         if (!usuarioExistente) {
-            res.status(404).json({ message: "Usuario no encontrado." });
+            errorResponse(res, "Usuario no encontrado", 404);
             return;
         }
 
@@ -62,10 +63,7 @@ export async function actualizarPerfil(
         });
 
         const { password: _, ...usuarioPublico } = usuarioActualizado;
-        res.json({
-            message: "Perfil actualizado correctamente.",
-            usuario: usuarioPublico,
-        });
+        exitoResponse(res, usuarioPublico, "Perfil actualizado correctamente", 200);
     } catch (error) {
         next(error);
     }
@@ -87,20 +85,20 @@ export async function agregarContacto(
         const idUsuario = Number(req.params.id);
 
         if (isNaN(idUsuario)) {
-            res.status(400).json({ message: "ID de usuario inválido" });
+            errorResponse(res, "ID de usuario inválido", 400);
             return;
         }
 
         const { contactos } = req.body;
 
         if (!contactos || !Array.isArray(contactos)) {
-            res.status(400).json({ message: "Se requiere uno o más contactos" });
+            errorResponse(res, "Se requiere uno o más contactos", 400);
             return;
         }
 
         const usuarioExistente = await buscarUsuarioPorId(idUsuario);
         if (!usuarioExistente) {
-            res.status(404).json({ message: "Usuario no encontrado." });
+            errorResponse(res, "Usuario no encontrado", 404);
             return;
         }
 
@@ -116,15 +114,9 @@ export async function agregarContacto(
             const datosContactos = contactos.map(prepararContacto);
             const resultado = await guardarContacto(datosContactos);
 
-            res.status(201).json({
-                message: "Contactos actualizados correctamente",
-                contacto: resultado
-            });
+            exitoResponse(res, resultado, "Contactos actualizados correctamente", 201);
         } else {
-            res.status(200).json({
-                message: "Todos los contactos han sido eliminados",
-                contacto: []
-            });
+            exitoResponse(res, [], "Todos los contactos han sido eliminados", 200);
         }
 
     } catch (error) {
@@ -144,7 +136,7 @@ export async function obtenerContactos(
     try {
         const idUsuario = Number(req.params.id);
         const contactos = await buscarContactosPorUsuario(idUsuario);
-        res.json(contactos);
+        exitoResponse(res, contactos, "Contactos obtenidos exitosamente", 200);
     } catch (error) {
         next(error);
     }
