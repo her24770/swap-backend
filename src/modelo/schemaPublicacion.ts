@@ -86,7 +86,6 @@ export const schemaEditarPublicacion = z.object({
         .array(z.number().int().positive("Cada etiqueta debe ser un ID válido."))
         .optional(),
 })
-.strict()
 .refine(
     (data) => Object.keys(data).some((k) => data[k as keyof typeof data] !== undefined),
     { message: "Debe enviar al menos un campo para actualizar." }
