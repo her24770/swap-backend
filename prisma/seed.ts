@@ -25,6 +25,9 @@ async function main() {
         prisma.estado.upsert({ where: { estado: "cancelado" },  update: {}, create: { estado: "cancelado" } }),
         prisma.estado.upsert({ where: { estado: "leido" },      update: {}, create: { estado: "leido" } }),
         prisma.estado.upsert({ where: { estado: "enviado" },    update: {}, create: { estado: "enviado" } }),
+        prisma.estado.upsert({ where: { estado: "disponible" }, update: {}, create: { estado: "disponible" } }),
+        prisma.estado.upsert({ where: { estado: "vendido" },    update: {}, create: { estado: "vendido" } }),
+        prisma.estado.upsert({ where: { estado: "reservado" },  update: {}, create: { estado: "reservado" } }),
     ]);
     const [eActivo, ePendiente, eCompletado] = estados;
     console.log("✅ Estados creados");

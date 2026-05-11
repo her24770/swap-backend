@@ -71,22 +71,24 @@ export const schemaEditarPublicacion = z.object({
         .optional(),
 
     estado: z
-        .number({ invalid_type_error: "El estado debe ser un número positivo." })
-        .int("El estado debe ser un número entero.")
-        .positive("El estado debe ser un ID válido.")
+        .enum(["disponible", "vendido", "reservado", "activo", "inactivo"], {
+            invalid_type_error: "Estado inválido para publicación.",
+        })
+        .optional(),
+
+    tipo_publicacion: z
+        .enum(["material", "tutoria", "negocio"] as const, {
+            invalid_type_error: "Tipo de publicación inválido.",
+        })
         .optional(),
 
     etiquetas: z
-            .array(
-                z.number({ invalid_type_error: "Cada etiqueta debe ser un ID válido." })
-                    .int()
-                    .positive("Cada etiqueta debe ser un ID válido.")
-            )
-            .optional(),
+        .array(z.number().int().positive("Cada etiqueta debe ser un ID válido."))
+        .optional(),
 })
 .strict()
 .refine(
-    (data) => Object.keys(data).length > 0,
+    (data) => Object.keys(data).some((k) => data[k as keyof typeof data] !== undefined),
     { message: "Debe enviar al menos un campo para actualizar." }
 );
 

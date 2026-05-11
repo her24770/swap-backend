@@ -147,7 +147,7 @@ export async function eliminarPublicacion(id: number): Promise<Publicacion> {
     return prisma.publicacion.delete({ where: { id_publicacion: id } });
 }
 
-export async function buscarPublicacionesPorTipoYUsuario(tipoPerfil: string, idUsuario: number, estado?: string): Promise<Publicacion[]> {
+export async function buscarPublicacionesPorTipoYUsuario(tipoPerfil: string, idUsuario: number, estado?: string): Promise<any[]> {
     const where: any = {
         id_usuario: idUsuario,
         tipoPerfil: {
@@ -165,7 +165,11 @@ export async function buscarPublicacionesPorTipoYUsuario(tipoPerfil: string, idU
 
     return prisma.publicacion.findMany({
         where,
-        include: { imagenes: true, etiquetas: { include: { etiqueta: true } } },
+        include: {
+            imagenes: true,
+            etiquetas: { include: { etiqueta: true } },
+            estadoRel: { select: { id_estado: true, estado: true } },
+        },
         orderBy: { fecha_publicacion: "desc" },
     });
 }

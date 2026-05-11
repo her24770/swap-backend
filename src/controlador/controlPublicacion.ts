@@ -285,20 +285,17 @@ export async function editarPublicacion(req: Request, res: Response, next: NextF
         const id_publicacion = Number(req.params.id);
         const data = req.body;
 
-        //Validar que el ID sea un número
         if (isNaN(id_publicacion)) {
             res.status(400).json({ error: "El ID de la publicacion no es válido." });
             return;
         }
 
-        //Validar que exista la publicación
         const publicacion = await buscarPublicacionPorId(id_publicacion);
-        if (!publicacion) { //Si no existe la publicacion lanza error 404
+        if (!publicacion) {
             res.status(404).json({ error: "Publicacion no encontrada." });
             return;
         }
 
-        //Validar que el usuario sea el dueño de la publicación
         if (publicacion.id_usuario !== Number(req.usuario?.sub)) {
             res.status(403).json({
                 error: "No tienes permiso para editar esta publicacion. Solo el propietario puede hacer cambios"
@@ -306,25 +303,46 @@ export async function editarPublicacion(req: Request, res: Response, next: NextF
             return;
         }
 
-        //Obtener estados activo e inactivo por nombre para validar el dato
-        const estadoActivo = await obtenerEstadoPorNombre("activo");
-        const estadoInactivo = await obtenerEstadoPorNombre("inactivo");
+        const updateData: Record<string, unknown> = { ...data };
 
-        //Validar que existan los estados
-        if (!estadoActivo || !estadoInactivo) {
-            res.status(500).json({ error: "Error de configuración: Estados no encontrados" });
-            return;
+        // Resolver estado string → id_estado numérico
+        if (data.estado !== undefined) {
+            const estadoObj = await obtenerEstadoPorNombre(data.estado);
+            if (!estadoObj) {
+                res.status(400).json({ error: `Estado inválido: "${data.estado}".` });
+                return;
+            }
+            updateData.estado = estadoObj.id_estado;
         }
 
-        //Validar que el estado sea activo o inactivo ya que son los únicos posibles para las publicaciones
-        if (data.estado !== estadoActivo.id_estado && data.estado !== estadoInactivo.id_estado) {
-            res.status(400).json({ error: `No es posible cambiar a este estado. Solo puede ser  activo (${estadoActivo.id_estado}) o inactivo (${estadoInactivo.id_estado}).` });
-            return;
+        // Resolver tipo_publicacion string → id_tipo_perfil numérico
+        if (data.tipo_publicacion !== undefined) {
+            const tipoPerfil = await obtenerTipoPerfilPorNombre(data.tipo_publicacion);
+            if (!tipoPerfil) {
+                res.status(400).json({ error: `Tipo de publicación inválido: "${data.tipo_publicacion}".` });
+                return;
+            }
+            updateData.tipo_publicacion = tipoPerfil.id_tipo_perfil;
         }
 
+        // Extraer etiquetas antes de actualizar (se manejan como relación aparte)
+        const etiquetasIds: number[] | undefined = data.etiquetas;
+        delete updateData.etiquetas;
 
-        //Actualizar la publicación
-        const publicacionActualizada = await actualizarPublicacion(id_publicacion, data);
+        const publicacionActualizada = await actualizarPublicacion(id_publicacion, updateData);
+
+        // Actualizar etiquetas si se enviaron
+        if (etiquetasIds !== undefined) {
+            const prismaClient = require("../persistencia/prismaClient.js").default;
+            await prismaClient.publicacionEtiqueta.deleteMany({ where: { id_publicacion } });
+            if (etiquetasIds.length > 0) {
+                await prismaClient.publicacionEtiqueta.createMany({
+                    data: etiquetasIds.map((id_etiqueta: number) => ({ id_publicacion, id_etiqueta })),
+                    skipDuplicates: true,
+                });
+            }
+        }
+
         res.status(200).json({ message: "Publicacion actualizada exitosamente", data: publicacionActualizada });
         return;
     } catch (error) {
