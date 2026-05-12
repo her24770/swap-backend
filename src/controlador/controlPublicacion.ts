@@ -381,9 +381,13 @@ export async function eliminarPublicacionConImagenes(req: Request, res: Response
             }
         }
 
-        // Eliminar publicación de BD (cascade limpia imagenPublicacion y etiquetas)
         const prisma = require("../persistencia/prismaClient.js").default;
-        await prisma.publicacion.delete({ where: { id_publicacion: id_publicacion } });
+
+        // Eliminar registros relacionados antes de borrar la publicación
+        await prisma.imagenPublicacion.deleteMany({ where: { id_publicacion } });
+        await prisma.publicacionEtiqueta.deleteMany({ where: { id_publicacion } });
+
+        await prisma.publicacion.delete({ where: { id_publicacion } });
 
         res.status(200).json({ message: "Publicación eliminada exitosamente." });
         return;
