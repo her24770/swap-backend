@@ -118,7 +118,7 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
             descripcion: req.body.descripcion,
             precio: req.body.precio ? Number(req.body.precio) : 0,
             tipo_publicacion: req.body.tipo_publicacion,
-            estado: req.body.estado ? Number(req.body.estado) : undefined,
+            estado: req.body.estado ?? undefined,
             imagenes: []
         };
 
@@ -166,12 +166,14 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
             }
         }
 
-        // Obtener estado por defecto (activo)
-        const estadoActivo = await (require("../persistencia/prismaClient.js").default as any).estado.findUnique({
-            where: { estado: "activo" }
-        });
-
-        const idEstado = validacion.data.estado || estadoActivo?.id_estado || 1;
+        // Resolver estado texto → id_estado
+        const nombreEstado = validacion.data.estado ?? "disponible";
+        const estadoObj = await obtenerEstadoPorNombre(nombreEstado);
+        if (!estadoObj) {
+            res.status(400).json({ error: `Estado inválido: "${nombreEstado}".` });
+            return;
+        }
+        const idEstado = estadoObj.id_estado;
 
         // Crear publicación
         const prisma = require("../persistencia/prismaClient.js").default;

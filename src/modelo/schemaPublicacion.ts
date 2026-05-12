@@ -27,9 +27,9 @@ export const schemaCrearPublicacion = z.object({
         }),
 
     estado: z
-        .number({ invalid_type_error: "El estado debe ser un número." })
-        .int()
-        .positive()
+        .enum(["disponible", "vendido", "reservado", "activo", "inactivo"], {
+            invalid_type_error: "Estado inválido.",
+        })
         .optional(),
 
     imagenes: z
