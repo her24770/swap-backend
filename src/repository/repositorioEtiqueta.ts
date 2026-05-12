@@ -13,3 +13,12 @@ export async function obtenerEtiquetasPorUsuario(idUsuario: number, includePadre
     });
 }
 
+export async function obtenerEtiquetasPorPublicacion(idPublicacion: number, includePadre: boolean = false): Promise<Etiqueta[] | []> {
+    return await prisma.etiqueta.findMany({
+        where:
+            { publicaciones: { some: { id_publicacion: idPublicacion } } },
+        include: { padre: includePadre },
+        orderBy: { nombre: "asc" }
+    });
+}
+
