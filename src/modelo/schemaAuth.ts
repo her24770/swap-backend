@@ -31,12 +31,6 @@ export const schemaRegistro = z.object({
         .regex(/[A-Z]/, "La contraseña debe contener al menos una letra mayúscula.")
         .regex(/[0-9]/, "La contraseña debe contener al menos un número."),
 
-    url_foto_perfil: z
-        .string()
-        .url("La URL de la foto no tiene un formato válido.")
-        .optional()
-        .default(""),
-
     descripcion: z
         .string()
         .max(500, "La descripción no puede superar 500 caracteres.")
