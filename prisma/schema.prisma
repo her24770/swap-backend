@@ -34,6 +34,7 @@ model Usuario {
   reportesRecibidos2  Reporte[]      @relation("ReceptorReporte")
   notificaciones      Notificacion[]
   etiquetas           UsuarioEtiqueta[]
+  publicacionesGuardadas PublicacionGuardada[]
 }
 
 model Moderador {
@@ -168,6 +169,7 @@ model Publicacion {
   imagenes          ImagenPublicacion[]
   acuerdos          Acuerdo[]
   etiquetas         PublicacionEtiqueta[]
+  usuariosGuardaron PublicacionGuardada[]
 }
 
 model ImagenPublicacion {
@@ -281,6 +283,18 @@ model PublicacionEtiqueta {
 
   @@id([id_publicacion, id_etiqueta])
   @@map("Publicacion_Etiquetas")
+}
+
+model PublicacionGuardada {
+  id_usuario Int
+  id_publicacion Int
+  fecha_guardado DateTime @default(now())
+
+  usuario         Usuario  @relation(fields: [id_usuario], references: [id_usuario])
+  publicacion    Publicacion @relation(fields: [id_publicacion], references: [id_publicacion])
+
+  @@id([id_usuario, id_publicacion])
+  @@map("Publicacion_Guardada")
 }
 
 model Tutoria {
