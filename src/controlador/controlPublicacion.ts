@@ -83,6 +83,26 @@ export async function obtenerTodasLasPublicaciones(req: Request, res: Response, 
             return;
         }
 
+        // Extraemos el id del usuario del token si está autenticado para hacer el Left Join conceptual
+        const idUsuarioAutenticado = req.usuario?.sub ? Number(req.usuario.sub) : null;
+        let resultadoConGuardadas = resultado;
+
+        if (idUsuarioAutenticado && !isNaN(idUsuarioAutenticado)) {
+            const { obtenerIdsPublicacionesGuardadas } = await import("../repository/repositorioPublicacion.js");
+            const idsGuardados = await obtenerIdsPublicacionesGuardadas(idUsuarioAutenticado);
+            const setIdsGuardados = new Set(idsGuardados);
+
+            resultadoConGuardadas = resultado.map((pub: any) => ({
+                ...pub,
+                esGuardada: setIdsGuardados.has(pub.id_publicacion)
+            }));
+        } else {
+            resultadoConGuardadas = resultado.map((pub: any) => ({
+                ...pub,
+                esGuardada: false
+            }));
+        }
+
         res.status(200).json({ message: "Publicaciones obtenidas exitosamente", data: resultado });
         return;
     } catch (error) {
@@ -104,6 +124,24 @@ export async function obtenerPublicacionPorId(req: Request, res: Response, next:
         }
 
         res.status(200).json({ message: "Publicación obtenida exitosamente", data: publicacion });
+        return;
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function obtenerPublicacionesGuardadas(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const idUsuario = Number(req.usuario?.sub);
+        if (!idUsuario || isNaN(idUsuario)) {
+            res.status(401).json({ error: "Usuario no autenticado" });
+            return;
+        }
+
+        const { buscarPublicacionesGuardadasPorUsuario } = await import("../repository/repositorioPublicacion.js");
+        const publicacionesGuardadas = await buscarPublicacionesGuardadasPorUsuario(idUsuario);
+
+        res.status(200).json({ message: "Publicaciones guardadas obtenidas exitosamente", data: publicacionesGuardadas });
         return;
     } catch (error) {
         next(error);
@@ -282,6 +320,41 @@ export async function agregarOActualizarImagen(req: Request, res: Response, next
     }
 }
 
+export async function guardarPublicacionFavorita(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const idUsuario = Number(req.usuario?.sub);
+        const idPublicacion = Number(req.body.id_publicacion);
+
+        if (!idUsuario || isNaN(idUsuario)) {
+            res.status(401).json({ error: "Usuario no autenticado" });
+            return;
+        }
+        if (isNaN(idPublicacion)) {
+            res.status(400).json({ error: "El ID de la publicación no es válido" });
+            return;
+        }
+
+        const publicacion = await buscarPublicacionPorId(idPublicacion);
+        if (!publicacion) {
+            res.status(404).json({ error: "La publicación que intentas guardar no existe" });
+            return;
+        }
+
+        const { guardarPublicacionGuardada } = await import("../repository/repositorioPublicacion.js");
+        await guardarPublicacionGuardada(idUsuario, idPublicacion);
+
+        res.status(201).json({ message: "Publicación guardada exitosamente" });
+        return;
+    } catch (error) {
+        const err = error as any;
+        if (err.code === 'P2002') {
+            res.status(400).json({ error: "La publicación ya se encuentra guardada" });
+            return;
+        }
+        next(error);
+    }
+}
+
 export async function editarPublicacion(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
         const id_publicacion = Number(req.params.id);
@@ -390,6 +463,30 @@ export async function eliminarPublicacionConImagenes(req: Request, res: Response
         await prisma.publicacion.delete({ where: { id_publicacion } });
 
         res.status(200).json({ message: "Publicación eliminada exitosamente." });
+        return;
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function eliminarPublicacionFavorita(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const idUsuario = Number(req.usuario?.sub);
+        const idPublicacion = Number(req.params.id);
+
+        if (!idUsuario || isNaN(idUsuario)) {
+            res.status(401).json({ error: "Usuario no autenticado" });
+            return;
+        }
+        if (isNaN(idPublicacion)) {
+            res.status(400).json({ error: "El ID de la publicación no es válido" });
+            return;
+        }
+
+        const { eliminarPublicacionGuardada } = await import("../repository/repositorioPublicacion.js");
+        await eliminarPublicacionGuardada(idUsuario, idPublicacion);
+
+        res.status(200).json({ message: "Publicación eliminada de tus guardados exitosamente" });
         return;
     } catch (error) {
         next(error);
