@@ -30,6 +30,7 @@ export async function subirImagenR2(
             Key: nombre,
             Body: buffer,
             ContentType: mimetype,
+            CacheControl: "no-store",
         })
     );
 

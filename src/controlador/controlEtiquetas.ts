@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { obtenerEtiquetasPorUsuario, obtenerEtiquetasPorPublicacion } from "../repository/repositorioEtiqueta";
+import { obtenerEtiquetasPorUsuario, obtenerEtiquetasPorPublicacion, obtenerTodasLasEtiquetas } from "../repository/repositorioEtiqueta";
 import { buscarUsuarioPorId } from "../repository/repositorioUsuario";
 import { buscarPublicacionPorId } from "../repository/repositorioPublicacion";
 
@@ -46,6 +46,15 @@ export async function obtenerEtiquetasPublicacion(req: Request, res: Response, n
         const etiquetas = await obtenerEtiquetasPorPublicacion(idPublicacion, includePadre);
         res.status(200).json({ message: etiquetas.length === 0 ? "No se encontraron etiquetas" : "Etiquetas obtenidas exitosamente", data: etiquetas });
         return;
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function obtenerEtiquetas(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const etiquetas = await obtenerTodasLasEtiquetas();
+        res.status(200).json({ message: "Etiquetas obtenidas exitosamente", data: etiquetas });
     } catch (error) {
         next(error);
     }
