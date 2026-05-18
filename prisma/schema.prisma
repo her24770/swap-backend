@@ -195,8 +195,7 @@ model ImagenPublicacion {
   id_imagen      Int    @id @default(autoincrement())
   url_imagen     String @db.VarChar(255)
   id_publicacion Int
-
-  publicacion Publicacion @relation(fields: [id_publicacion], references: [id_publicacion])
+  publicacion    Publicacion @relation(fields: [id_publicacion], references: [id_publicacion])
 
   @@map("Imagen_Publicacion")
 }
