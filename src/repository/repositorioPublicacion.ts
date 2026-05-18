@@ -224,3 +224,60 @@ export async function actualizarEtiqueta(
 export async function eliminarEtiqueta(id: number): Promise<Etiqueta> {
     return prisma.etiqueta.delete({ where: { id_etiqueta: id } });
 }
+
+// ─────────────────────────────────────────────
+// Publicacion Guardada
+// ─────────────────────────────────────────────
+
+// Agregar al final del archivo src/repository/repositorioPublicacion.ts
+
+export async function buscarPublicacionesGuardadasPorUsuario(idUsuario: number): Promise<any[]> {
+    const guardadas = await prisma.publicacionGuardada.findMany({
+        where: { id_usuario: idUsuario },
+        include: {
+            publicacion: {
+                include: {
+                    imagenes: true,
+                    etiquetas: { include: { etiqueta: true } },
+                    estadoRel: { select: { id_estado: true, estado: true } },
+                    tipoPerfil: { select: { id_tipo_perfil: true, tipo_perfil: true } }
+                }
+            }
+        },
+        orderBy: { fecha_guardado: "desc" }
+    });
+
+    // Retornamos la estructura de publicaciones de manera aplanada e inyectamos la propiedad esGuardada
+    return guardadas.map(g => ({
+        ...g.publicacion,
+        esGuardada: true
+    }));
+}
+
+export async function guardarPublicacionGuardada(idUsuario: number, idPublicacion: number): Promise<any> {
+    return prisma.publicacionGuardada.create({
+        data: {
+            id_usuario: idUsuario,
+            id_publicacion: idPublicacion
+        }
+    });
+}
+
+export async function eliminarPublicacionGuardada(idUsuario: number, idPublicacion: number): Promise<any> {
+    return prisma.publicacionGuardada.delete({
+        where: {
+            id_usuario_id_publicacion: {
+                id_usuario: idUsuario,
+                id_publicacion: idPublicacion
+            }
+        }
+    });
+}
+
+export async function obtenerIdsPublicacionesGuardadas(idUsuario: number): Promise<number[]> {
+    const guardadas = await prisma.publicacionGuardada.findMany({
+        where: { id_usuario: idUsuario },
+        select: { id_publicacion: true }
+    });
+    return guardadas.map(g => g.id_publicacion);
+}
