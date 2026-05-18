@@ -8,6 +8,7 @@ import {
     buscarUsuarioPorCarnet,
     guardarUsuario,
 } from "../repository/repositorioUsuario.js";
+import { construirUrlR2 } from "../servicios/servicioR2.js";
 
 /**
  * POST /api/auth/registro
@@ -34,6 +35,10 @@ export async function registro(req: Request, res: Response, next: NextFunction):
 
         // Hashear contraseña
         reqData.password = await ServicioBcrypt.hashearPassword(reqData.password);
+
+        if (!reqData.url_foto_perfil) {
+            reqData.url_foto_perfil = construirUrlR2("perfil", "default", "png");
+        }
 
         // Guardar usuario
         const nuevoUsuario = await guardarUsuario(reqData);
