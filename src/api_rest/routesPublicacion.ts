@@ -7,7 +7,10 @@ import {
     editarPublicacion,
     cambiarEstadoPublicacion,
     obtenerPublicacionPorId,
-    eliminarPublicacionConImagenes
+    eliminarPublicacionConImagenes,
+    obtenerPublicacionesGuardadas,
+    guardarPublicacionFavorita,
+    eliminarPublicacionFavorita
 } from "../controlador/controlPublicacion.js";
 import { autenticar } from "../autenticacion/GestorPermisos.js";
 import { uploadImagen } from "../servicios/middlewareMulter.js";
@@ -17,6 +20,9 @@ import { schemaEditarPublicacion } from "../modelo/schemaPublicacion.js";
 const router = Router();
 
 router.get("/user/:id", autenticar, obtenerPublicacionesUsuario);
+router.get("/guardadas", autenticar, obtenerPublicacionesGuardadas);
+router.post("/guardadas", autenticar, guardarPublicacionFavorita);
+router.delete("/guardadas/:id", autenticar, eliminarPublicacionFavorita);
 router.get("/", autenticar, obtenerTodasLasPublicaciones);
 router.get("/:id", autenticar, obtenerPublicacionPorId);
 router.post("/", autenticar, uploadImagen.single('imagen'), crearPublicacionConImagen);
