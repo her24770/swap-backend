@@ -103,7 +103,7 @@ export async function obtenerTodasLasPublicaciones(req: Request, res: Response, 
             }));
         }
 
-        res.status(200).json({ message: "Publicaciones obtenidas exitosamente", data: resultado });
+        res.status(200).json({ message: "Publicaciones obtenidas exitosamente", data: resultadoConGuardadas });
         return;
     } catch (error) {
         next(error);
