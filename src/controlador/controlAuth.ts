@@ -8,6 +8,7 @@ import {
     buscarUsuarioPorCarnet,
     guardarUsuario,
 } from "../repository/repositorioUsuario.js";
+import { errorResponse, exitoResponse } from "../servicios/Response.js";
 import { construirUrlR2 } from "../servicios/servicioR2.js";
 
 /**
@@ -22,14 +23,14 @@ export async function registro(req: Request, res: Response, next: NextFunction):
         // Verificar email duplicado
         const emailExistente = await buscarUsuarioPorEmail(reqData.email_institucional);
         if (emailExistente) {
-            res.status(409).json({ message: "El correo institucional ya está registrado." });
+            errorResponse(res, "El correo institucional ya está registrado.", 409);
             return;
         }
 
         // Verificar carnet duplicado
         const carnetExistente = await buscarUsuarioPorCarnet(reqData.carnet);
         if (carnetExistente) {
-            res.status(409).json({ message: "El carnet ya está registrado." });
+            errorResponse(res, "El carnet ya esta registrado", 409);
             return;
         }
 
@@ -58,11 +59,7 @@ export async function registro(req: Request, res: Response, next: NextFunction):
             maxAge: 1000 * 60 * 60 * 8,
         });
 
-        res.status(201).json({
-            message: "Usuario creado exitosamente.",
-            rol: "usuario",
-            usuario: usuarioPublico,
-        });
+        exitoResponse(res, { rol: "usuario", usuario: usuarioPublico }, "Usuario creado exitosamente", 201);
     } catch (error) {
         next(error);
     }
@@ -80,7 +77,7 @@ export async function cerrarSesion(req: Request, res: Response): Promise<void> {
         }
     }
     res.clearCookie("swap-token", { httpOnly: true, sameSite: "lax" });
-    res.status(200).json({ message: "Sesión cerrada." });
+    exitoResponse(res, [], "Sesion cerrada exitosamente", 200);
 }
 
 export async function iniciarSesion(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -88,7 +85,7 @@ export async function iniciarSesion(req: Request, res: Response, next: NextFunct
         const ip = req.ip ?? "unknown";
 
         if (await estaBloqueado(ip)) {
-            res.status(429).json({ message: "Demasiados intentos fallidos. Intenta de nuevo en 15 minutos." });
+            errorResponse(res, "Demasiados intentos fallidos. Intenta de nuevo en 15 minutos.", 429);
             return;
         }
 
@@ -101,7 +98,7 @@ export async function iniciarSesion(req: Request, res: Response, next: NextFunct
             const esPasswordCorrecta = await ServicioBcrypt.compararPassword(reqData.password, usuario.password);
             if (!esPasswordCorrecta) {
                 await registrarIntentoFallido(ip);
-                res.status(401).json({ message: "Credenciales inválidas." });
+                errorResponse(res, "Credenciales invalidas", 401);
                 return;
             }
 
@@ -123,14 +120,11 @@ export async function iniciarSesion(req: Request, res: Response, next: NextFunct
                 maxAge: 1000 * 60 * 60 * 8, // 8h igual que JWT_EXPIRACION
             });
 
-            res.status(200).json({
-                rol: "usuario",
-                usuario: usuarioPublico
-            });
+            exitoResponse(res, { rol: "usuario", usuario: usuarioPublico }, "Inicio de sesion exitoso", 200);
             return;
         }
 
-        res.status(401).json({ message: "Credenciales inválidas." });
+        errorResponse(res, "Credenciales invalidas", 401);
         return;
     } catch (error) {
         next(error);

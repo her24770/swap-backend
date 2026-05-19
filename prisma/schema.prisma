@@ -169,17 +169,16 @@ model Eventos {
 }
 
 model Publicacion {
-  id_publicacion    Int                         @id @default(autoincrement())
-  titulo            String                      @db.VarChar(100)
-  descripcion       String                      @db.VarChar(255)
-  precio            Decimal                     @default(0.0) @db.Decimal(5, 2)
+  id_publicacion    Int      @id @default(autoincrement())
+  titulo            String   @db.VarChar(100)
+  descripcion       String   @db.VarChar(255)
+  precio            Decimal  @default(0.0) @db.Decimal(5, 2)
   estado            Int
   tipo_publicacion  Int
-  me_gusta          Int                         @default(0)
-  fecha_publicacion DateTime                    @default(now())
+  me_gusta          Int      @default(0)
+  fecha_publicacion DateTime @default(now())
   id_usuario        Int
-  is_pinned         Boolean                     @default(false)
-  vector_embedding  Unsupported("vector(384)")?
+  is_pinned         Boolean  @default(false)
 
   estadoRel           Estado                @relation(fields: [estado], references: [id_estado])
   tipoPerfil          TipoPerfil            @relation(fields: [tipo_publicacion], references: [id_tipo_perfil])

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { subirImagenR2, eliminarImagenR2, imagenExisteR2, construirUrlR2 } from "../servicios/servicioR2.js";
 import { buscarUsuarioPorId } from "../repository/repositorioUsuario.js";
+import { errorResponse, exitoResponse } from "../servicios/Response.js";
 
 export async function subirImagen(
     req: Request,
@@ -9,14 +10,14 @@ export async function subirImagen(
 ): Promise<void> {
     try {
         if (!req.file) {
-            res.status(400).json({ message: "No se recibió ninguna imagen." });
+            errorResponse(res, "No se recibio ninguna imagen", 400);
             return;
         }
 
         const carpeta = (req.query.carpeta as string) || "general";
         const url = await subirImagenR2(req.file.buffer, req.file.mimetype, carpeta);
 
-        res.status(201).json({ url });
+        exitoResponse(res, url, "Imagen subida exitosamente", 201);
     } catch (error) {
         next(error);
     }
@@ -29,7 +30,7 @@ export async function subirFotoPerfil(
 ): Promise<void> {
     try {
         if (!req.file) {
-            res.status(400).json({ message: "No se recibió ninguna imagen." });
+            errorResponse(res, "No se recibio ninguna imagen", 400);
             return;
         }
 
@@ -50,10 +51,7 @@ export async function subirFotoPerfil(
 
         const url = await subirImagenR2(req.file.buffer, req.file.mimetype, carpeta, `user_${idUsuario}`);
 
-        res.status(201).json({
-            message: urlAnterior ? "Foto de perfil actualizada." : "Foto de perfil agregada.",
-            url
-        });
+        exitoResponse(res, url, urlAnterior ? "Foto de perfil actualizada" : "Foto de perfil agregada", 201);
     } catch (error) {
         next(error);
     }
@@ -66,7 +64,7 @@ export async function subirFotoPublicacion(
 ): Promise<void> {
     try {
         if (!req.file) {
-            res.status(400).json({ message: "No se recibió ninguna imagen." });
+            errorResponse(res, "No se recibio ninguna imagen", 400);
             return;
         }
 
@@ -84,10 +82,7 @@ export async function subirFotoPublicacion(
 
         const url = await subirImagenR2(req.file.buffer, req.file.mimetype, carpeta, `post_${idPublicacion}`);
 
-        res.status(201).json({
-            message: existe ? "Imagen de publicación actualizada." : "Imagen de publicación agregada.",
-            url
-        });
+        exitoResponse(res, url, existe ? "Imagen de publicacion actualizada" : "Imagen de publicacion agregada", 201);
     } catch (error) {
         next(error);
     }
