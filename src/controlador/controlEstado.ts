@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { obtenerEstados } from "../repository/repositorioEstado.js";
+import { errorResponse, exitoResponse } from "../servicios/Response.js";
 
 export async function obtenerTodosLosEstados(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -8,7 +9,7 @@ export async function obtenerTodosLosEstados(req: Request, res: Response, next: 
 
         // Verificar si hay estados
         if (!estados || estados.length === 0) {
-            res.status(200).json({ message: "No se encontraron estados" });
+            errorResponse(res, "No se encontraron estados", 404);
             return;
         }
 
@@ -22,7 +23,7 @@ export async function obtenerTodosLosEstados(req: Request, res: Response, next: 
 
         // Si no hay opción, devolver todos
         if (!opt_elegida || opt_elegida.trim() === "") {
-            res.status(200).json({ message: "Estados obtenidos exitosamente", data: estados });
+            exitoResponse(res, estados, "Estados obtenidos exitosamente", 200);
             return;
         }
 
@@ -31,17 +32,14 @@ export async function obtenerTodosLosEstados(req: Request, res: Response, next: 
 
         // Si la opción no es válida, devolver error
         if (!nombresPermitidos) {
-            res.status(400).json({ message: `Opción '${opt_elegida}' no válida. Opciones disponibles: publicacion, mensaje, material, acuerdo` });
+            errorResponse(res, `Opción '${opt_elegida}' no válida. Opciones disponibles: publicacion, mensaje, material, acuerdo`, 400);
             return;
         }
 
         // Filtrar estados
         const estadosFiltrados = estados.filter(estado => nombresPermitidos.includes(estado.estado as string));
 
-        res.status(200).json({
-            message: "Estados obtenidos exitosamente",
-            data: estadosFiltrados
-        });
+        exitoResponse(res, estadosFiltrados, "Estados obtenidos exitosamente", 200);
 
     } catch (error) {
         next(error);

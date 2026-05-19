@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { ServicioJWT, TokenVerificado } from "./ServicioJWT.js";
 import { estaRevocado } from "./blacklist.js";
+import { errorResponse } from "../servicios/Response.js";
 
 // ─── Extensión del tipo Request ───────────────────────────────────────────────
 
@@ -22,21 +23,21 @@ export async function autenticar(req: Request, res: Response, next: NextFunction
       : null);
 
   if (!token) {
-    res.status(401).json({ message: "Token de autenticación requerido." });
+    errorResponse(res, "Token de autenticación requerido.", 401);
     return;
   }
 
   try {
     const revocado = await estaRevocado(token);
     if (revocado) {
-      res.status(401).json({ message: "Sesión cerrada. Por favor inicia sesión nuevamente." });
+      errorResponse(res, "Sesión cerrada. Por favor inicia sesión nuevamente.", 401);
       return;
     }
     req.usuario = ServicioJWT.verificarToken(token);
     next();
   } catch (error) {
     const mensaje = error instanceof Error ? error.message : "Token inválido.";
-    res.status(401).json({ message: mensaje });
+    errorResponse(res, mensaje, 401);
   }
 }
 
@@ -47,7 +48,7 @@ export function gestorPermisos(...rolesPermitidos: string[]) {
     const rol = req.usuario?.rol;
 
     if (!rol || !rolesPermitidos.includes(rol)) {
-      res.status(403).json({ message: "No tienes permisos para realizar esta acción." });
+      errorResponse(res, "No tienes permisos para realizar esta acción.", 403);
       return;
     }
 
@@ -62,13 +63,13 @@ export function verificarPropietario(req: Request, res: Response, next: NextFunc
   const idToken = req.usuario?.sub; // id del token
 
   if (!idToken) {
-    res.status(401).json({ message: "Token de autenticación requerido." });
+    errorResponse(res, "Token de autenticación requerido.", 401);
     return;
   }
 
   //Si el id dentro del token y el id de la ruta no son iguales, se lanza un error
   if (id !== idToken) {
-    res.status(403).json({ message: "No tienes permisos para realizar esta acción." });
+    errorResponse(res, "No tienes permisos para realizar esta acción.", 403);
     return;
   }
 

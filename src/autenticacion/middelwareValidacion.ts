@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { ZodSchema, ZodError } from "zod";
+import { errorValidacionResponse } from "../servicios/Response";
 
 /**
  * Middleware de validación con Zod.
@@ -13,13 +14,7 @@ export function validar(schema: ZodSchema) {
             next();
         } catch (error) {
             if (error instanceof ZodError) {
-                res.status(400).json({
-                    message: "Datos inválidos.",
-                    errores: error.errors.map((e) => ({
-                        campo: e.path.join("."),
-                        mensaje: e.message,
-                    })),
-                });
+                errorValidacionResponse(res, error.errors, "Datos inválidos.");
                 return;
             }
             next(error);
