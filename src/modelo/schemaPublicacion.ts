@@ -27,9 +27,9 @@ export const schemaCrearPublicacion = z.object({
         }),
 
     estado: z
-        .number({ invalid_type_error: "El estado debe ser un número." })
-        .int()
-        .positive()
+        .enum(["disponible", "vendido", "reservado", "activo", "inactivo"], {
+            invalid_type_error: "Estado inválido.",
+        })
         .optional(),
 
     imagenes: z
@@ -67,15 +67,27 @@ export const schemaEditarPublicacion = z.object({
     precio: z
         .number({ invalid_type_error: "El precio debe ser un número." })
         .min(0, "El precio no puede ser negativo.")
+        .max(999.99, "El precio no puede superar Q999.99.")
         .optional(),
 
     estado: z
-        .number({ invalid_type_error: "El estado debe ser un número." })
-        .int()
-        .positive()
+        .enum(["disponible", "vendido", "reservado", "activo", "inactivo"], {
+            invalid_type_error: "Estado inválido para publicación.",
+        })
         .optional(),
-}).refine(
-    (data) => Object.keys(data).length > 0,
+
+    tipo_publicacion: z
+        .enum(["material", "tutoria", "negocio"] as const, {
+            invalid_type_error: "Tipo de publicación inválido.",
+        })
+        .optional(),
+
+    etiquetas: z
+        .array(z.number().int().positive("Cada etiqueta debe ser un ID válido."))
+        .optional(),
+})
+.refine(
+    (data) => Object.keys(data).some((k) => data[k as keyof typeof data] !== undefined),
     { message: "Debe enviar al menos un campo para actualizar." }
 );
 

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { subirImagenR2, eliminarImagenR2, imagenExisteR2, construirUrlR2 } from "../servicios/servicioR2.js";
+import { buscarUsuarioPorId } from "../repository/repositorioUsuario.js";
 import { errorResponse, exitoResponse } from "../servicios/Response.js";
 
 export async function subirImagen(
@@ -33,21 +34,27 @@ export async function subirFotoPerfil(
             return;
         }
 
-        const idUsuario = req.params.id;
-        const ext = req.file.mimetype.split("/")[1];
+        const idUsuario = Number(req.params.id);
         const carpeta = "perfil";
 
-        // Validar si existe imagen anterior
-        const existe = await imagenExisteR2(carpeta, `user_${idUsuario}`, ext);
+        // Obtener la URL actual del perfil desde BD para borrar la imagen real (sin adivinar extensión)
+        const usuario = await buscarUsuarioPorId(idUsuario);
+        const urlAnterior = usuario?.url_foto_perfil ?? null;
 
-        if (existe) {
-            const urlAnterior = construirUrlR2(carpeta, `user_${idUsuario}`, ext);
-            await eliminarImagenR2(urlAnterior);
+        if (urlAnterior) {
+            try {
+                await eliminarImagenR2(urlAnterior);
+            } catch {
+                // Si falla la eliminación en R2 se continúa de todas formas
+            }
         }
 
         const url = await subirImagenR2(req.file.buffer, req.file.mimetype, carpeta, `user_${idUsuario}`);
 
-        exitoResponse(res, url, existe ? "Foto de perfil actualizada" : "Foto de perfil agregada", 201);
+        res.status(201).json({
+            message: urlAnterior ? "Foto de perfil actualizada." : "Foto de perfil agregada.",
+            url
+        });
     } catch (error) {
         next(error);
     }

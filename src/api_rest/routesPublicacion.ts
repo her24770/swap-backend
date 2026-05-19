@@ -6,7 +6,8 @@ import {
     agregarOActualizarImagen,
     editarPublicacion,
     cambiarEstadoPublicacion,
-    obtenerPublicacionPorId
+    obtenerPublicacionPorId,
+    eliminarPublicacionConImagenes
 } from "../controlador/controlPublicacion.js";
 import { autenticar } from "../autenticacion/GestorPermisos.js";
 import { uploadImagen } from "../servicios/middlewareMulter.js";
@@ -22,5 +23,6 @@ router.post("/", autenticar, uploadImagen.single('imagen'), crearPublicacionConI
 router.put("/:id/imagen", autenticar, uploadImagen.single('imagen'), agregarOActualizarImagen);
 router.put("/:id", autenticar, validar(schemaEditarPublicacion), editarPublicacion)
 router.patch("/:id/estado", autenticar, cambiarEstadoPublicacion)
+router.delete("/:id", autenticar, eliminarPublicacionConImagenes)
 
 export default router;

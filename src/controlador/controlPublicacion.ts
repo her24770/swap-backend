@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
-import { buscarPublicacionesPorTipoYUsuario, buscarPublicacionesPaginadas, buscarPublicacionPorId, actualizarPublicacion, actualizarEstadoPublicacion, buscarPublicacionPorIdDetallado } from "../repository/repositorioPublicacion.js";
+import { buscarPublicacionesPorTipoYUsuario, buscarPublicacionesPaginadas, buscarPublicacionPorId, actualizarPublicacion, actualizarEstadoPublicacion, buscarPublicacionPorIdDetallado, buscarImagenesPorPublicacion, eliminarImagen } from "../repository/repositorioPublicacion.js";
 import { obtenerTipoPerfilPorNombre } from "../repository/repositorioTipoPerfil.js";
 import { buscarUsuarioPorId } from "../repository/repositorioUsuario.js";
-import { subirImagenR2 } from "../servicios/servicioR2.js";
+import { subirImagenR2, eliminarImagenR2 } from "../servicios/servicioR2.js";
 import { schemaCrearPublicacion, } from "../modelo/schemaPublicacion.js";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
 import { errorResponse, exitoResponse } from "../servicios/Response.js";
@@ -117,13 +117,13 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
             descripcion: req.body.descripcion,
             precio: req.body.precio ? Number(req.body.precio) : 0,
             tipo_publicacion: req.body.tipo_publicacion,
-            estado: req.body.estado ? Number(req.body.estado) : undefined,
+            estado: req.body.estado ?? undefined,
             imagenes: []
         };
 
         const validacion = schemaCrearPublicacion.safeParse(bodyData);
         if (!validacion.success) {
-            errorResponse(res, validacion.error.errors, 400);
+            res.status(400).json({ error: validacion.error.errors });
             return;
         }
 
@@ -165,12 +165,14 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
             }
         }
 
-        // Obtener estado por defecto (activo)
-        const estadoActivo = await (require("../persistencia/prismaClient.js").default as any).estado.findUnique({
-            where: { estado: "activo" }
-        });
-
-        const idEstado = validacion.data.estado || estadoActivo?.id_estado || 1;
+        // Resolver estado texto → id_estado
+        const nombreEstado = validacion.data.estado ?? "disponible";
+        const estadoObj = await obtenerEstadoPorNombre(nombreEstado);
+        if (!estadoObj) {
+            res.status(400).json({ error: `Estado inválido: "${nombreEstado}".` });
+            return;
+        }
+        const idEstado = estadoObj.id_estado;
 
         // Crear publicación
         const prisma = require("../persistencia/prismaClient.js").default;
@@ -229,7 +231,18 @@ export async function agregarOActualizarImagen(req: Request, res: Response, next
             return;
         }
 
-        // Subir imagen a R2
+        // Eliminar imágenes anteriores de R2 y BD
+        const imagenesActuales = await buscarImagenesPorPublicacion(idPublicacion);
+        for (const img of imagenesActuales) {
+            try {
+                await eliminarImagenR2(img.url_imagen);
+            } catch {
+                // Si falla la eliminación en R2 se continúa de todas formas
+            }
+            await eliminarImagen(img.id_imagen);
+        }
+
+        // Subir nueva imagen a R2
         let urlImagen: string;
         try {
             urlImagen = await subirImagenR2(
@@ -243,7 +256,7 @@ export async function agregarOActualizarImagen(req: Request, res: Response, next
             return;
         }
 
-        // Guardar imagen en BD
+        // Guardar nueva imagen en BD
         const prisma = require("../persistencia/prismaClient.js").default;
         const imagen = await prisma.imagenPublicacion.create({
             data: {
@@ -252,10 +265,13 @@ export async function agregarOActualizarImagen(req: Request, res: Response, next
             }
         });
 
-        exitoResponse(res, {
-            id_imagen: imagen.id_imagen,
-            url_imagen: urlImagen
-        }, "Imagen agregada a la publicacion", 200);
+        res.status(200).json({
+            message: "Imagen actualizada en la publicación",
+            data: {
+                id_imagen: imagen.id_imagen,
+                url_imagen: urlImagen
+            }
+        });
         return;
     } catch (error) {
         next(error);
@@ -267,45 +283,107 @@ export async function editarPublicacion(req: Request, res: Response, next: NextF
         const id_publicacion = Number(req.params.id);
         const data = req.body;
 
-        //Validar que el ID sea un número
         if (isNaN(id_publicacion)) {
             errorResponse(res, "El ID de la publicacion no es valido", 400);
             return;
         }
 
-        //Validar que exista la publicación
         const publicacion = await buscarPublicacionPorId(id_publicacion);
-        if (!publicacion) { //Si no existe la publicacion lanza error 404
-            errorResponse(res, "Publicacion no encontrada", 404);
+        if (!publicacion) {
+            res.status(404).json({ error: "Publicacion no encontrada." });
             return;
         }
 
-        //Validar que el usuario sea el dueño de la publicación
         if (publicacion.id_usuario !== Number(req.usuario?.sub)) {
             errorResponse(res, "No tienes permiso para editar esta publicacion. Solo el propietario puede hacer cambios", 403);
             return;
         }
 
-        //Obtener estados activo e inactivo por nombre para validar el dato
-        const estadoActivo = await obtenerEstadoPorNombre("activo");
-        const estadoInactivo = await obtenerEstadoPorNombre("inactivo");
+        const updateData: Record<string, unknown> = { ...data };
 
-        //Validar que existan los estados
-        if (!estadoActivo || !estadoInactivo) {
-            errorResponse(res, "Error de configuracion: Estados no encontrados", 500);
+        // Resolver estado string → id_estado numérico
+        if (data.estado !== undefined) {
+            const estadoObj = await obtenerEstadoPorNombre(data.estado);
+            if (!estadoObj) {
+                res.status(400).json({ error: `Estado inválido: "${data.estado}".` });
+                return;
+            }
+            updateData.estado = estadoObj.id_estado;
+        }
+
+        // Resolver tipo_publicacion string → id_tipo_perfil numérico
+        if (data.tipo_publicacion !== undefined) {
+            const tipoPerfil = await obtenerTipoPerfilPorNombre(data.tipo_publicacion);
+            if (!tipoPerfil) {
+                res.status(400).json({ error: `Tipo de publicación inválido: "${data.tipo_publicacion}".` });
+                return;
+            }
+            updateData.tipo_publicacion = tipoPerfil.id_tipo_perfil;
+        }
+
+        // Extraer etiquetas antes de actualizar (se manejan como relación aparte)
+        const etiquetasIds: number[] | undefined = data.etiquetas;
+        delete updateData.etiquetas;
+
+        const publicacionActualizada = await actualizarPublicacion(id_publicacion, updateData);
+
+        // Actualizar etiquetas si se enviaron
+        if (etiquetasIds !== undefined) {
+            const prismaClient = require("../persistencia/prismaClient.js").default;
+            await prismaClient.publicacionEtiqueta.deleteMany({ where: { id_publicacion } });
+            if (etiquetasIds.length > 0) {
+                await prismaClient.publicacionEtiqueta.createMany({
+                    data: etiquetasIds.map((id_etiqueta: number) => ({ id_publicacion, id_etiqueta })),
+                    skipDuplicates: true,
+                });
+            }
+        }
+
+        res.status(200).json({ message: "Publicacion actualizada exitosamente", data: publicacionActualizada });
+        return;
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function eliminarPublicacionConImagenes(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const id_publicacion = Number(req.params.id);
+
+        if (isNaN(id_publicacion)) {
+            res.status(400).json({ error: "El ID de la publicación no es válido." });
             return;
         }
 
-        //Validar que el estado sea activo o inactivo ya que son los únicos posibles para las publicaciones
-        if (data.estado !== estadoActivo.id_estado && data.estado !== estadoInactivo.id_estado) {
-            errorResponse(res, `No es posible cambiar a este estado. Solo puede ser  activo (${estadoActivo.id_estado}) o inactivo (${estadoInactivo.id_estado}).`, 400);
+        const publicacion = await buscarPublicacionPorIdDetallado(id_publicacion);
+        if (!publicacion) {
+            res.status(404).json({ error: "Publicación no encontrada." });
             return;
         }
 
+        if (publicacion.id_usuario !== Number(req.usuario?.sub)) {
+            res.status(403).json({ error: "No tienes permiso para eliminar esta publicación." });
+            return;
+        }
 
-        //Actualizar la publicación
-        const publicacionActualizada = await actualizarPublicacion(id_publicacion, data);
-        exitoResponse(res, publicacionActualizada, "Publicacion actualizada exitosamente", 200);
+        // Borrar imágenes de R2
+        for (const img of publicacion.imagenes ?? []) {
+            try {
+                await eliminarImagenR2(img.url_imagen);
+            } catch {
+                // Si falla R2 se continúa para que la BD quede limpia
+            }
+        }
+
+        const prisma = require("../persistencia/prismaClient.js").default;
+
+        // Eliminar registros relacionados antes de borrar la publicación
+        await prisma.imagenPublicacion.deleteMany({ where: { id_publicacion } });
+        await prisma.publicacionEtiqueta.deleteMany({ where: { id_publicacion } });
+
+        await prisma.publicacion.delete({ where: { id_publicacion } });
+
+        res.status(200).json({ message: "Publicación eliminada exitosamente." });
         return;
     } catch (error) {
         next(error);
