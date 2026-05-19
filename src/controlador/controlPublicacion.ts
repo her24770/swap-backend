@@ -5,7 +5,7 @@ import { buscarUsuarioPorId } from "../repository/repositorioUsuario.js";
 import { subirImagenR2, eliminarImagenR2 } from "../servicios/servicioR2.js";
 import { schemaCrearPublicacion, } from "../modelo/schemaPublicacion.js";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
-import { errorResponse, exitoResponse } from "../servicios/Response.js";
+import { errorResponse, exitoResponse, errorValidacionResponse } from "../servicios/Response.js";
 
 export async function obtenerPublicacionesUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -123,7 +123,7 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
 
         const validacion = schemaCrearPublicacion.safeParse(bodyData);
         if (!validacion.success) {
-            res.status(400).json({ error: validacion.error.errors });
+            errorValidacionResponse(res, validacion.error.errors);
             return;
         }
 
@@ -169,7 +169,7 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
         const nombreEstado = validacion.data.estado ?? "disponible";
         const estadoObj = await obtenerEstadoPorNombre(nombreEstado);
         if (!estadoObj) {
-            res.status(400).json({ error: `Estado inválido: "${nombreEstado}".` });
+            errorResponse(res, `Estado inválido: "${nombreEstado}".`, 400);
             return;
         }
         const idEstado = estadoObj.id_estado;
@@ -265,13 +265,10 @@ export async function agregarOActualizarImagen(req: Request, res: Response, next
             }
         });
 
-        res.status(200).json({
-            message: "Imagen actualizada en la publicación",
-            data: {
-                id_imagen: imagen.id_imagen,
-                url_imagen: urlImagen
-            }
-        });
+        exitoResponse(res, {
+            id_imagen: imagen.id_imagen,
+            url_imagen: urlImagen
+        }, "Imagen actualizada en la publicación", 200);
         return;
     } catch (error) {
         next(error);
@@ -290,7 +287,7 @@ export async function editarPublicacion(req: Request, res: Response, next: NextF
 
         const publicacion = await buscarPublicacionPorId(id_publicacion);
         if (!publicacion) {
-            res.status(404).json({ error: "Publicacion no encontrada." });
+            errorResponse(res, "Publicacion no encontrada", 404);
             return;
         }
 
@@ -305,7 +302,7 @@ export async function editarPublicacion(req: Request, res: Response, next: NextF
         if (data.estado !== undefined) {
             const estadoObj = await obtenerEstadoPorNombre(data.estado);
             if (!estadoObj) {
-                res.status(400).json({ error: `Estado inválido: "${data.estado}".` });
+                errorResponse(res, `Estado inválido: "${data.estado}".`, 400);
                 return;
             }
             updateData.estado = estadoObj.id_estado;
@@ -315,7 +312,7 @@ export async function editarPublicacion(req: Request, res: Response, next: NextF
         if (data.tipo_publicacion !== undefined) {
             const tipoPerfil = await obtenerTipoPerfilPorNombre(data.tipo_publicacion);
             if (!tipoPerfil) {
-                res.status(400).json({ error: `Tipo de publicación inválido: "${data.tipo_publicacion}".` });
+                errorResponse(res, `Tipo de publicación inválido: "${data.tipo_publicacion}".`, 400);
                 return;
             }
             updateData.tipo_publicacion = tipoPerfil.id_tipo_perfil;
@@ -339,7 +336,7 @@ export async function editarPublicacion(req: Request, res: Response, next: NextF
             }
         }
 
-        res.status(200).json({ message: "Publicacion actualizada exitosamente", data: publicacionActualizada });
+        exitoResponse(res, publicacionActualizada, "Publicacion actualizada exitosamente", 200);
         return;
     } catch (error) {
         next(error);
@@ -351,18 +348,18 @@ export async function eliminarPublicacionConImagenes(req: Request, res: Response
         const id_publicacion = Number(req.params.id);
 
         if (isNaN(id_publicacion)) {
-            res.status(400).json({ error: "El ID de la publicación no es válido." });
+            errorResponse(res, "El ID de la publicación no es válido", 400);
             return;
         }
 
         const publicacion = await buscarPublicacionPorIdDetallado(id_publicacion);
         if (!publicacion) {
-            res.status(404).json({ error: "Publicación no encontrada." });
+            errorResponse(res, "Publicación no encontrada", 404);
             return;
         }
 
         if (publicacion.id_usuario !== Number(req.usuario?.sub)) {
-            res.status(403).json({ error: "No tienes permiso para eliminar esta publicación." });
+            errorResponse(res, "No tienes permiso para eliminar esta publicación", 403);
             return;
         }
 
@@ -383,7 +380,7 @@ export async function eliminarPublicacionConImagenes(req: Request, res: Response
 
         await prisma.publicacion.delete({ where: { id_publicacion } });
 
-        res.status(200).json({ message: "Publicación eliminada exitosamente." });
+        exitoResponse(res, {}, "Publicación eliminada exitosamente", 200);
         return;
     } catch (error) {
         next(error);

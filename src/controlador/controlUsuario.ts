@@ -136,6 +136,10 @@ export async function obtenerContactos(
     try {
         const idUsuario = Number(req.params.id);
         const contactos = await buscarContactosPorUsuario(idUsuario);
+        if (contactos.length === 0) {
+            errorResponse(res, "No se encontraron contactos", 404);
+            return;
+        }
         exitoResponse(res, contactos, "Contactos obtenidos exitosamente", 200);
     } catch (error) {
         next(error);

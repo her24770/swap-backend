@@ -51,10 +51,7 @@ export async function subirFotoPerfil(
 
         const url = await subirImagenR2(req.file.buffer, req.file.mimetype, carpeta, `user_${idUsuario}`);
 
-        res.status(201).json({
-            message: urlAnterior ? "Foto de perfil actualizada." : "Foto de perfil agregada.",
-            url
-        });
+        exitoResponse(res, url, urlAnterior ? "Foto de perfil actualizada" : "Foto de perfil agregada", 201);
     } catch (error) {
         next(error);
     }
