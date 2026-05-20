@@ -10,7 +10,7 @@ import {
 import { exitoResponse, errorResponse } from "../servicios/Response";
 
 /**
- * GET /api/usuarios/:id
+ * GET /api/user/:id
  * Retorna la información pública de un usuario por su ID.
  */
 export async function obtenerUsuario(
@@ -35,7 +35,7 @@ export async function obtenerUsuario(
 }
 
 /**
- * GET /api/usuarios/:id/perfil-publico
+ * GET /api/user/:id/perfil-publico
  * Retorna la información pública de un usuario sin exponer credenciales.
  */
 export async function obtenerPerfilPublico(
@@ -65,7 +65,7 @@ export async function obtenerPerfilPublico(
 }
 
 /**
- * PUT /api/usuarios/perfil
+ * PATCH /api/user/:id
  * Actualiza los datos del perfil del usuario autenticado (vinculado por JWT).
  * Requiere middleware de autenticación que inyecte req.usuarioId.
  */
@@ -101,7 +101,7 @@ export async function actualizarPerfil(
 }
 
 /**
- * POST /api/usuarios/perfil/contacto
+ * PUT /api/user/:id/contactos
  * Agrega un contacto al perfil del usuario autenticado.
  */
 export async function agregarContacto(
@@ -156,7 +156,7 @@ export async function agregarContacto(
 }
 
 /**
- * GET /api/usuarios/:id/contactos
+ * GET /api/user/:id/contactos
  * Retorna los contactos de un usuario.
  */
 export async function obtenerContactos(

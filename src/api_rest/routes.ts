@@ -18,7 +18,6 @@ router.get("/health", (_req, res) => {
 //Rutas de autenticación
 router.use("/auth", authRoutes);
 router.use("/user", userRoutes);
-router.use("/usuarios", userRoutes);
 router.use("/publicacion", publicationRoutes);
 router.use("/etiqueta", etiquetaRoutes);
 router.use("/acuerdo", acuerdoRoutes);
