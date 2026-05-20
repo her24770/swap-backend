@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import {
     buscarUsuarioPorId,
+    buscarPerfilPublicoPorId,
     actualizarUsuario,
     guardarContacto,
     buscarContactosPorUsuario,
@@ -28,6 +29,36 @@ export async function obtenerUsuario(
 
         const { password: _, ...usuarioPublico } = usuario;
         exitoResponse(res, usuarioPublico, "Usuario obtenido exitosamente", 200);
+    } catch (error) {
+        next(error);
+    }
+}
+
+/**
+ * GET /api/usuarios/:id/perfil-publico
+ * Retorna la información pública de un usuario sin exponer credenciales.
+ */
+export async function obtenerPerfilPublico(
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> {
+    try {
+        const id = Number(req.params.id);
+
+        if (isNaN(id)) {
+            errorResponse(res, "ID de usuario inválido", 400);
+            return;
+        }
+
+        const usuario = await buscarPerfilPublicoPorId(id);
+
+        if (!usuario) {
+            errorResponse(res, "Usuario no encontrado", 404);
+            return;
+        }
+
+        exitoResponse(res, usuario, "Perfil público obtenido exitosamente", 200);
     } catch (error) {
         next(error);
     }

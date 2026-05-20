@@ -59,7 +59,7 @@ export function gestorPermisos(...rolesPermitidos: string[]) {
 
 // Middleware: verificar si id dentro del token es igual al id de la ruta
 export function verificarPropietario(req: Request, res: Response, next: NextFunction): void {
-  const id = req.params.id; // id de la ruta
+  const id = req.params.id ?? req.params.usuarioId; // id de la ruta
   const idToken = req.usuario?.sub; // id del token
 
   if (!idToken) {

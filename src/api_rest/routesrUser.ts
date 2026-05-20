@@ -1,10 +1,13 @@
 import { Router } from "express";
-import { obtenerUsuario, actualizarPerfil, agregarContacto, obtenerContactos } from "../controlador/controlUsuario.js";
+import { obtenerUsuario, obtenerPerfilPublico, actualizarPerfil, agregarContacto, obtenerContactos } from "../controlador/controlUsuario.js";
 import { validar } from "../autenticacion/middelwareValidacion.js";
 import { autenticar, gestorPermisos, verificarPropietario } from "../autenticacion/GestorPermisos.js";
 import { schemaActualizarPerfil, schemaAgregarContactos } from "../modelo/schemaUsuario.js";
 
 const router = Router();
+
+//Ruta para obtener el perfil público de un usuario
+router.get("/:id/perfil-publico", obtenerPerfilPublico);
 
 //Ruta para obtener datos del usuario así como sus publicaciones
 router.get("/:id", autenticar, obtenerUsuario);
