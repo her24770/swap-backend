@@ -131,7 +131,94 @@ async function main() {
         prisma.etiqueta.upsert({ where: { nombre: "Botánica" },             update: {}, create: { nombre: "Botánica",             descripcion: "Curso de Botánica",             id_etiqueta_padre: etiquetaBio.id_etiqueta } }),
     ]);
 
-    console.log("  ✅ Etiquetas (carreras y cursos)");
+    // ─────────────────────────────────────────────
+    // 3. Etiquetas padre (ramas del conocimiento)
+    // ─────────────────────────────────────────────
+
+    const eMatematica   = await prisma.etiqueta.upsert({ where: { nombre: "Matemática" },   update: {}, create: { nombre: "Matemática",   descripcion: "Rama de las matemáticas" } });
+    const eFisica       = await prisma.etiqueta.upsert({ where: { nombre: "Física" },       update: {}, create: { nombre: "Física",       descripcion: "Rama de la física" } });
+    const eQuimica      = await prisma.etiqueta.upsert({ where: { nombre: "Química" },      update: {}, create: { nombre: "Química",      descripcion: "Rama de la química" } });
+    const eBiologia     = await prisma.etiqueta.upsert({ where: { nombre: "Biología" },     update: {}, create: { nombre: "Biología",     descripcion: "Rama de la biología" } });
+    const eComputacion  = await prisma.etiqueta.upsert({ where: { nombre: "Computación" },  update: {}, create: { nombre: "Computación",  descripcion: "Rama de la computación" } });
+    const eElectronica  = await prisma.etiqueta.upsert({ where: { nombre: "Electrónica" },  update: {}, create: { nombre: "Electrónica",  descripcion: "Rama de la electrónica" } });
+    const eEstadistica  = await prisma.etiqueta.upsert({ where: { nombre: "Estadística" },  update: {}, create: { nombre: "Estadística",  descripcion: "Rama de la estadística" } });
+    const eComunicacion = await prisma.etiqueta.upsert({ where: { nombre: "Comunicación" }, update: {}, create: { nombre: "Comunicación", descripcion: "Rama de la comunicación" } });
+    const eModalidad    = await prisma.etiqueta.upsert({ where: { nombre: "Modalidad" }, update: {}, create: { nombre: "Modalidad", descripcion: "Modalidad de la Tutoria" } });
+    console.log("✅ Etiquetas padre creadas");
+
+    // ─────────────────────────────────────────────
+    // 4. Etiquetas hija (cursos UVG)
+    // ─────────────────────────────────────────────
+
+    const cursosMatematica = await Promise.all([
+        prisma.etiqueta.upsert({ where: { nombre: "Cálculo Diferencial e Integral" }, update: {}, create: { nombre: "Cálculo Diferencial e Integral", descripcion: "Cálculo 1 UVG",                    id_etiqueta_padre: eMatematica.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Cálculo en Varias Variables" },    update: {}, create: { nombre: "Cálculo en Varias Variables",    descripcion: "Cálculo 2 UVG",                    id_etiqueta_padre: eMatematica.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Álgebra Lineal" },                 update: {}, create: { nombre: "Álgebra Lineal",                 descripcion: "Álgebra Lineal UVG",               id_etiqueta_padre: eMatematica.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Matemática Discreta" },            update: {}, create: { nombre: "Matemática Discreta",            descripcion: "Matemática Discreta UVG",          id_etiqueta_padre: eMatematica.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Ecuaciones Diferenciales" },       update: {}, create: { nombre: "Ecuaciones Diferenciales",       descripcion: "Ecuaciones Diferenciales UVG",     id_etiqueta_padre: eMatematica.id_etiqueta } }),
+    ]);
+
+    const cursosFisica = await Promise.all([
+        prisma.etiqueta.upsert({ where: { nombre: "Física 1" },              update: {}, create: { nombre: "Física 1",              descripcion: "Física 1 UVG",              id_etiqueta_padre: eFisica.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Física 2" },              update: {}, create: { nombre: "Física 2",              descripcion: "Física 2 UVG",              id_etiqueta_padre: eFisica.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Física 3" },              update: {}, create: { nombre: "Física 3",              descripcion: "Física 3 UVG",              id_etiqueta_padre: eFisica.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Laboratorio de Física" }, update: {}, create: { nombre: "Laboratorio de Física", descripcion: "Laboratorio de Física UVG", id_etiqueta_padre: eFisica.id_etiqueta } }),
+    ]);
+
+    const cursosQuimica = await Promise.all([
+        prisma.etiqueta.upsert({ where: { nombre: "Química 1" },              update: {}, create: { nombre: "Química 1",              descripcion: "Química 1 UVG",              id_etiqueta_padre: eQuimica.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Química 2" },              update: {}, create: { nombre: "Química 2",              descripcion: "Química 2 UVG",              id_etiqueta_padre: eQuimica.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Laboratorio de Química" }, update: {}, create: { nombre: "Laboratorio de Química", descripcion: "Laboratorio de Química UVG", id_etiqueta_padre: eQuimica.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Química Orgánica" },       update: {}, create: { nombre: "Química Orgánica",       descripcion: "Química Orgánica UVG",       id_etiqueta_padre: eQuimica.id_etiqueta } }),
+    ]);
+
+    const cursosBiologia = await Promise.all([
+        prisma.etiqueta.upsert({ where: { nombre: "Biología General" },           update: {}, create: { nombre: "Biología General",           descripcion: "Biología General UVG",           id_etiqueta_padre: eBiologia.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Biología Celular y Molecular" }, update: {}, create: { nombre: "Biología Celular y Molecular", descripcion: "Biología Celular y Molecular UVG", id_etiqueta_padre: eBiologia.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Genética" },                   update: {}, create: { nombre: "Genética",                   descripcion: "Genética UVG",                   id_etiqueta_padre: eBiologia.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Ecología" },                   update: {}, create: { nombre: "Ecología",                   descripcion: "Ecología UVG",                   id_etiqueta_padre: eBiologia.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Microbiología" },              update: {}, create: { nombre: "Microbiología",              descripcion: "Microbiología UVG",              id_etiqueta_padre: eBiologia.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Bioquímica" },                update: {}, create: { nombre: "Bioquímica",                descripcion: "Bioquímica UVG",                id_etiqueta_padre: eBiologia.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Fisiología Animal" },          update: {}, create: { nombre: "Fisiología Animal",          descripcion: "Fisiología Animal UVG",          id_etiqueta_padre: eBiologia.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Botánica" },                   update: {}, create: { nombre: "Botánica",                   descripcion: "Botánica UVG",                   id_etiqueta_padre: eBiologia.id_etiqueta } }),
+    ]);
+
+    const cursosComputacion = await Promise.all([
+        prisma.etiqueta.upsert({ where: { nombre: "Algoritmos y Estructuras de Datos" }, update: {}, create: { nombre: "Algoritmos y Estructuras de Datos", descripcion: "AED UVG",  id_etiqueta_padre: eComputacion.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Bases de Datos 1" },                  update: {}, create: { nombre: "Bases de Datos 1",                  descripcion: "BD1 UVG",  id_etiqueta_padre: eComputacion.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Bases de Datos 2" },                  update: {}, create: { nombre: "Bases de Datos 2",                  descripcion: "BD2 UVG",  id_etiqueta_padre: eComputacion.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Ingeniería de Software 1" },          update: {}, create: { nombre: "Ingeniería de Software 1",          descripcion: "IS1 UVG",  id_etiqueta_padre: eComputacion.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Sistemas Operativos 1" },             update: {}, create: { nombre: "Sistemas Operativos 1",             descripcion: "SO1 UVG",  id_etiqueta_padre: eComputacion.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Redes de Computadoras" },             update: {}, create: { nombre: "Redes de Computadoras",             descripcion: "Redes UVG", id_etiqueta_padre: eComputacion.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Arquitectura de Computadoras" },      update: {}, create: { nombre: "Arquitectura de Computadoras",      descripcion: "Arq. UVG", id_etiqueta_padre: eComputacion.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Inteligencia Artificial 1" },         update: {}, create: { nombre: "Inteligencia Artificial 1",         descripcion: "IA1 UVG",  id_etiqueta_padre: eComputacion.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Programación Orientada a Objetos" },  update: {}, create: { nombre: "Programación Orientada a Objetos",  descripcion: "POO UVG",  id_etiqueta_padre: eComputacion.id_etiqueta } }),
+    ]);
+
+    const cursosElectronica = await Promise.all([
+        prisma.etiqueta.upsert({ where: { nombre: "Electrónica 1" },     update: {}, create: { nombre: "Electrónica 1",     descripcion: "Electrónica 1 UVG",     id_etiqueta_padre: eElectronica.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Electrónica 2" },     update: {}, create: { nombre: "Electrónica 2",     descripcion: "Electrónica 2 UVG",     id_etiqueta_padre: eElectronica.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Microprocesadores" }, update: {}, create: { nombre: "Microprocesadores", descripcion: "Microprocesadores UVG", id_etiqueta_padre: eElectronica.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Assembler" },         update: {}, create: { nombre: "Assembler",         descripcion: "Assembler UVG",         id_etiqueta_padre: eElectronica.id_etiqueta } }),
+    ]);
+
+    const cursosEstadistica = await Promise.all([
+        prisma.etiqueta.upsert({ where: { nombre: "Estadística 1" },              update: {}, create: { nombre: "Estadística 1",              descripcion: "Estadística 1 UVG",              id_etiqueta_padre: eEstadistica.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Estadística 2" },              update: {}, create: { nombre: "Estadística 2",              descripcion: "Estadística 2 UVG",              id_etiqueta_padre: eEstadistica.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Probabilidad y Estadística" }, update: {}, create: { nombre: "Probabilidad y Estadística", descripcion: "Probabilidad y Estadística UVG", id_etiqueta_padre: eEstadistica.id_etiqueta } }),
+    ]);
+
+    const cursosComunicacion = await Promise.all([
+        prisma.etiqueta.upsert({ where: { nombre: "Comunicación Oral y Escrita" }, update: {}, create: { nombre: "Comunicación Oral y Escrita", descripcion: "Comunicación Oral y Escrita UVG", id_etiqueta_padre: eComunicacion.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Inglés Técnico" },              update: {}, create: { nombre: "Inglés Técnico",              descripcion: "Inglés Técnico UVG",              id_etiqueta_padre: eComunicacion.id_etiqueta } }),
+    ]);
+
+    const cursosModalidad = await Promise.all([
+        prisma.etiqueta.upsert({ where: { nombre: "Presencial" }, update: {}, create: { nombre: "Presencial", descripcion: "Modalidad Presencial", id_etiqueta_padre: eModalidad.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "En Línea" },   update: {}, create: { nombre: "En Línea",   descripcion: "Modalidad En Línea",   id_etiqueta_padre: eModalidad.id_etiqueta } }),
+    ]);
+
+    console.log("✅ Etiquetas hija creadas");
 
     console.log("\n✅ Seed de estructura completado.");
 }
