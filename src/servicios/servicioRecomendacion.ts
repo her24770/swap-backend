@@ -1,5 +1,6 @@
-import * as repo from "../repository/repositorioRecomendacion"
+import * as repo from "../repository/repositorioRecomendacion";
 import { buscarPublicacionesPorIdsDetallado } from "../repository/repositorioPublicacion";
+import redisClient from "../persistencia/redisClient";
 
 type PublicacionCandidata = {
     id_publicacion: number;
@@ -21,6 +22,11 @@ type EtiquetaTrending = {
     frecuencia: number;
 }
 
+type PublicacionScore = {
+    id_publicacion: number;
+    score: number;
+}
+
 export async function generarRecomendaciones(
     tipo?: string
 ) {
@@ -31,6 +37,52 @@ export async function generarRecomendaciones(
     // Fallback progresivo
     const intervalos = [7, 30, 90];
 
+    // Cache key
+    const cacheKey =
+        tipo
+            ? `recomendaciones:${tipo}`
+            : `recomendaciones:globales`;
+
+    // Intentar obtener desde Redis
+    const cache = await redisClient.get(cacheKey);
+
+    if (cache) {
+
+        const recomendacionesCacheadas: PublicacionScore[] =
+            JSON.parse(cache);
+
+        // IDs cacheados
+        const ids =
+            recomendacionesCacheadas.map(
+                p => p.id_publicacion
+            );
+
+        // Obtener publicaciones completas
+        const publicacionesDetalladas =
+            await buscarPublicacionesPorIdsDetallado(ids);
+
+        // Mapa score
+        const mapaScores =
+            new Map<number, number>();
+
+        recomendacionesCacheadas.forEach(p => {
+            mapaScores.set(
+                p.id_publicacion,
+                p.score
+            );
+        });
+
+        // Reinyectar score
+        return publicacionesDetalladas.map(publicacion => ({
+            ...publicacion,
+            score:
+                mapaScores.get(
+                    publicacion.id_publicacion
+                ) ?? 0
+        }));
+    }
+
+    // Generar recomendaciones
     for (const intervalo of intervalos) {
 
         // Etiquetas trending
@@ -105,7 +157,7 @@ export async function generarRecomendaciones(
                 etiqueta => etiqueta.id_etiqueta
             );
 
-        // Score publicaciones
+        // Calcular score
         const publicacionesScores =
             publicaciones.map(publicacion => {
 
@@ -160,17 +212,59 @@ export async function generarRecomendaciones(
             publicacionesScores.sort(
                 (a, b) => b.score - a.score
             );
-        //Se obtienen ids de las publicaciones top
-        const topPublicaciones = 
-            publicacionesOrdenadas.slice(0, top_resultados);
-        const topIds = topPublicaciones.map(
-            p => p.id_publicacion
-        );
-        const publicacionesDetalladas =
-            await buscarPublicacionesPorIdsDetallado(topIds);
 
-        // Retornar top resultados
-        return publicacionesDetalladas;
+        // Top resultados
+        const topPublicaciones =
+            publicacionesOrdenadas.slice(
+                0,
+                top_resultados
+            );
+
+        // Guardar en Redis
+        await redisClient.set(
+            cacheKey,
+            JSON.stringify(
+                topPublicaciones.map(p => ({
+                    id_publicacion: p.id_publicacion,
+                    score: p.score
+                }))
+            ),
+            {
+                EX: 1200 // 20 minutos
+            }
+        );
+
+        // IDs top
+        const topIds =
+            topPublicaciones.map(
+                p => p.id_publicacion
+            );
+
+        // Publicaciones completas
+        const publicacionesDetalladas =
+            await buscarPublicacionesPorIdsDetallado(
+                topIds
+            );
+
+        // Mapa score
+        const mapaScores =
+            new Map<number, number>();
+
+        topPublicaciones.forEach(p => {
+            mapaScores.set(
+                p.id_publicacion,
+                p.score
+            );
+        });
+
+        // Reinyectar score
+        return publicacionesDetalladas.map(publicacion => ({
+            ...publicacion,
+            score:
+                mapaScores.get(
+                    publicacion.id_publicacion
+                ) ?? 0
+        }));
     }
 
     return [];
