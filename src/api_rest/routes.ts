@@ -6,6 +6,7 @@ import etiquetaRoutes from "./routesEtiqueta.js";
 import acuerdoRoutes from "./routesAcuerdo.js";
 import imagenRoutes from "./routesImagen.js";
 import estadoRoutes from "./routesEstado.js";
+import horarioRoutes from "./routesHorario.js";
 
 const router = Router();
 
@@ -22,5 +23,6 @@ router.use("/etiqueta", etiquetaRoutes);
 router.use("/acuerdo", acuerdoRoutes);
 router.use("/imagen", imagenRoutes);
 router.use("/estado", estadoRoutes);
+router.use("/horarios", horarioRoutes);
 
 export default router;
