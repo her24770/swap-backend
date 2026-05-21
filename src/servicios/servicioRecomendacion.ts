@@ -1,4 +1,5 @@
 import * as repo from "../repository/repositorioRecomendacion"
+import { buscarPublicacionesPorIdsDetallado } from "../repository/repositorioPublicacion";
 
 type PublicacionCandidata = {
     id_publicacion: number;
@@ -159,12 +160,17 @@ export async function generarRecomendaciones(
             publicacionesScores.sort(
                 (a, b) => b.score - a.score
             );
+        //Se obtienen ids de las publicaciones top
+        const topPublicaciones = 
+            publicacionesOrdenadas.slice(0, top_resultados);
+        const topIds = topPublicaciones.map(
+            p => p.id_publicacion
+        );
+        const publicacionesDetalladas =
+            await buscarPublicacionesPorIdsDetallado(topIds);
 
         // Retornar top resultados
-        return publicacionesOrdenadas.slice(
-            0,
-            top_resultados
-        );
+        return publicacionesDetalladas;
     }
 
     return [];
