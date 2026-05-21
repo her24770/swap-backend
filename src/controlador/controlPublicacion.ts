@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { buscarPublicacionesPorTipoYUsuario, buscarPublicacionesPaginadas, buscarPublicacionPorId, actualizarPublicacion, actualizarEstadoPublicacion, buscarPublicacionPorIdDetallado, buscarImagenesPorPublicacion, eliminarImagen } from "../repository/repositorioPublicacion.js";
+import { buscarPublicacionesGuardadasPorUsuario, guardarPublicacionUsuario, eliminarGuardadoUsuario } from "../repository/repositorioGuardado.js";
 import { obtenerTipoPerfilPorNombre } from "../repository/repositorioTipoPerfil.js";
 import { buscarUsuarioPorId } from "../repository/repositorioUsuario.js";
 import { subirImagenR2, eliminarImagenR2 } from "../servicios/servicioR2.js";
@@ -35,7 +36,8 @@ export async function obtenerPublicacionesUsuario(req: Request, res: Response, n
             return;
         }
 
-        const publicaciones = await buscarPublicacionesPorTipoYUsuario(tipo, idUsuario, estado);
+        const idUsuarioAutenticado = Number(req.usuario?.sub);
+        const publicaciones = await buscarPublicacionesPorTipoYUsuario(tipo, idUsuario, estado, idUsuarioAutenticado);
 
         exitoResponse(res, publicaciones, "Publicaciones obtenidas exitosamente", 200);
         return;
@@ -68,6 +70,7 @@ export async function obtenerTodasLasPublicaciones(req: Request, res: Response, 
             }
         }
 
+        const idUsuarioAutenticado = Number(req.usuario?.sub);
         const resultado = await buscarPublicacionesPaginadas({
             page,
             limit,
@@ -75,7 +78,7 @@ export async function obtenerTodasLasPublicaciones(req: Request, res: Response, 
             order,
             tipo,
             estado
-        });
+        }, idUsuarioAutenticado);
 
         if (!resultado || resultado.length == 0) {
             errorResponse(res, "No se encontraron publicaciones", 404);
@@ -96,13 +99,73 @@ export async function obtenerPublicacionPorId(req: Request, res: Response, next:
             errorResponse(res, "El id de la publicacion no es valido", 400);
             return;
         }
-        const publicacion = await buscarPublicacionPorIdDetallado(id);
+        const idUsuarioAutenticado = Number(req.usuario?.sub);
+        const publicacion = await buscarPublicacionPorIdDetallado(id, idUsuarioAutenticado);
         if (!publicacion) {
             errorResponse(res, "Publicacion no encontrada", 404);
             return;
         }
 
         exitoResponse(res, publicacion, "Publicacion obtenida exitosamente", 200);
+        return;
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function obtenerPublicacionesGuardadas(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const idUsuario = Number(req.usuario?.sub);
+        const publicaciones = await buscarPublicacionesGuardadasPorUsuario(idUsuario);
+
+        exitoResponse(res, publicaciones, "Publicaciones guardadas obtenidas exitosamente", 200);
+        return;
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function guardarPublicacionAutenticada(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const idUsuario = Number(req.usuario?.sub);
+        const idPublicacion = Number(req.params.id);
+
+        if (isNaN(idPublicacion)) {
+            errorResponse(res, "El ID de la publicacion no es valido", 400);
+            return;
+        }
+
+        const publicacion = await buscarPublicacionPorId(idPublicacion);
+        if (!publicacion) {
+            errorResponse(res, "Publicacion no encontrada", 404);
+            return;
+        }
+
+        await guardarPublicacionUsuario(idUsuario, idPublicacion);
+        exitoResponse(res, { id_publicacion: idPublicacion, esGuardada: true }, "Publicacion guardada exitosamente", 200);
+        return;
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function eliminarGuardadoPublicacion(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const idUsuario = Number(req.usuario?.sub);
+        const idPublicacion = Number(req.params.id);
+
+        if (isNaN(idPublicacion)) {
+            errorResponse(res, "El ID de la publicacion no es valido", 400);
+            return;
+        }
+
+        const eliminado = await eliminarGuardadoUsuario(idUsuario, idPublicacion);
+        if (!eliminado) {
+            errorResponse(res, "La publicación no estaba guardada", 404);
+            return;
+        }
+
+        exitoResponse(res, { id_publicacion: idPublicacion, esGuardada: false }, "Guardado eliminado exitosamente", 200);
         return;
     } catch (error) {
         next(error);

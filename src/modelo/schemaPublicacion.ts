@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /**
- * Schema para POST /api/publicaciones
+ * Schema para POST /api/publicacion
  * Basado en el modelo Publicacion del schema.prisma
  */
 export const schemaCrearPublicacion = z.object({
@@ -48,7 +48,7 @@ export const schemaCrearPublicacion = z.object({
 });
 
 /**
- * Schema para PUT /api/publicaciones/:id
+ * Schema para PUT /api/publicacion/:id
  * Todos los campos son opcionales — solo se actualiza lo que se envía.
  */
 export const schemaEditarPublicacion = z.object({

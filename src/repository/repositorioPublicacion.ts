@@ -1,9 +1,30 @@
 import { Prisma, Publicacion, ImagenPublicacion, Etiqueta } from "@prisma/client";
 import prisma from "../persistencia/prismaClient";
 import { PaginationOption } from "./types";
+import { buscarIdsPublicacionesGuardadasPorUsuario } from "./repositorioGuardado.js";
 // ─────────────────────────────────────────────
 // Publicacion
 // ─────────────────────────────────────────────
+
+function agregarEstadoGuardado<T extends { id_publicacion: number }>(publicacion: T, idsGuardados: Set<number>) {
+    return {
+        ...publicacion,
+        esGuardada: idsGuardados.has(publicacion.id_publicacion)
+    };
+}
+
+async function obtenerIdsGuardadosSet(idUsuario?: number): Promise<Set<number>> {
+    if (!idUsuario) return new Set();
+    const ids = await buscarIdsPublicacionesGuardadasPorUsuario(idUsuario);
+    return new Set(ids);
+}
+
+function agregarEstadoGuardadoLista<T extends { id_publicacion: number }>(
+    publicaciones: T[],
+    idsGuardados: Set<number>
+) {
+    return publicaciones.map((publicacion) => agregarEstadoGuardado(publicacion, idsGuardados));
+}
 
 export async function buscarPublicacionPorId(id: number): Promise<Publicacion | null> {
     return prisma.publicacion.findUnique({
@@ -11,7 +32,7 @@ export async function buscarPublicacionPorId(id: number): Promise<Publicacion | 
     });
 }
 
-export async function buscarPublicacionPorIdDetallado(id: number): Promise<any | null> {
+export async function buscarPublicacionPorIdDetallado(id: number, idUsuario?: number): Promise<any | null> {
     const publicacion = await prisma.publicacion.findUnique({
         where: { id_publicacion: id },
         include: {
@@ -58,25 +79,30 @@ export async function buscarPublicacionPorIdDetallado(id: number): Promise<any |
     });
 
     if (!publicacion) return null;
-    return publicacion;
+    const idsGuardados = await obtenerIdsGuardadosSet(idUsuario);
+    return agregarEstadoGuardado(publicacion, idsGuardados);
 }
 
-export async function buscarTodasLasPublicaciones(): Promise<Publicacion[]> {
-    return prisma.publicacion.findMany({
+export async function buscarTodasLasPublicaciones(idUsuario?: number): Promise<any[]> {
+    const publicaciones = await prisma.publicacion.findMany({
         include: { imagenes: true, etiquetas: { include: { etiqueta: true } } },
         orderBy: { fecha_publicacion: "desc" },
     });
+    const idsGuardados = await obtenerIdsGuardadosSet(idUsuario);
+    return agregarEstadoGuardadoLista(publicaciones, idsGuardados);
 }
 
-export async function buscarPublicacionesPorUsuario(idUsuario: number): Promise<Publicacion[]> {
-    return prisma.publicacion.findMany({
+export async function buscarPublicacionesPorUsuario(idUsuario: number, idUsuarioAutenticado?: number): Promise<any[]> {
+    const publicaciones = await prisma.publicacion.findMany({
         where: { id_usuario: idUsuario },
         include: { imagenes: true, etiquetas: { include: { etiqueta: true } } },
         orderBy: { fecha_publicacion: "desc" },
     });
+    const idsGuardados = await obtenerIdsGuardadosSet(idUsuarioAutenticado);
+    return agregarEstadoGuardadoLista(publicaciones, idsGuardados);
 }
 
-export async function buscarPublicacionesPaginadas(options: PaginationOption): Promise<Publicacion[]> {
+export async function buscarPublicacionesPaginadas(options: PaginationOption, idUsuario?: number): Promise<any[]> {
     //Valores por defecto
     const { page = 1, limit = 10, sort = 'fecha', order = 'desc', tipo, estado } = options;
 
@@ -117,13 +143,15 @@ export async function buscarPublicacionesPaginadas(options: PaginationOption): P
         }
     }
 
-    return await prisma.publicacion.findMany({
+    const publicaciones = await prisma.publicacion.findMany({
         where,
         include: { imagenes: true, etiquetas: { include: { etiqueta: true } } },
         orderBy,
         skip,
         take: limit
     });
+    const idsGuardados = await obtenerIdsGuardadosSet(idUsuario);
+    return agregarEstadoGuardadoLista(publicaciones, idsGuardados);
 }
 
 export async function guardarPublicacion(
@@ -147,7 +175,7 @@ export async function eliminarPublicacion(id: number): Promise<Publicacion> {
     return prisma.publicacion.delete({ where: { id_publicacion: id } });
 }
 
-export async function buscarPublicacionesPorTipoYUsuario(tipoPerfil: string, idUsuario: number, estado?: string): Promise<any[]> {
+export async function buscarPublicacionesPorTipoYUsuario(tipoPerfil: string, idUsuario: number, estado?: string, idUsuarioAutenticado?: number): Promise<any[]> {
     const where: any = {
         id_usuario: idUsuario,
         tipoPerfil: {
@@ -163,7 +191,7 @@ export async function buscarPublicacionesPorTipoYUsuario(tipoPerfil: string, idU
         }
     }
 
-    return prisma.publicacion.findMany({
+    const publicaciones = await prisma.publicacion.findMany({
         where,
         include: {
             imagenes: true,
@@ -172,6 +200,8 @@ export async function buscarPublicacionesPorTipoYUsuario(tipoPerfil: string, idU
         },
         orderBy: { fecha_publicacion: "desc" },
     });
+    const idsGuardados = await obtenerIdsGuardadosSet(idUsuarioAutenticado);
+    return agregarEstadoGuardadoLista(publicaciones, idsGuardados);
 }
 
 // ─────────────────────────────────────────────
