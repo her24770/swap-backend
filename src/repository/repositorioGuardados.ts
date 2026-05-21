@@ -11,12 +11,15 @@ export async function guardarPublicacion(idUsuario: number, idPublicacion: numbe
 }
 
 export async function quitarGuardadoPublicacion(idUsuario: number, idPublicacion: number) {
-    return prisma.usuarioPublicacion.upsert({
-        where: {
-            id_usuario_id_publicacion: { id_usuario: idUsuario, id_publicacion: idPublicacion }
-        },
-        update: { is_save: false },
-        create: { id_usuario: idUsuario, id_publicacion: idPublicacion, is_save: false, is_like: false }
+    // Verificar que existe antes de actualizar
+    const existente = await prisma.usuarioPublicacion.findUnique({
+        where: { id_usuario_id_publicacion: { id_usuario: idUsuario, id_publicacion: idPublicacion } }
+    });
+    if (!existente || !existente.is_save) return null; // el controlador puede retornar 404
+
+    return prisma.usuarioPublicacion.update({
+        where: { id_usuario_id_publicacion: { id_usuario: idUsuario, id_publicacion: idPublicacion } },
+        data: { is_save: false }
     });
 }
 
