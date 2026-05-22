@@ -8,6 +8,7 @@ import imagenRoutes from "./routesImagen.js";
 import estadoRoutes from "./routesEstado.js";
 import guardadosRoutes from "./routesGuardados.js";
 import likesRoutes from "./routesLikes.js";
+import horarioRoutes from "./routesHorario.js";
 
 const router = Router();
 
@@ -26,5 +27,6 @@ router.use("/imagen", imagenRoutes);
 router.use("/estado", estadoRoutes);
 router.use("/guardados", guardadosRoutes);
 router.use("/likes", likesRoutes);
+router.use("/horarios", horarioRoutes);
 
 export default router;

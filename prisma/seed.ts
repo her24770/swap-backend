@@ -48,8 +48,8 @@ async function main() {
     // ─────────────────────────────────────────────
     await Promise.all([
         prisma.tipoPerfil.upsert({ where: { tipo_perfil: "material" }, update: {}, create: { tipo_perfil: "material" } }),
-        prisma.tipoPerfil.upsert({ where: { tipo_perfil: "tutoria" },  update: {}, create: { tipo_perfil: "tutoria" } }),
-        prisma.tipoPerfil.upsert({ where: { tipo_perfil: "negocio" },  update: {}, create: { tipo_perfil: "negocio" } }),
+        prisma.tipoPerfil.upsert({ where: { tipo_perfil: "tutoria" }, update: {}, create: { tipo_perfil: "tutoria" } }),
+        prisma.tipoPerfil.upsert({ where: { tipo_perfil: "negocio" }, update: {}, create: { tipo_perfil: "negocio" } }),
     ]);
     console.log("  ✅ Tipos de perfil");
 
@@ -69,10 +69,10 @@ async function main() {
     // ─────────────────────────────────────────────
     await Promise.all([
         prisma.motivoReporte.upsert({ where: { motivo: "Contenido inapropiado" }, update: {}, create: { motivo: "Contenido inapropiado" } }),
-        prisma.motivoReporte.upsert({ where: { motivo: "Fraude o estafa" },       update: {}, create: { motivo: "Fraude o estafa" } }),
-        prisma.motivoReporte.upsert({ where: { motivo: "Spam" },                  update: {}, create: { motivo: "Spam" } }),
-        prisma.motivoReporte.upsert({ where: { motivo: "Acoso" },                 update: {}, create: { motivo: "Acoso" } }),
-        prisma.motivoReporte.upsert({ where: { motivo: "Información falsa" },     update: {}, create: { motivo: "Información falsa" } }),
+        prisma.motivoReporte.upsert({ where: { motivo: "Fraude o estafa" }, update: {}, create: { motivo: "Fraude o estafa" } }),
+        prisma.motivoReporte.upsert({ where: { motivo: "Spam" }, update: {}, create: { motivo: "Spam" } }),
+        prisma.motivoReporte.upsert({ where: { motivo: "Acoso" }, update: {}, create: { motivo: "Acoso" } }),
+        prisma.motivoReporte.upsert({ where: { motivo: "Información falsa" }, update: {}, create: { motivo: "Información falsa" } }),
     ]);
     console.log("  ✅ Motivos de reporte");
 

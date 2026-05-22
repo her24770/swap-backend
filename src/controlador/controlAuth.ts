@@ -6,6 +6,7 @@ import { registrarIntentoFallido, estaBloqueado, limpiarIntentos } from "../aute
 import {
     buscarUsuarioPorEmail,
     buscarUsuarioPorCarnet,
+    buscarUsuarioPorId,
     guardarUsuario,
 } from "../repository/repositorioUsuario.js";
 import { errorResponse, exitoResponse } from "../servicios/Response.js";
@@ -126,6 +127,28 @@ export async function iniciarSesion(req: Request, res: Response, next: NextFunct
 
         errorResponse(res, "Credenciales invalidas", 401);
         return;
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function obtenerSesionActual(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const idUsuario = Number(req.usuario?.sub);
+
+        if (!idUsuario) {
+            errorResponse(res, "Usuario no autenticado", 401);
+            return;
+        }
+
+        const usuario = await buscarUsuarioPorId(idUsuario);
+        if (!usuario) {
+            errorResponse(res, "Usuario no encontrado", 404);
+            return;
+        }
+
+        const { password: _, ...usuarioPublico } = usuario;
+        exitoResponse(res, { rol: req.usuario?.rol ?? "usuario", usuario: usuarioPublico }, "Sesión obtenida exitosamente", 200);
     } catch (error) {
         next(error);
     }
