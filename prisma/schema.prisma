@@ -155,9 +155,10 @@ model Certificacion {
 model Anuncio {
   id_anuncio  Int    @id @default(autoincrement())
   titulo      String @db.VarChar(100)
-  imagen_url  String @db.VarChar(255)
+  imagen_url  String @db.VarChar(255) @default("")
   descripcion String @db.VarChar(255)
   id_usuario  Int
+  fecha_anuncio DateTime @default(now())
 
   usuario Usuario @relation(fields: [id_usuario], references: [id_usuario])
 }

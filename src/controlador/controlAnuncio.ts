@@ -5,8 +5,6 @@ import { errorResponse, exitoResponse, errorValidacionResponse } from "../servic
 import { buscarUsuarioPorId } from "../repository/repositorioUsuario.js";
 import { subirImagenR2, eliminarImagenR2 } from "../servicios/servicioR2.js";
 
-
-
 export async function obtenerAnunciosUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
         const id_usuario = Number(req.params.id_usuario);
@@ -22,19 +20,16 @@ export async function obtenerAnunciosUsuario(req: Request, res: Response, next: 
             return;
         }
 
-
-
         const anuncios = await buscarAnunciosPorUsuario(id_usuario);
 
         exitoResponse(res, anuncios, "Anuncios obtenidos exitosamente", 200);
-        return 
+        return; 
     } catch (error) {
         next(error);
     }
 }
 
 export async function obtenerTodosLosAnuncios(req: Request, res: Response, next: NextFunction): Promise<void> {
-
     try {
         const limit = Math.min(Number(req.query.limit) || 10, 100); 
         const order = req.query.order === 'asc' ? 'asc' : 'desc';
@@ -44,18 +39,10 @@ export async function obtenerTodosLosAnuncios(req: Request, res: Response, next:
             return;
         }
         
-        if (order !== 'asc' && order !== 'desc') {
-            errorResponse(res, "El parámetro 'order' debe ser 'asc' o 'desc'", 400);
-            return;
-        }
-        
         const anuncios = await buscarAnuncios({ limit, order });
 
-        
-
         exitoResponse(res, anuncios, "Anuncios obtenidos exitosamente", 200);
-        return
-
+        return;
     } catch (error) {
         next(error);
     }
@@ -75,7 +62,6 @@ export async function crearAnuncioUsuario(req: Request, res: Response, next: Nex
             return;
         }
 
-
         // Que el usuario esté autenticado
         const idUsuario = Number(req.usuario?.sub);
         if (!idUsuario) {
@@ -91,36 +77,33 @@ export async function crearAnuncioUsuario(req: Request, res: Response, next: Nex
         }
 
         // Subir imagen a R2 si se proporciona
-        let urlImagen: string | null = null;
+        let urlImagen = ""; 
         if (req.file) {
             try {
-                urlImagen = await subirImagenR2(
+                const resultadoR2 = await subirImagenR2(
                     req.file.buffer,
                     req.file.mimetype,
                     'anuncios',
                     `anuncio_${idUsuario}_${Date.now()}`
                 );
+                urlImagen = resultadoR2 || "";
             } catch (error) {
                 errorResponse(res, "Error subiendo imagen a R2", 500);
                 return;
             }
         }
 
-
-        // Crear el anuncio en la base de datos
         const nuevoAnuncio = await crearAnuncio({
-            titulo: validacion.data.titulo,
-            descripcion: validacion.data.descripcion,
-            id_usuario: idUsuario,
-            url_imagen: urlImagen || null,
-        });
+                titulo: validacion.data.titulo,
+                descripcion: validacion.data.descripcion,
+                imagen_url: urlImagen, 
+                usuario: {
+                    connect: { id_usuario: idUsuario } 
+                }
+            });
 
         exitoResponse(res, nuevoAnuncio, "Anuncio creado exitosamente", 201);
         return;
-
-
-
-
     } catch (error) {
         next(error);
     }
@@ -141,31 +124,30 @@ export async function eliminarAnuncioUsuario(req: Request, res: Response, next: 
             return;
         }
 
-        const anuncio = await eliminarAnuncio(idAnuncio);
+        const anuncio = await buscarAnuncioPorId(idAnuncio);
 
         if (!anuncio) {
             errorResponse(res, "Anuncio no encontrado", 404);
             return;
         }
 
-        // Eliminar imagen de R2 si existe
-        if (anuncio.url_imagen) {
+        // Eliminar imagen de R2 si existe y no está vacía
+        if (anuncio.imagen_url && anuncio.imagen_url !== "") {
             try {
-                await eliminarImagenR2(anuncio.url_imagen);
+                await eliminarImagenR2(anuncio.imagen_url);
             } catch (error) {
                 console.error("Error eliminando imagen de R2:", error);
             }
         }
 
+        await eliminarAnuncio(idAnuncio);
+
         exitoResponse(res, anuncio, "Anuncio eliminado exitosamente", 200);
         return;
-
     } catch (error) {
         next(error);
     }   
-
 }
-
 
 export async function editarAnuncioUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {    
     try {
@@ -191,45 +173,42 @@ export async function editarAnuncioUsuario(req: Request, res: Response, next: Ne
             return;
         }
 
-        let urlImagen: string | null = null;
+        // Si no se sube una nueva imagen, mantenemos la que ya tiene el anuncio existente
+        let urlImagen = anuncioExistente.imagen_url; 
+        
         if (req.file) {
             try {
-                urlImagen = await subirImagenR2(
+                const resultadoR2 = await subirImagenR2(
                     req.file.buffer,
                     req.file.mimetype,
                     'anuncios',
                     `anuncio_${idAnuncio}_${Date.now()}`
                 );
+                urlImagen = resultadoR2 || "";
             } catch (error) {
                 errorResponse(res, "Error subiendo imagen a R2", 500);
                 return;
             }
 
-            // Eliminar imagen anterior de R2 si existe
-            if (anuncioExistente.url_imagen) {
+            // Eliminar imagen anterior de R2 si existía una válida
+            if (anuncioExistente.imagen_url && anuncioExistente.imagen_url !== "") {
                 try {
-                    await eliminarImagenR2(anuncioExistente.url_imagen);
+                    await eliminarImagenR2(anuncioExistente.imagen_url);
                 } catch (error) {
                     console.error("Error eliminando imagen anterior de R2:", error);
                 }
             }
         }
 
-        // Actualizar el anuncio en la base de datos
-
         const anuncioActualizado = await actualizarAnuncio(idAnuncio, {
             titulo: validacion.data.titulo,
             descripcion: validacion.data.descripcion,
-            url_imagen: urlImagen,
+            imagen_url: urlImagen,
         });
-
-
 
         exitoResponse(res, anuncioActualizado, "Anuncio actualizado exitosamente", 200);
         return;
-
     } catch (error) {
         next(error);    
     }
 }
-

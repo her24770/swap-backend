@@ -31,7 +31,7 @@ export async function eliminarAnuncio(id: number): Promise<Anuncio> {
 
 export async function buscarTodosLosAnuncios(): Promise<Anuncio[]> {
     return prisma.anuncio.findMany({
-        orderBy: { fecha_publicacion: 'desc' },
+        orderBy: { fecha_anuncio: 'desc' },
     });
 }   
 
@@ -43,13 +43,13 @@ export async function buscarAnuncios(options: BuscarAnuncios): Promise<Anuncio[]
     const orderBy: any = {};
     switch (order) {
         case 'asc':
-            orderBy.fecha_publicacion = 'asc';
+            orderBy.fecha_anuncio = 'asc';
             break;
         case 'desc':
-            orderBy.fecha_publicacion = 'desc';
+            orderBy.fecha_anuncio = 'desc';
             break;
         default:
-            orderBy.fecha_publicacion = order;
+            orderBy.fecha_anuncio = order;
             break;
     }
 

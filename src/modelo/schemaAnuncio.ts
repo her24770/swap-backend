@@ -2,6 +2,10 @@ import { z } from "zod";
 
 
 export const schemaCrearAnuncio = z.object({
+
+    id_usuario: z
+        .number({ required_error: "El ID del usuario es obligatorio." })
+        .positive("El ID del usuario debe ser un número positivo."),
     titulo: z
         .string({ required_error: "El título es obligatorio." })
         .min(5, "El título debe tener al menos 5 caracteres.")
