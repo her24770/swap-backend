@@ -200,7 +200,6 @@ async function main() {
 main()
     .catch((e) => {
         console.error("❌ Error en seed de estructura:", e);
-        process.exit(1);
     })
     .finally(async () => {
         await prisma.$disconnect();
