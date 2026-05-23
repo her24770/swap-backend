@@ -91,5 +91,14 @@ export const schemaEditarPublicacion = z.object({
     { message: "Debe enviar al menos un campo para actualizar." }
 );
 
+export const schemaGuardarPublicacion = z.object({
+    publicacionId: z
+        .number({ required_error: "El ID de la publicación es obligatorio.", invalid_type_error: "El ID debe ser un número." })
+        .int()
+        .positive("El ID debe ser un número positivo.")
+});
+
+
 export type CrearPublicacionInput = z.infer<typeof schemaCrearPublicacion>;
 export type EditarPublicacionInput = z.infer<typeof schemaEditarPublicacion>;
+export type GuardarPublicacionInput = z.infer<typeof schemaGuardarPublicacion>;

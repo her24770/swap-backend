@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /**
- * Schema para PUT /api/usuarios/perfil
+ * Schema para PUT /api/user/:id
  * Todos los campos son opcionales — solo se actualiza lo que se envía.
  */
 export const schemaActualizarPerfil = z.object({
@@ -29,7 +29,7 @@ export const schemaActualizarPerfil = z.object({
 );
 
 /**
- * Schema para POST /api/usuarios/perfil/contacto
+ * Schema para PUT /api/user/:id/contactos
  */
 const contactoSchema = z.object({
     tipo_contacto: z
