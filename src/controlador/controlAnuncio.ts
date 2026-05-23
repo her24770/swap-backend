@@ -61,7 +61,7 @@ export async function obtenerTodosLosAnuncios(req: Request, res: Response, next:
     }
 }
 
-export async function crearNuevoAnuncio(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function crearAnuncioUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
         const bodyData = {
             titulo: req.body.titulo,
