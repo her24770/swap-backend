@@ -9,6 +9,12 @@ export async function buscarAnunciosPorUsuario(id_usuario: number): Promise<Anun
     });
 }
 
+export async function buscarAnuncioPorId(id_anuncio: number): Promise<Anuncio | null> {
+    return prisma.anuncio.findUnique({
+        where: { id_anuncio },
+    });
+}   
+
 export async function crearAnuncio(data: Prisma.AnuncioCreateInput): Promise<Anuncio> {
     return prisma.anuncio.create({ data });
 
@@ -31,7 +37,9 @@ export async function buscarTodosLosAnuncios(): Promise<Anuncio[]> {
 
 
 export async function buscarAnuncios(options: BuscarAnuncios): Promise<Anuncio[]> {
-    const { limite = 10, order = 'desc', tipo } = options;  
+    // valores default
+    const { limit = 10, order = 'desc' } = options;  
+
     const orderBy: any = {};
     switch (order) {
         case 'asc':
@@ -45,20 +53,8 @@ export async function buscarAnuncios(options: BuscarAnuncios): Promise<Anuncio[]
             break;
     }
 
-    const where: any = {};
-    if (tipo) {
-        const tipoPerfil = await prisma.tipoPerfil.findUnique({
-            where: { tipo_perfil: tipo }
-        })
-        if (tipoPerfil) {
-            where.tipo_publicacion = tipoPerfil.id_tipo_perfil;
-        }
-    }
-
     return await prisma.anuncio.findMany({
-        where,
-        include: { imagenes: true, etiquetas: { include: { etiqueta: true } } },
         orderBy,
-        take: limite
+        take: limit
     });
 }   

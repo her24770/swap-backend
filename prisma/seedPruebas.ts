@@ -304,6 +304,27 @@ async function main() {
         ],
     });
 
+
+
+    // ─────────────────────────────────────────────
+    //  Anuncios de usaurios
+    // ─────────────────────────────────────────────
+
+    await prisma.anuncio.createMany({
+        skipDuplicates: true,
+        data: [
+            { id_usuario: vendedor.id_usuario, titulo: "¡Oferta de bienvenida!", descripcion: "10% de descuento en tu primera compra o tutoría. ¡Aprovecha esta oferta especial para nuevos usuarios!" },
+            { id_usuario: vendedor1.id_usuario, titulo: "¡Material destacado del mes!", descripcion: "Este mes destacamos nuestro 'Manual de Python para Data Science' con un 15% de descuento. ¡No te lo pierdas!" },
+            { id_usuario: vendedor.id_usuario, titulo: "¡Tutorías personalizadas!", descripcion: "¿Necesitas ayuda con un tema específico? Ofrecemos tutorías personalizadas para adaptarnos a tus necesidades. ¡Contáctanos!" },
+            { id_usuario: vendedor.id_usuario, titulo: "¡Servicio de impresión exprés!", descripcion: "¿Necesitas imprimir algo urgente? Ofrecemos servicio de impresión exprés en campus. ¡Entrega en el mismo día!" },
+            { id_usuario: vendedor1.id_usuario, titulo: "¡Asesoría en Excel avanzado!", descripcion: "¿Quieres dominar Excel? Ofrecemos asesoría en Excel avanzado para ayudarte a mejorar tus habilidades. ¡Contáctanos!" },
+            { id_usuario: vendedor1.id_usuario, titulo: "¡Descuentos por temporada!", descripcion: "Aprovecha nuestros descuentos por temporada en materiales seleccionados. ¡Consulta nuestras ofertas actuales!" },
+            { id_usuario: vendedor.id_usuario, titulo: "¡Nuevos materiales disponibles!", descripcion: "Hemos agregado nuevos materiales a nuestro catálogo. ¡Echa un vistazo y encuentra lo que necesitas!" },
+            { id_usuario: vendedor1.id_usuario, titulo: "¡Servicios de diseño gráfico!", descripcion: "¿Necesitas un logo o una presentación impactante? Ofrecemos servicios de diseño gráfico para ayudarte a destacar. ¡Contáctanos!" },
+        ],
+    }); 
+
+
     console.log("  ✅ Etiquetas de usuario vinculadas");
 
     console.log("\n✅ Seed de prueba completado.");

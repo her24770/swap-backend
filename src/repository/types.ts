@@ -1,4 +1,3 @@
-import { Anuncio } from '@prisma/client';
 /*
     Interfaz para búsqueda
 */
@@ -17,7 +16,6 @@ export interface PaginationOption {
 */
 
 export interface BuscarAnuncios{
-    limite?: number
+    limit?: number
     order?: "asc" | "desc"
-    tipo? : string
 }
