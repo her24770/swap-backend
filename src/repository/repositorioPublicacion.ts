@@ -289,6 +289,27 @@ export async function actualizarDestacado(
   
 // -------------------------
 
+export async function buscarPorSimilitudVectorial(
+    vector: number[],
+    limite: number = 20,
+    umbral: number = 0.5
+): Promise<number[]> {
+    const vectorStr = `[${vector.join(',')}]`;
+
+    const resultados = await prisma.$queryRaw<{ id_publicacion: number }[]>`
+        SELECT p.id_publicacion
+        FROM "Publicacion" p
+        INNER JOIN "Estado" e ON e.id_estado = p.estado
+        WHERE p.embedding IS NOT NULL
+        AND e.estado = 'activo'
+        AND 1 - (p.embedding <=> ${vectorStr}::vector) >= ${umbral}
+        ORDER BY p.embedding <=> ${vectorStr}::vector
+        LIMIT ${limite}
+    `;
+
+    return resultados.map(r => r.id_publicacion);
+}
+
 // Obtener los datos de varias publicaciones a la vez (Uso inicial: Publicaciones recomendadas)
 export async function buscarPublicacionesPorIdsDetallado(
     ids: number[]

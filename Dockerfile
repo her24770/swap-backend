@@ -49,4 +49,4 @@ USER appuser
 EXPOSE 3001
 
 # Run migrations then start the server
-CMD ["sh", "-c", "npx prisma db push && node dist/index.js"]
+CMD ["sh", "-c", "npx prisma db execute --file ./prisma/setup.sql && npx prisma db push --accept-data-loss && npx prisma db execute --file ./prisma/add_embedding.sql && node dist/index.js"]

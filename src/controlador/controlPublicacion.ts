@@ -7,6 +7,7 @@ import { subirImagenR2, eliminarImagenR2 } from "../servicios/servicioR2.js";
 import { schemaCrearPublicacion, } from "../modelo/schemaPublicacion.js";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
 import { errorResponse, exitoResponse, errorValidacionResponse } from "../servicios/Response.js";
+import { generarYGuardarEmbedding } from "../servicios/servicioEmbedding.js";
 import {contarPublicacionesDestacadasPorTipoYUsuario,actualizarDestacado} from "../repository/repositorioPublicacion.js";
 
 export async function obtenerPublicacionesUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -219,6 +220,10 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
             id_publicacion: publicacion.id_publicacion,
             imagenes: urlsImagenes
         }, "Publicacion creada exitosamente", 201);
+
+        const textoEmbedding = `${validacion.data.titulo} ${validacion.data.descripcion}`;
+        generarYGuardarEmbedding(publicacion.id_publicacion, textoEmbedding).catch(() => {});
+
         return;
     } catch (error) {
         next(error);
@@ -322,6 +327,13 @@ export async function editarPublicacion(req: Request, res: Response, next: NextF
 
         const imagenesFinales = await buscarImagenesPorPublicacion(id_publicacion);
         exitoResponse(res, { imagenes: imagenesFinales, urlsNuevas }, "Publicacion actualizada exitosamente", 200);
+
+        if (body.titulo !== undefined || body.descripcion !== undefined) {
+            const tituloFinal = body.titulo ?? publicacion.titulo;
+            const descripcionFinal = body.descripcion ?? publicacion.descripcion;
+            generarYGuardarEmbedding(id_publicacion, `${tituloFinal} ${descripcionFinal}`).catch(() => {});
+        }
+
         return;
     } catch (error) {
         next(error);
