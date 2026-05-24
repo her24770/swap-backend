@@ -231,15 +231,11 @@ export async function agregarOActualizarImagen(req: Request, res: Response, next
             return;
         }
 
-        // Eliminar imágenes anteriores de R2 y BD
+        const MAX_IMAGENES = 5;
         const imagenesActuales = await buscarImagenesPorPublicacion(idPublicacion);
-        for (const img of imagenesActuales) {
-            try {
-                await eliminarImagenR2(img.url_imagen);
-            } catch {
-                // Si falla la eliminación en R2 se continúa de todas formas
-            }
-            await eliminarImagen(img.id_imagen);
+        if (imagenesActuales.length >= MAX_IMAGENES) {
+            errorResponse(res, `La publicacion ya tiene el maximo de ${MAX_IMAGENES} imagenes`, 400);
+            return;
         }
 
         // Subir nueva imagen a R2
@@ -249,7 +245,7 @@ export async function agregarOActualizarImagen(req: Request, res: Response, next
                 req.file.buffer,
                 req.file.mimetype,
                 'publicaciones',
-                `post_${idPublicacion}`
+                `post_${idPublicacion}_${Date.now()}`
             );
         } catch (error) {
             errorResponse(res, "Error subiendo imagen a R2", 500);
@@ -268,7 +264,7 @@ export async function agregarOActualizarImagen(req: Request, res: Response, next
         exitoResponse(res, {
             id_imagen: imagen.id_imagen,
             url_imagen: urlImagen
-        }, "Imagen actualizada en la publicación", 200);
+        }, "Imagen agregada a la publicacion", 201);
         return;
     } catch (error) {
         next(error);
