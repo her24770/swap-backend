@@ -155,6 +155,8 @@ async function main() {
         prisma.etiqueta.upsert({ where: { nombre: "Bioquímica" },                update: {}, create: { nombre: "Bioquímica",                descripcion: "Bioquímica UVG",                id_etiqueta_padre: eBiologia.id_etiqueta } }),
         prisma.etiqueta.upsert({ where: { nombre: "Fisiología Animal" },          update: {}, create: { nombre: "Fisiología Animal",          descripcion: "Fisiología Animal UVG",          id_etiqueta_padre: eBiologia.id_etiqueta } }),
         prisma.etiqueta.upsert({ where: { nombre: "Botánica" },                   update: {}, create: { nombre: "Botánica",                   descripcion: "Botánica UVG",                   id_etiqueta_padre: eBiologia.id_etiqueta } }),
+            prisma.etiqueta.upsert({ where: { nombre: "Ciencias de la Vida" },          update: {}, create: { nombre: "Ciencias de la Vida",          descripcion: "Ciencias de la Vida UVG",          id_etiqueta_padre: eBiologia.id_etiqueta } }),
+    prisma.etiqueta.upsert({ where: { nombre: "Biología Celular" },             update: {}, create: { nombre: "Biología Celular",             descripcion: "Biología Celular UVG",             id_etiqueta_padre: eBiologia.id_etiqueta } }),
     ]);
 
     const cursosComputacion = await Promise.all([
@@ -167,6 +169,7 @@ async function main() {
         prisma.etiqueta.upsert({ where: { nombre: "Arquitectura de Computadoras" },      update: {}, create: { nombre: "Arquitectura de Computadoras",      descripcion: "Arq. UVG", id_etiqueta_padre: eComputacion.id_etiqueta } }),
         prisma.etiqueta.upsert({ where: { nombre: "Inteligencia Artificial 1" },         update: {}, create: { nombre: "Inteligencia Artificial 1",         descripcion: "IA1 UVG",  id_etiqueta_padre: eComputacion.id_etiqueta } }),
         prisma.etiqueta.upsert({ where: { nombre: "Programación Orientada a Objetos" },  update: {}, create: { nombre: "Programación Orientada a Objetos",  descripcion: "POO UVG",  id_etiqueta_padre: eComputacion.id_etiqueta } }),
+        prisma.etiqueta.upsert({ where: { nombre: "Estructuras de Datos Avanzadas" }, update: {}, create: { nombre: "Estructuras de Datos Avanzadas", descripcion: "EDA UVG",  id_etiqueta_padre: eComputacion.id_etiqueta } }),
     ]);
 
     const cursosElectronica = await Promise.all([
