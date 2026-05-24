@@ -1,6 +1,7 @@
 import { Prisma, Publicacion, ImagenPublicacion, Etiqueta } from "@prisma/client";
 import prisma from "../persistencia/prismaClient";
-import { PaginationOption } from "./types";
+import { FiltrosPublicacionInput, PaginationOptionInput } from "../modelo/schemaPublicacion";
+
 // ─────────────────────────────────────────────
 // Publicacion
 // ─────────────────────────────────────────────
@@ -87,30 +88,30 @@ export async function buscarPublicacionesPorUsuario(idUsuario: number): Promise<
     });
 }
 
-export async function buscarPublicacionesPaginadas(options: PaginationOption, idUsuario?: number): Promise<Publicacion[]> {
+export async function buscarPublicacionesPaginadas(options: PaginationOptionInput, idUsuario?: number): Promise<Publicacion[]> {
     //Valores por defecto
     const { page = 1, limit = 10, sort = 'fecha', order = 'desc', tipo, estado } = options;
 
     //Cálculo de paginación
     const skip = (page - 1) * limit;
 
-    const orderBy: any = {}
+    const orderBy: any[] = [];
 
     // Destacadas primero siempre
     orderBy.push({ is_pinned: 'desc' });
 
     switch (sort) {
         case 'fecha':
-            orderBy.fecha_publicacion = order;
+            orderBy.push({ fecha_publicacion: order });
             break;
         case 'me_gusta':
-            orderBy.me_gusta = order;
+            orderBy.push({ me_gusta: order });
             break;
         case 'precio':
-            orderBy.precio = order;
+            orderBy.push({ precio: order });
             break;
         default:
-            orderBy.fecha_publicacion = order;
+            orderBy.push({ fecha_publicacion: order });
             break;
     }
 
@@ -284,6 +285,7 @@ export async function actualizarDestacado(
         where: { id_publicacion: idPublicacion },
         data: { is_pinned: isPinned }
     });
+}
   
 // -------------------------
 
@@ -363,4 +365,100 @@ export async function buscarPublicacionesPorIdsDetallado(
     });
 
     return publicaciones;
+}
+
+// ─────────────────────────────────────────────
+// Filtros de Publicaciones
+// ─────────────────────────────────────────────
+
+
+export async function buscarPublicacionesPorFiltros(
+    options: FiltrosPublicacionInput
+): Promise<Publicacion[]> {
+        const where: any = {}; 
+    // 1. Filtro por precio
+    if (options.precio_min !== undefined || options.precio_max !== undefined) {
+        where.precio = {};
+        if (options.precio_min !== undefined) where.precio.gte = options.precio_min;
+        if (options.precio_max !== undefined) where.precio.lte = options.precio_max;
+    }
+    // 2. Filtro por calificación del usuario (vendedor)
+    if (options.calificacion_min !== undefined || options.calificacion_max !== undefined) {
+        where.usuario = {};
+        if (options.calificacion_min !== undefined) where.usuario.calificacion = { gte: options.calificacion_min };
+        if (options.calificacion_max !== undefined) {
+            where.usuario.calificacion = { 
+                ...where.usuario.calificacion, 
+                lte: options.calificacion_max 
+            };
+        }
+    }
+    // 3. Filtro por etiquetas
+    if (options.etiquetas && options.etiquetas.length > 0) {
+        where.etiquetas = {
+            some: {
+                id_etiqueta: { in: options.etiquetas }
+            }
+        };
+    }
+    // 4. Filtro por tipo de publicación
+    if (options.tipo) {
+        const tipoPerfil = await prisma.tipoPerfil.findUnique({
+            where: { tipo_perfil: options.tipo }
+        });
+        if (tipoPerfil) {
+            where.tipo_publicacion = tipoPerfil.id_tipo_perfil;
+        } else {
+            return []; // Tipo no existe, devolver vacío
+        }
+    }
+    // 5. Filtro por estado
+    if (options.estado) {
+        const estadoObtenido = await prisma.estado.findUnique({
+            where: { estado: options.estado }
+        });
+        if (estadoObtenido) {
+            where.estado = estadoObtenido.id_estado;
+        }
+    }
+    // 6. Ordenamiento
+    const orderBy: any = {};
+    switch (options.sort) {
+        case 'fecha':
+            orderBy.fecha_publicacion = options.order;
+            break;
+        case 'me_gusta':
+            orderBy.me_gusta = options.order;
+            break;
+        case 'precio':
+            orderBy.precio = options.order;
+            break;
+        case 'calificacion':
+            orderBy.usuario = {
+                calificacion: options.order
+            }
+            break;
+        default:
+            orderBy.fecha_publicacion = 'desc';
+    }
+    
+    // 7. Paginación
+    const skip = ((options.page || 1) - 1) * (options.limit || 10);
+    const take = options.limit || 10;
+    
+    return prisma.publicacion.findMany({
+        where,
+        include: {
+            imagenes: true,
+            etiquetas: {
+                include: { etiqueta: true }
+            },
+            usuario: {
+                select : { calificacion : true }
+            }
+        },
+        orderBy,
+        skip,
+        take
+    });
 }

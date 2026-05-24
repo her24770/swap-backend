@@ -8,14 +8,16 @@ import {
     obtenerPublicacionPorId,
     eliminarPublicacionConImagenes,
     destacarPublicacion,
-    destacarPublicacion
+    obtenerPublicacionesPorFiltros
 } from "../controlador/controlPublicacion.js";
 import { autenticar } from "../autenticacion/GestorPermisos.js";
 import { uploadImagen } from "../servicios/middlewareMulter.js";
-import { schemaDestacarPublicacion } from "../modelo/schemaPublicacion.js";
+import { schemaDestacarPublicacion, schemaFiltrosPublicacion } from "../modelo/schemaPublicacion.js";
+import { validar } from "../autenticacion/middelwareValidacion.js";
 
 const router = Router();
 
+router.get("/buscar", autenticar, validar(schemaFiltrosPublicacion), obtenerPublicacionesPorFiltros);
 router.get("/user/:id", autenticar, obtenerPublicacionesUsuario);
 router.get("/", autenticar, obtenerTodasLasPublicaciones);
 router.get("/:id", autenticar, obtenerPublicacionPorId);
