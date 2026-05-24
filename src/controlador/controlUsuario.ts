@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import {
     buscarUsuarioPorId,
+    buscarPerfilPublicoPorId,
     actualizarUsuario,
     guardarContacto,
     buscarContactosPorUsuario,
@@ -9,7 +10,7 @@ import {
 import { exitoResponse, errorResponse } from "../servicios/Response";
 
 /**
- * GET /api/usuarios/:id
+ * GET /api/user/:id
  * Retorna la información pública de un usuario por su ID.
  */
 export async function obtenerUsuario(
@@ -34,7 +35,37 @@ export async function obtenerUsuario(
 }
 
 /**
- * PUT /api/usuarios/perfil
+ * GET /api/user/:id/perfil-publico
+ * Retorna la información pública de un usuario sin exponer credenciales.
+ */
+export async function obtenerPerfilPublico(
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> {
+    try {
+        const id = Number(req.params.id);
+
+        if (isNaN(id)) {
+            errorResponse(res, "ID de usuario inválido", 400);
+            return;
+        }
+
+        const usuario = await buscarPerfilPublicoPorId(id);
+
+        if (!usuario) {
+            errorResponse(res, "Usuario no encontrado", 404);
+            return;
+        }
+
+        exitoResponse(res, usuario, "Perfil público obtenido exitosamente", 200);
+    } catch (error) {
+        next(error);
+    }
+}
+
+/**
+ * PATCH /api/user/:id
  * Actualiza los datos del perfil del usuario autenticado (vinculado por JWT).
  * Requiere middleware de autenticación que inyecte req.usuarioId.
  */
@@ -70,7 +101,7 @@ export async function actualizarPerfil(
 }
 
 /**
- * POST /api/usuarios/perfil/contacto
+ * PUT /api/user/:id/contactos
  * Agrega un contacto al perfil del usuario autenticado.
  */
 export async function agregarContacto(
@@ -125,7 +156,7 @@ export async function agregarContacto(
 }
 
 /**
- * GET /api/usuarios/:id/contactos
+ * GET /api/user/:id/contactos
  * Retorna los contactos de un usuario.
  */
 export async function obtenerContactos(

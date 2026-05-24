@@ -9,6 +9,32 @@ export async function buscarUsuarioPorId(id: number): Promise<Usuario | null> {
     return prisma.usuario.findUnique({ where: { id_usuario: id } });
 }
 
+export async function buscarPerfilPublicoPorId(id: number) {
+    return prisma.usuario.findUnique({
+        where: { id_usuario: id },
+        select: {
+            id_usuario: true,
+            nombre: true,
+            carnet: true,
+            email_institucional: true,
+            url_foto_perfil: true,
+            descripcion: true,
+            calificacion: true,
+            reportes_recibidos: true,
+            contactos: {
+                include: {
+                    tipoContacto: true,
+                },
+            },
+            etiquetas: {
+                include: {
+                    etiqueta: true,
+                },
+            },
+        },
+    });
+}
+
 export async function buscarUsuarioPorEmail(email: string): Promise<Usuario | null> {
     return prisma.usuario.findUnique({ where: { email_institucional: email } });
 }

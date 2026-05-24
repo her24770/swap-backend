@@ -12,12 +12,12 @@ export async function buscarTiempoPorId(id: number): Promise<TiempoDisponible | 
 export async function buscarTiemposPorUsuario(idUsuario: number): Promise<TiempoDisponible[]> {
     return prisma.tiempoDisponible.findMany({
         where: { id_usuario: idUsuario },
-        orderBy: { hora_inicio: "asc" },
+        orderBy: { hora_inicio: "asc" } as any,
     });
 }
 
 export async function buscarTodosLosTiempos(): Promise<TiempoDisponible[]> {
-    return prisma.tiempoDisponible.findMany({ orderBy: { hora_inicio: "asc" } });
+    return prisma.tiempoDisponible.findMany({ orderBy: { hora_inicio: "asc" } as any });
 }
 
 export async function guardarTiempo(
