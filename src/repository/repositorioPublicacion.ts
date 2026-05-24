@@ -229,20 +229,34 @@ export async function eliminarEtiqueta(id: number): Promise<Etiqueta> {
 export async function buscarPorSimilitudVectorial(
     vector: number[],
     limite: number = 20,
-    umbral: number = 0.5
+    umbral: number = 0.35,
+    tipo?: string
 ): Promise<number[]> {
     const vectorStr = `[${vector.join(',')}]`;
 
-    const resultados = await prisma.$queryRaw<{ id_publicacion: number }[]>`
-        SELECT p.id_publicacion
-        FROM "Publicacion" p
-        INNER JOIN "Estado" e ON e.id_estado = p.estado
-        WHERE p.embedding IS NOT NULL
-        AND e.estado = 'activo'
-        AND 1 - (p.embedding <=> ${vectorStr}::vector) >= ${umbral}
-        ORDER BY p.embedding <=> ${vectorStr}::vector
-        LIMIT ${limite}
-    `;
+    const resultados = tipo
+        ? await prisma.$queryRaw<{ id_publicacion: number }[]>`
+            SELECT p.id_publicacion
+            FROM "Publicacion" p
+            INNER JOIN "Estado" e ON e.id_estado = p.estado
+            INNER JOIN "Tipo_Perfil" tp ON tp.id_tipo_perfil = p.tipo_publicacion
+            WHERE p.embedding IS NOT NULL
+            AND e.estado = 'activo'
+            AND tp.tipo_perfil = ${tipo}
+            AND 1 - (p.embedding <=> ${vectorStr}::vector) >= ${umbral}
+            ORDER BY p.embedding <=> ${vectorStr}::vector
+            LIMIT ${limite}
+        `
+        : await prisma.$queryRaw<{ id_publicacion: number }[]>`
+            SELECT p.id_publicacion
+            FROM "Publicacion" p
+            INNER JOIN "Estado" e ON e.id_estado = p.estado
+            WHERE p.embedding IS NOT NULL
+            AND e.estado = 'activo'
+            AND 1 - (p.embedding <=> ${vectorStr}::vector) >= ${umbral}
+            ORDER BY p.embedding <=> ${vectorStr}::vector
+            LIMIT ${limite}
+        `;
 
     return resultados.map(r => r.id_publicacion);
 }
