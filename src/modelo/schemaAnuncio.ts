@@ -3,9 +3,6 @@ import { z } from "zod";
 
 export const schemaCrearAnuncio = z.object({
 
-    id_usuario: z
-        .number({ required_error: "El ID del usuario es obligatorio." })
-        .positive("El ID del usuario debe ser un número positivo."),
     titulo: z
         .string({ required_error: "El título es obligatorio." })
         .min(5, "El título debe tener al menos 5 caracteres.")
@@ -15,9 +12,7 @@ export const schemaCrearAnuncio = z.object({
         .string({ required_error: "La descripción es obligatoria." })
         .min(10, "La descripción debe tener al menos 10 caracteres.")
         .max(1000, "La descripción no puede superar 1000 caracteres."),
-    imagen_url: z
-        .string({ required_error: "La URL de la imagen es obligatoria." })
-        .url("La URL de la imagen debe ser válida."),
+
 });
 
 
@@ -32,10 +27,6 @@ export const schemaEditarAnuncio = z.object({
         .string({ required_error: "La descripción es obligatoria." })
         .min(10, "La descripción debe tener al menos 10 caracteres.")
         .max(1000, "La descripción no puede superar 1000 caracteres.")
-        .optional(),
-    imagen_url: z
-        .string({ required_error: "La URL de la imagen es obligatoria." })
-        .url("La URL de la imagen debe ser válida.")
         .optional(),
 });
 
