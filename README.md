@@ -89,10 +89,14 @@ El seed crea:
 Con los contenedores corriendo, ejecuta desde tu máquina:
 
 ```bash
-docker compose exec api npx ts-node --transpile-only prisma/seed.ts
+docker compose exec api npm run prisma:seed
 
-docker compose exec api npx ts-node --transpile-only prisma/seedPruebas.ts
+docker compose exec api npx tsx prisma/seedPruebas.ts
+
+docker compose exec api npx tsx prisma/backfillEmbeddings.ts
 ```
+
+> El backfill genera los vectores de búsqueda para todas las publicaciones. Debe correrse después de cada seed de pruebas.
 
 ### Credenciales de prueba
 
@@ -132,7 +136,12 @@ docker compose exec api npx prisma generate
 1. Clonar el repo y copiar `.env.example` → `.env`
 2. `docker compose up -d --build`
 3. Verificar `curl http://localhost:3001/health`
-4. Correr el seed si necesitas datos: `docker compose exec backend npx ts-node --transpile-only prisma/seed.ts`
+4. Correr los seeds si necesitas datos:
+   ```bash
+   docker compose exec api npm run prisma:seed
+   docker compose exec api npx tsx prisma/seedPruebas.ts
+   docker compose exec api npx tsx prisma/backfillEmbeddings.ts
+   ```
 5. (Opcional) Abrir Prisma Studio para explorar la BD: `docker compose exec backend npx prisma studio`
 
 ---

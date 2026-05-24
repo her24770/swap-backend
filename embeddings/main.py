@@ -1,11 +1,11 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 from typing import List
 
 app = FastAPI()
 
-modelo = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+modelo = TextEmbedding('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
 
 class TextoInput(BaseModel):
     texto: str
@@ -19,5 +19,5 @@ def health():
 
 @app.post("/embed", response_model=VectorOutput)
 def generar_embedding(input: TextoInput):
-    vector = modelo.encode(input.texto).tolist()
-    return {"vector": vector}
+    vectors = list(modelo.embed([input.texto]))
+    return {"vector": vectors[0].tolist()}
