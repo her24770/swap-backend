@@ -10,6 +10,7 @@ export async function buscarPublicacionesSemanticamente(
 ): Promise<void> {
     try {
         const query = req.query.q as string;
+        const tipo = req.query.tipo as string | undefined;
 
         if (!query || query.trim().length === 0) {
             errorResponse(res, "El parámetro q es requerido", 400);
@@ -17,7 +18,7 @@ export async function buscarPublicacionesSemanticamente(
         }
 
         const vector = await generarEmbedding(query.trim());
-        const ids = await buscarPorSimilitudVectorial(vector);
+        const ids = await buscarPorSimilitudVectorial(vector, 20, 0.50, tipo);
 
         if (ids.length === 0) {
             errorResponse(res, "No se encontraron publicaciones", 404);
