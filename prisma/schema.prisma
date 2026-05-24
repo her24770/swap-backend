@@ -28,7 +28,6 @@ model Usuario {
   calificacion        Decimal? @db.Decimal(5, 2)
   reportes_recibidos  Int      @default(0)
   tiempo_suspendido   Int      @default(0)
-
   contactos           Contacto[]
   tiemposDisponibles  TiempoDisponible[]
   certificaciones     Certificacion[]
@@ -45,6 +44,20 @@ model Usuario {
   notificaciones      Notificacion[]
   etiquetas           UsuarioEtiqueta[]
   usuarioPublicacions UsuarioPublicacion[]
+  calificacionesDadas    CalificacionUsuario[] @relation("UsuarioCalificador")
+  calificacionesRecibidas CalificacionUsuario[] @relation("UsuarioCalificado")
+}
+
+model CalificacionUsuario {
+  id_calificacion_usuario Int      @id @default(autoincrement())
+  id_usuario_calificado   Int
+  id_usuario_calificador  Int
+  calificacion           Int
+  fecha_calificacion      DateTime @default(now())
+
+  UsuarioCalificado   Usuario @relation("UsuarioCalificado", fields: [id_usuario_calificado], references: [id_usuario])
+  UsuarioCalificador  Usuario @relation("UsuarioCalificador", fields: [id_usuario_calificador], references: [id_usuario])
+
 }
 
 model Moderador {
