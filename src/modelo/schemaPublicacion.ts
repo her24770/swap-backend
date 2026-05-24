@@ -98,7 +98,15 @@ export const schemaGuardarPublicacion = z.object({
         .positive("El ID debe ser un número positivo.")
 });
 
+export const schemaDestacarPublicacion = z.object({
+    destacar: z.boolean({
+        required_error: "El campo destacar es obligatorio.",
+        invalid_type_error: "El campo destacar debe ser un booleano."
+    })
+});
+
 
 export type CrearPublicacionInput = z.infer<typeof schemaCrearPublicacion>;
 export type EditarPublicacionInput = z.infer<typeof schemaEditarPublicacion>;
 export type GuardarPublicacionInput = z.infer<typeof schemaGuardarPublicacion>;
+export type DestacarPublicacionInput = z.infer<typeof schemaDestacarPublicacion>;
