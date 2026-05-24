@@ -106,7 +106,47 @@ export const schemaDestacarPublicacion = z.object({
 });
 
 
+export const paginationOptions = z.object({
+    page: z.number().int().positive().optional().default(1),
+    limit: z.number().int().positive().optional().default(10),
+    sort: z.enum(["fecha", "me_gusta", "precio"]).optional().default("fecha"),
+    order: z.enum(["asc", "desc"]).optional().default("desc"),
+    tipo: z.string().optional(),
+    estado: z.string().optional(),
+});
+
+export const schemaFiltrosPublicacion = paginationOptions.extend({
+    sort: z.enum(["fecha", "calificacion", "precio", "me_gusta"]).optional().default("fecha"),
+    precio_min: z
+        .number({ invalid_type_error: "El precio mínimo debe ser un número." })
+        .min(0, "El precio mínimo no puede ser negativo.")
+        .default(0)
+        .optional(),
+    precio_max: z
+        .number({ invalid_type_error: "El precio máximo debe ser un número." })
+        .min(0, "El precio máximo no puede ser negativo.")
+        .default(999.99)
+        .optional(),
+    calificacion_min: z
+        .number({ invalid_type_error: "La calificación mínima debe ser un número." })
+        .min(0, "La calificación mínima no puede ser negativa.")
+        .max(5, "La calificación máxima no puede superar 5.")
+        .default(0)
+        .optional(),
+    calificacion_max: z
+        .number({ invalid_type_error: "La calificación máxima debe ser un número." })
+        .min(0, "La calificación máxima no puede ser negativa.")
+        .max(5, "La calificación máxima no puede superar 5.")
+        .default(5)
+        .optional(),
+    etiquetas: z
+        .array(z.number().int().positive("Cada etiqueta debe ser un ID válido."))
+        .optional(),
+});
+
 export type CrearPublicacionInput = z.infer<typeof schemaCrearPublicacion>;
 export type EditarPublicacionInput = z.infer<typeof schemaEditarPublicacion>;
 export type GuardarPublicacionInput = z.infer<typeof schemaGuardarPublicacion>;
 export type DestacarPublicacionInput = z.infer<typeof schemaDestacarPublicacion>;
+export type PaginationOptionInput = z.infer<typeof paginationOptions>;
+export type FiltrosPublicacionInput = z.infer<typeof schemaFiltrosPublicacion>;

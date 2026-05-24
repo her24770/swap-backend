@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
-import { buscarPublicacionesPorTipoYUsuario, buscarPublicacionesPaginadas, buscarPublicacionPorId, actualizarPublicacion, actualizarEstadoPublicacion, buscarPublicacionPorIdDetallado, buscarImagenesPorPublicacion, eliminarImagen } from "../repository/repositorioPublicacion.js";
+import { buscarPublicacionesPorTipoYUsuario, buscarPublicacionesPaginadas, buscarPublicacionPorId, actualizarPublicacion, actualizarEstadoPublicacion, buscarPublicacionPorIdDetallado, buscarImagenesPorPublicacion, eliminarImagen, buscarPublicacionesPorFiltros } from "../repository/repositorioPublicacion.js";
 import { obtenerTipoPerfilPorNombre } from "../repository/repositorioTipoPerfil.js";
 import { buscarUsuarioPorId } from "../repository/repositorioUsuario.js";
 import { subirImagenR2, eliminarImagenR2 } from "../servicios/servicioR2.js";
@@ -112,6 +112,26 @@ export async function obtenerPublicacionPorId(req: Request, res: Response, next:
         next(error);
     }
 }
+
+export async function obtenerPublicacionesPorFiltros(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const options = req.body;
+        const publicaciones = await buscarPublicacionesPorFiltros(options);
+        if (!publicaciones) {
+            errorResponse(res, "No se encontraron publicaciones que coincidan con los filtros", 404);
+            return;
+        }
+        exitoResponse(res, {
+            publicaciones,
+            total: publicaciones.length,
+            page: options.page,
+            limit: options.limit
+        }, "Publicaciones obtenidas exitosamente", 200);
+    } catch (error) {
+        next(error);
+    }
+}
+
 
 export async function crearPublicacionConImagen(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
