@@ -184,6 +184,8 @@ model Publicacion {
   estadoRel           Estado                @relation(fields: [estado], references: [id_estado])
   tipoPerfil          TipoPerfil            @relation(fields: [tipo_publicacion], references: [id_tipo_perfil])
   usuario             Usuario               @relation(fields: [id_usuario], references: [id_usuario])
+  embedding           Unsupported("vector(384)")?
+
   imagenes            ImagenPublicacion[]
   acuerdos            Acuerdo[]
   etiquetas           PublicacionEtiqueta[]
