@@ -1,8 +1,9 @@
-import express from "express";
+import express, { Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import multer from "multer";
 import routes from "./api_rest/routes";
 import { conectarRedis } from "./persistencia/redisClient";
 
@@ -29,6 +30,15 @@ io.on("connection", (socket) => {
 conectarRedis()
     .then(() => console.log("Redis conectado"))
     .catch((err) => console.error("Error conectando Redis:", err));
+
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+    if (err instanceof multer.MulterError) {
+        res.status(400).json({ ok: false, message: `Error de archivo: ${err.message}` });
+        return;
+    }
+    console.error(err);
+    res.status(500).json({ ok: false, message: "Error interno del servidor" });
+});
 
 httpServer.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
