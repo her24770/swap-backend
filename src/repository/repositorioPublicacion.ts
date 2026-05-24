@@ -284,4 +284,83 @@ export async function actualizarDestacado(
         where: { id_publicacion: idPublicacion },
         data: { is_pinned: isPinned }
     });
+  
+// -------------------------
+
+// Obtener los datos de varias publicaciones a la vez (Uso inicial: Publicaciones recomendadas)
+export async function buscarPublicacionesPorIdsDetallado(
+    ids: number[]
+): Promise<any[]> {
+
+    const publicaciones = await prisma.publicacion.findMany({
+
+        where: {
+            id_publicacion: {
+                in: ids
+            }
+        },
+
+        include: {
+
+            imagenes: {
+                select: {
+                    id_imagen: true,
+                    url_imagen: true
+                }
+            },
+
+            etiquetas: {
+                include: {
+                    etiqueta: {
+                        select: {
+                            id_etiqueta: true,
+                            nombre: true,
+                            descripcion: true,
+                            id_etiqueta_padre: true
+                        }
+                    }
+                }
+            },
+
+            estadoRel: {
+                select: {
+                    id_estado: true,
+                    estado: true
+                }
+            },
+
+            tipoPerfil: {
+                select: {
+                    id_tipo_perfil: true,
+                    tipo_perfil: true
+                }
+            },
+
+            usuario: {
+                select: {
+                    id_usuario: true,
+                    nombre: true,
+                    email_institucional: true,
+                    url_foto_perfil: true,
+                    calificacion: true
+                }
+            }
+        }
+    });
+
+    // Mantener orden original del ranking
+    const orden = new Map<number, number>();
+
+    ids.forEach((id, index) => {
+        orden.set(id, index);
+    });
+
+    publicaciones.sort((a, b) => {
+        return (
+            (orden.get(a.id_publicacion) ?? 0) -
+            (orden.get(b.id_publicacion) ?? 0)
+        );
+    });
+
+    return publicaciones;
 }

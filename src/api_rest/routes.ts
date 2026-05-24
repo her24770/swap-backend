@@ -6,9 +6,11 @@ import etiquetaRoutes from "./routesEtiqueta.js";
 import acuerdoRoutes from "./routesAcuerdo.js";
 import imagenRoutes from "./routesImagen.js";
 import estadoRoutes from "./routesEstado.js";
+import recomendacionRoutes from "./routesRecomendacion.js";
 import guardadosRoutes from "./routesGuardados.js";
 import likesRoutes from "./routesLikes.js";
 import horarioRoutes from "./routesHorario.js";
+import anuncioRoutes from "./routesAnuncio.js";
 
 const router = Router();
 
@@ -25,8 +27,10 @@ router.use("/etiqueta", etiquetaRoutes);
 router.use("/acuerdo", acuerdoRoutes);
 router.use("/imagen", imagenRoutes);
 router.use("/estado", estadoRoutes);
+router.use("/recomendacion", recomendacionRoutes);
 router.use("/guardados", guardadosRoutes);
 router.use("/likes", likesRoutes);
 router.use("/horarios", horarioRoutes);
+router.use("/anuncio", anuncioRoutes);
 
 export default router;

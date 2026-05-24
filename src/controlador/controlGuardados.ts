@@ -5,7 +5,6 @@ import {
     obtenerGuardadosPorUsuario
 } from "../repository/repositorioGuardados";
 import { buscarPublicacionPorId } from "../repository/repositorioPublicacion";
-import { exitoResponse, errorResponse } from "../servicios/Response";
 
 export async function guardar(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {

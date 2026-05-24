@@ -130,7 +130,7 @@ async function main() {
             carnet:              21002,
             email_institucional: "vendedor@uvg.edu.gt",
             password:            await bcrypt.hash("Vendedor123!", SALT_ROUNDS),
-            url_foto_perfil:     "https://i.pravatar.cc/150?u=vendedor",
+            url_foto_perfil:     "",
             descripcion:         "Usuario de prueba — vende materiales, ofrece tutorías y servicios.",
             calificacion:        4.8,
         },
@@ -152,7 +152,7 @@ async function main() {
             carnet:              21064,
             email_institucional: "vendedor123@uvg.edu.gt",
             password:            await bcrypt.hash("Vendedor123!", SALT_ROUNDS),
-            url_foto_perfil:     "https://i.pravatar.cc/150?u=vendedor1",
+            url_foto_perfil:     "",
             descripcion:         "Usuario de prueba — vende materiales, ofrece tutorías y servicios.",
             calificacion:        4.2,
         },
@@ -303,6 +303,27 @@ async function main() {
             { id_usuario: vendedor1.id_usuario, id_etiqueta: eEcologia.id_etiqueta },
         ],
     });
+
+
+
+    // ─────────────────────────────────────────────
+    //  Anuncios de usaurios
+    // ─────────────────────────────────────────────
+
+    await prisma.anuncio.createMany({
+        skipDuplicates: true,
+        data: [
+            { id_usuario: vendedor.id_usuario, titulo: "¡Oferta de bienvenida!", descripcion: "10% de descuento en tu primera compra o tutoría. ¡Aprovecha esta oferta especial para nuevos usuarios!", fecha_anuncio: new Date(), imagen_url: "https://i.pravatar.cc/300?u=anuncio1" },
+            { id_usuario: vendedor1.id_usuario, titulo: "¡Material destacado del mes!", descripcion: "Este mes destacamos nuestro 'Manual de Python para Data Science' con un 15% de descuento. ¡No te lo pierdas!", fecha_anuncio: new Date(), imagen_url: "https://i.pravatar.cc/300?u=anuncio2" },
+            { id_usuario: vendedor.id_usuario, titulo: "¡Tutorías personalizadas!", descripcion: "¿Necesitas ayuda con un tema específico? Ofrecemos tutorías personalizadas para adaptarnos a tus necesidades. ¡Contáctanos!", fecha_anuncio: new Date(), imagen_url: "https://i.pravatar.cc/300?u=anuncio3" },
+            { id_usuario: vendedor.id_usuario, titulo: "¡Servicio de impresión exprés!", descripcion: "¿Necesitas imprimir algo urgente? Ofrecemos servicio de impresión exprés en campus. ¡Entrega en el mismo día!", fecha_anuncio: new Date(), imagen_url: "https://i.pravatar.cc/300?u=anuncio4" },
+            { id_usuario: vendedor1.id_usuario, titulo: "¡Asesoría en Excel avanzado!", descripcion: "¿Quieres dominar Excel? Ofrecemos asesoría en Excel avanzado para ayudarte a mejorar tus habilidades. ¡Contáctanos!", fecha_anuncio: new Date(), imagen_url: "https://i.pravatar.cc/300?u=anuncio5" },
+            { id_usuario: vendedor1.id_usuario, titulo: "¡Descuentos por temporada!", descripcion: "Aprovecha nuestros descuentos por temporada en materiales seleccionados. ¡Consulta nuestras ofertas actuales!", fecha_anuncio: new Date(), imagen_url: "https://i.pravatar.cc/300?u=anuncio6" },
+            { id_usuario: vendedor.id_usuario, titulo: "¡Nuevos materiales disponibles!", descripcion: "Hemos agregado nuevos materiales a nuestro catálogo. ¡Echa un vistazo y encuentra lo que necesitas!", fecha_anuncio: new Date(), imagen_url: "https://i.pravatar.cc/300?u=anuncio7" },
+            { id_usuario: vendedor1.id_usuario, titulo: "¡Servicios de diseño gráfico!", descripcion: "¿Necesitas un logo o una presentación impactante? Ofrecemos servicios de diseño gráfico para ayudarte a destacar. ¡Contáctanos!", fecha_anuncio: new Date(), imagen_url: "https://i.pravatar.cc/300?u=anuncio8"   },
+        ],
+    }); 
+
 
     console.log("  ✅ Etiquetas de usuario vinculadas");
 

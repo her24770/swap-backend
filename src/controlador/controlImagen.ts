@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { subirImagenR2, eliminarImagenR2, imagenExisteR2, construirUrlR2 } from "../servicios/servicioR2.js";
+import { subirImagenR2, eliminarImagenR2 } from "../servicios/servicioR2.js";
 import { buscarUsuarioPorId } from "../repository/repositorioUsuario.js";
 import { errorResponse, exitoResponse } from "../servicios/Response.js";
 
@@ -57,33 +57,3 @@ export async function subirFotoPerfil(
     }
 }
 
-export async function subirFotoPublicacion(
-    req: Request,
-    res: Response,
-    next: NextFunction
-): Promise<void> {
-    try {
-        if (!req.file) {
-            errorResponse(res, "No se recibio ninguna imagen", 400);
-            return;
-        }
-
-        const idPublicacion = req.params.id;
-        const ext = req.file.mimetype.split("/")[1];
-        const carpeta = "publicaciones";
-
-        // Validar si existe imagen anterior
-        const existe = await imagenExisteR2(carpeta, `post_${idPublicacion}`, ext);
-
-        if (existe) {
-            const urlAnterior = construirUrlR2(carpeta, `post_${idPublicacion}`, ext);
-            await eliminarImagenR2(urlAnterior);
-        }
-
-        const url = await subirImagenR2(req.file.buffer, req.file.mimetype, carpeta, `post_${idPublicacion}`);
-
-        exitoResponse(res, url, existe ? "Imagen de publicacion actualizada" : "Imagen de publicacion agregada", 201);
-    } catch (error) {
-        next(error);
-    }
-}

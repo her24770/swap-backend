@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import crypto from "crypto";
 import { buscarPublicacionesPorTipoYUsuario, buscarPublicacionesPaginadas, buscarPublicacionPorId, actualizarPublicacion, actualizarEstadoPublicacion, buscarPublicacionPorIdDetallado, buscarImagenesPorPublicacion, eliminarImagen } from "../repository/repositorioPublicacion.js";
 import { obtenerTipoPerfilPorNombre } from "../repository/repositorioTipoPerfil.js";
 import { buscarUsuarioPorId } from "../repository/repositorioUsuario.js";
@@ -152,22 +153,6 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
             return;
         }
 
-        // Si hay imagen, subirla a R2
-        let urlImagen: string | null = null;
-        if (req.file) {
-            try {
-                urlImagen = await subirImagenR2(
-                    req.file.buffer,
-                    req.file.mimetype,
-                    'publicaciones',
-                    `post_temp_${Date.now()}`
-                );
-            } catch (error) {
-                errorResponse(res, "Error subiendo imagen a R2", 500);
-                return;
-            }
-        }
-
         // Resolver estado texto → id_estado
         const nombreEstado = validacion.data.estado ?? "disponible";
         const estadoObj = await obtenerEstadoPorNombre(nombreEstado);
@@ -187,91 +172,33 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
                 tipo_publicacion: tipoPerfil.id_tipo_perfil,
                 estado: idEstado,
                 id_usuario: idUsuario,
-                ...(urlImagen && {
-                    imagenes: {
-                        create: [{ url_imagen: urlImagen }]
-                    }
-                })
             }
         });
+
+        // Subir imágenes a R2 y guardarlas en BD
+        const archivos = ((req.files as Express.Multer.File[]) ?? []).filter(f => f.fieldname === 'imagenes');
+        const urlsImagenes: string[] = [];
+        for (const archivo of archivos) {
+            try {
+                const url = await subirImagenR2(
+                    archivo.buffer,
+                    archivo.mimetype,
+                    'publicaciones',
+                    `post_${publicacion.id_publicacion}_${crypto.randomUUID()}`
+                );
+                await prisma.imagenPublicacion.create({
+                    data: { url_imagen: url, id_publicacion: publicacion.id_publicacion }
+                });
+                urlsImagenes.push(url);
+            } catch {
+                // Si falla una imagen se continúa con las demás
+            }
+        }
 
         exitoResponse(res, {
             id_publicacion: publicacion.id_publicacion,
-            imagen_url: urlImagen
+            imagenes: urlsImagenes
         }, "Publicacion creada exitosamente", 201);
-        return;
-    } catch (error) {
-        next(error);
-    }
-}
-
-export async function agregarOActualizarImagen(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-        const idPublicacion = Number(req.params.id);
-
-        if (isNaN(idPublicacion)) {
-            errorResponse(res, "El ID de la publicacion no es valido", 400);
-            return;
-        }
-
-        // Validar que exista la publicación
-        const publicacion = await buscarPublicacionPorId(idPublicacion);
-
-        //Validar que el usuario sea el dueño de la publicación
-        if (publicacion?.id_usuario !== Number(req.usuario?.sub)) {
-            errorResponse(res, "No tienes permiso para editar esta publicacion", 403);
-            return;
-        }
-
-        if (!publicacion) {
-            errorResponse(res, "Publicacion no encontrada", 404);
-            return;
-        }
-
-        // Validar que haya archivo
-        if (!req.file) {
-            errorResponse(res, "No se proporciono archivo de imagen", 400);
-            return;
-        }
-
-        // Eliminar imágenes anteriores de R2 y BD
-        const imagenesActuales = await buscarImagenesPorPublicacion(idPublicacion);
-        for (const img of imagenesActuales) {
-            try {
-                await eliminarImagenR2(img.url_imagen);
-            } catch {
-                // Si falla la eliminación en R2 se continúa de todas formas
-            }
-            await eliminarImagen(img.id_imagen);
-        }
-
-        // Subir nueva imagen a R2
-        let urlImagen: string;
-        try {
-            urlImagen = await subirImagenR2(
-                req.file.buffer,
-                req.file.mimetype,
-                'publicaciones',
-                `post_${idPublicacion}`
-            );
-        } catch (error) {
-            errorResponse(res, "Error subiendo imagen a R2", 500);
-            return;
-        }
-
-        // Guardar nueva imagen en BD
-        const prisma = require("../persistencia/prismaClient.js").default;
-        const imagen = await prisma.imagenPublicacion.create({
-            data: {
-                url_imagen: urlImagen,
-                id_publicacion: idPublicacion
-            }
-        });
-
-        exitoResponse(res, {
-            id_imagen: imagen.id_imagen,
-            url_imagen: urlImagen
-        }, "Imagen actualizada en la publicación", 200);
         return;
     } catch (error) {
         next(error);
@@ -281,7 +208,6 @@ export async function agregarOActualizarImagen(req: Request, res: Response, next
 export async function editarPublicacion(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
         const id_publicacion = Number(req.params.id);
-        const data = req.body;
 
         if (isNaN(id_publicacion)) {
             errorResponse(res, "El ID de la publicacion no es valido", 400);
@@ -299,35 +225,37 @@ export async function editarPublicacion(req: Request, res: Response, next: NextF
             return;
         }
 
-        const updateData: Record<string, unknown> = { ...data };
+        const body = req.body;
+        const updateData: Record<string, unknown> = {};
 
-        // Resolver estado string → id_estado numérico
-        if (data.estado !== undefined) {
-            const estadoObj = await obtenerEstadoPorNombre(data.estado);
+        if (body.titulo !== undefined)      updateData.titulo      = body.titulo;
+        if (body.descripcion !== undefined) updateData.descripcion = body.descripcion;
+        if (body.precio !== undefined)      updateData.precio      = Number(body.precio);
+
+        if (body.estado !== undefined) {
+            const estadoObj = await obtenerEstadoPorNombre(body.estado);
             if (!estadoObj) {
-                errorResponse(res, `Estado inválido: "${data.estado}".`, 400);
+                errorResponse(res, `Estado inválido: "${body.estado}".`, 400);
                 return;
             }
             updateData.estado = estadoObj.id_estado;
         }
 
-        // Resolver tipo_publicacion string → id_tipo_perfil numérico
-        if (data.tipo_publicacion !== undefined) {
-            const tipoPerfil = await obtenerTipoPerfilPorNombre(data.tipo_publicacion);
+        if (body.tipo_publicacion !== undefined) {
+            const tipoPerfil = await obtenerTipoPerfilPorNombre(body.tipo_publicacion);
             if (!tipoPerfil) {
-                errorResponse(res, `Tipo de publicación inválido: "${data.tipo_publicacion}".`, 400);
+                errorResponse(res, `Tipo de publicación inválido: "${body.tipo_publicacion}".`, 400);
                 return;
             }
             updateData.tipo_publicacion = tipoPerfil.id_tipo_perfil;
         }
 
-        // Extraer etiquetas antes de actualizar (se manejan como relación aparte)
-        const etiquetasIds: number[] | undefined = data.etiquetas;
-        delete updateData.etiquetas;
+        if (Object.keys(updateData).length > 0) {
+            await actualizarPublicacion(id_publicacion, updateData);
+        }
 
-        const publicacionActualizada = await actualizarPublicacion(id_publicacion, updateData);
-
-        // Actualizar etiquetas si se enviaron
+        // Actualizar etiquetas
+        const etiquetasIds: number[] | undefined = body.etiquetas ? JSON.parse(body.etiquetas) : undefined;
         if (etiquetasIds !== undefined) {
             const prismaClient = require("../persistencia/prismaClient.js").default;
             await prismaClient.publicacionEtiqueta.deleteMany({ where: { id_publicacion } });
@@ -339,7 +267,41 @@ export async function editarPublicacion(req: Request, res: Response, next: NextF
             }
         }
 
-        exitoResponse(res, publicacionActualizada, "Publicacion actualizada exitosamente", 200);
+        // Eliminar imágenes indicadas
+        const urlsEliminar: string[] = body.imagenesEliminar ? JSON.parse(body.imagenesEliminar) : [];
+        const imagenesActuales = await buscarImagenesPorPublicacion(id_publicacion);
+
+        for (const url of urlsEliminar) {
+            const imagen = imagenesActuales.find((img) => img.url_imagen === url);
+            if (imagen) {
+                try { await eliminarImagenR2(url); } catch { /* continúa si falla R2 */ }
+                await eliminarImagen(imagen.id_imagen);
+            }
+        }
+
+        // Subir nuevas imágenes
+        const MAX_IMAGENES = 5;
+        const imagenesRestantes = imagenesActuales.filter((img) => !urlsEliminar.includes(img.url_imagen));
+        const archivos = ((req.files as Express.Multer.File[]) ?? []).filter(f => f.fieldname === 'imagenes');
+        const disponibles = MAX_IMAGENES - imagenesRestantes.length;
+
+        if (archivos.length > disponibles) {
+            errorResponse(res, `Solo puedes agregar ${disponibles} imagen(es) más. La publicación ya tiene ${imagenesRestantes.length} y el máximo es ${MAX_IMAGENES}.`, 400);
+            return;
+        }
+
+        const prisma = require("../persistencia/prismaClient.js").default;
+        const urlsNuevas: string[] = [];
+        for (const archivo of archivos) {
+            try {
+                const url = await subirImagenR2(archivo.buffer, archivo.mimetype, 'publicaciones', `post_${id_publicacion}_${crypto.randomUUID()}`);
+                await prisma.imagenPublicacion.create({ data: { url_imagen: url, id_publicacion } });
+                urlsNuevas.push(url);
+            } catch { /* continúa si falla una imagen */ }
+        }
+
+        const imagenesFinales = await buscarImagenesPorPublicacion(id_publicacion);
+        exitoResponse(res, { imagenes: imagenesFinales, urlsNuevas }, "Publicacion actualizada exitosamente", 200);
         return;
     } catch (error) {
         next(error);

@@ -90,6 +90,8 @@ Con los contenedores corriendo, ejecuta desde tu máquina:
 
 ```bash
 docker compose exec api npx ts-node --transpile-only prisma/seed.ts
+
+docker compose exec api npx ts-node --transpile-only prisma/seedPruebas.ts
 ```
 
 ### Credenciales de prueba

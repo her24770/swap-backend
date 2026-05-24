@@ -9,3 +9,13 @@ export interface PaginationOption {
     tipo?: string;
     estado?: string;
 }
+
+
+/*
+    Interfaz para anuncios
+*/
+
+export interface BuscarAnuncios{
+    limit?: number
+    order?: "asc" | "desc"
+}
