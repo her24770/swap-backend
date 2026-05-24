@@ -53,7 +53,7 @@ export async function crearAnuncioUsuario(req: Request, res: Response, next: Nex
         const bodyData = {
             titulo: req.body.titulo,
             descripcion: req.body.descripcion,
-        };
+        };        
 
         // Validar los datos de entrada con Zod
         const validacion = schemaCrearAnuncio.safeParse(bodyData);
@@ -73,6 +73,14 @@ export async function crearAnuncioUsuario(req: Request, res: Response, next: Nex
         const usuario = await buscarUsuarioPorId(idUsuario);
         if (!usuario) {
             errorResponse(res, "Usuario no encontrado", 404);
+            return;
+        }
+
+
+        // Que el usuario no tenga ya 5 anuncios activos
+        const anunciosUsuario = await buscarAnunciosPorUsuario(idUsuario);
+        if (anunciosUsuario.length >= 3) {
+            errorResponse(res, "El usuario ya tiene el máximo de 5 anuncios activos", 400);
             return;
         }
 
