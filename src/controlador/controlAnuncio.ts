@@ -80,14 +80,26 @@ export async function crearAnuncioUsuario(req: Request, res: Response, next: Nex
         // Que el usuario no tenga ya 5 anuncios activos
         const anunciosUsuario = await buscarAnunciosPorUsuario(idUsuario);
         if (anunciosUsuario.length >= 3) {
-            errorResponse(res, "El usuario ya tiene el máximo de 5 anuncios activos", 400);
+            errorResponse(res, "El usuario ya tiene el máximo de 3 anuncios activos", 400);
             return;
         }
 
         // Subir imagen a R2 si se proporciona
         let urlImagen = ""; 
         if (req.file) {
+
+            // que el archivo sea una imagen válida, con formato  (jpeg, png, webp) y que no supere los 5MB
+            if (!["image/jpeg", "image/png", "image/webp"].includes(req.file.mimetype)) {
+                errorResponse(res, "Tipo de archivo no permitido. Solo JPG, PNG o WEBP.", 400);
+                return;
+            }
+            if (req.file.size > 5 * 1024 * 1024) {
+                errorResponse(res, "El tamaño del archivo excede el límite de 5MB.", 400);
+                return;
+            }
+
             try {
+                    
                 const resultadoR2 = await subirImagenR2(
                     req.file.buffer,
                     req.file.mimetype,
