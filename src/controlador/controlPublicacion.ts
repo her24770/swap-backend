@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { buscarPublicacionesPorTipoYUsuario, buscarPublicacionesPaginadas, buscarPublicacionPorId, actualizarPublicacion, actualizarEstadoPublicacion, buscarPublicacionPorIdDetallado, buscarImagenesPorPublicacion, eliminarImagen } from "../repository/repositorioPublicacion.js";
+import { buscarPublicacionesPorTipoYUsuario, buscarPublicacionesPaginadas, buscarPublicacionPorId, actualizarPublicacion, actualizarEstadoPublicacion, buscarPublicacionPorIdDetallado, buscarImagenesPorPublicacion } from "../repository/repositorioPublicacion.js";
 import { obtenerTipoPerfilPorNombre } from "../repository/repositorioTipoPerfil.js";
 import { buscarUsuarioPorId } from "../repository/repositorioUsuario.js";
 import { subirImagenR2, eliminarImagenR2 } from "../servicios/servicioR2.js";
