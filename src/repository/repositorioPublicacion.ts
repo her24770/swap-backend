@@ -11,7 +11,7 @@ export async function buscarPublicacionPorId(id: number): Promise<Publicacion | 
     });
 }
 
-export async function buscarPublicacionPorIdDetallado(id: number): Promise<any | null> {
+export async function buscarPublicacionPorIdDetallado(id: number, idUsuario?: number): Promise<any | null> {
     const publicacion = await prisma.publicacion.findUnique({
         where: { id_publicacion: id },
         include: {
@@ -53,12 +53,23 @@ export async function buscarPublicacionPorIdDetallado(id: number): Promise<any |
                     url_foto_perfil: true,
                     calificacion: true
                 }
-            }
+            },
+            usuarioPublicacions: idUsuario
+                ? { where: { id_usuario: idUsuario }, select: { is_save: true, is_like: true } }
+                : false
         },
     });
 
     if (!publicacion) return null;
-    return publicacion;
+
+    const relacion = idUsuario ? (publicacion.usuarioPublicacions?.[0] ?? null) : null;
+    const { usuarioPublicacions, ...resto } = publicacion;
+
+    return {
+        ...resto,
+        guardado: relacion?.is_save ?? false,
+        likeado: relacion?.is_like ?? false
+    };
 }
 
 export async function buscarTodasLasPublicaciones(): Promise<Publicacion[]> {
@@ -76,7 +87,7 @@ export async function buscarPublicacionesPorUsuario(idUsuario: number): Promise<
     });
 }
 
-export async function buscarPublicacionesPaginadas(options: PaginationOption): Promise<Publicacion[]> {
+export async function buscarPublicacionesPaginadas(options: PaginationOption, idUsuario?: number): Promise<Publicacion[]> {
     //Valores por defecto
     const { page = 1, limit = 10, sort = 'fecha', order = 'desc', tipo, estado } = options;
 
@@ -84,6 +95,10 @@ export async function buscarPublicacionesPaginadas(options: PaginationOption): P
     const skip = (page - 1) * limit;
 
     const orderBy: any = {}
+
+    // Destacadas primero siempre
+    orderBy.push({ is_pinned: 'desc' });
+
     switch (sort) {
         case 'fecha':
             orderBy.fecha_publicacion = order;
@@ -117,12 +132,31 @@ export async function buscarPublicacionesPaginadas(options: PaginationOption): P
         }
     }
 
-    return await prisma.publicacion.findMany({
+    const publicaciones = await prisma.publicacion.findMany({
         where,
-        include: { imagenes: true, etiquetas: { include: { etiqueta: true } } },
+        include: {
+            imagenes: true,
+            etiquetas: { include: { etiqueta: true } },
+            estadoRel: { select: { id_estado: true, estado: true } },
+            // Solo traer la relación del usuario autenticado
+            usuarioPublicacions: idUsuario
+                ? { where: { id_usuario: idUsuario }, select: { is_save: true, is_like: true } }
+                : false
+        },
         orderBy,
         skip,
         take: limit
+    });
+
+    // Mapear para aplanar guardado y likeado
+    return publicaciones.map((pub) => {
+        const relacion = idUsuario ? (pub.usuarioPublicacions?.[0] ?? null) : null;
+        const { usuarioPublicacions, ...resto } = pub;
+        return {
+            ...resto,
+            guardado: relacion?.is_save ?? false,
+            likeado: relacion?.is_like ?? false
+        };
     });
 }
 
@@ -223,4 +257,31 @@ export async function actualizarEtiqueta(
 
 export async function eliminarEtiqueta(id: number): Promise<Etiqueta> {
     return prisma.etiqueta.delete({ where: { id_etiqueta: id } });
+}
+
+// ─────────────────────────────────────────────
+// Destacados
+// ─────────────────────────────────────────────
+
+export async function contarPublicacionesDestacadasPorTipoYUsuario(
+    idUsuario: number,
+    idTipoPerfil: number
+): Promise<number> {
+    return prisma.publicacion.count({
+        where: {
+            id_usuario: idUsuario,
+            tipo_publicacion: idTipoPerfil,
+            is_pinned: true
+        }
+    });
+}
+
+export async function actualizarDestacado(
+    idPublicacion: number,
+    isPinned: boolean
+): Promise<Publicacion> {
+    return prisma.publicacion.update({
+        where: { id_publicacion: idPublicacion },
+        data: { is_pinned: isPinned }
+    });
 }

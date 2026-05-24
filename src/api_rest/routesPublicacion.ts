@@ -7,12 +7,14 @@ import {
     editarPublicacion,
     cambiarEstadoPublicacion,
     obtenerPublicacionPorId,
-    eliminarPublicacionConImagenes
+    eliminarPublicacionConImagenes,
+    destacarPublicacion
 } from "../controlador/controlPublicacion.js";
 import { autenticar } from "../autenticacion/GestorPermisos.js";
 import { uploadImagen } from "../servicios/middlewareMulter.js";
 import { validar } from "../autenticacion/middelwareValidacion.js";
 import { schemaEditarPublicacion } from "../modelo/schemaPublicacion.js";
+import { schemaDestacarPublicacion } from "../modelo/schemaPublicacion.js";
 
 const router = Router();
 
@@ -24,5 +26,6 @@ router.put("/:id/imagen", autenticar, uploadImagen.single('imagen'), agregarOAct
 router.put("/:id", autenticar, validar(schemaEditarPublicacion), editarPublicacion)
 router.patch("/:id/estado", autenticar, cambiarEstadoPublicacion)
 router.delete("/:id", autenticar, eliminarPublicacionConImagenes)
+router.patch("/:id/destacar", autenticar, validar(schemaDestacarPublicacion), destacarPublicacion);
 
 export default router;

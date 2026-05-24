@@ -6,6 +6,7 @@ import { subirImagenR2, eliminarImagenR2 } from "../servicios/servicioR2.js";
 import { schemaCrearPublicacion, } from "../modelo/schemaPublicacion.js";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
 import { errorResponse, exitoResponse, errorValidacionResponse } from "../servicios/Response.js";
+import {contarPublicacionesDestacadasPorTipoYUsuario,actualizarDestacado} from "../repository/repositorioPublicacion.js";
 
 export async function obtenerPublicacionesUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -68,6 +69,7 @@ export async function obtenerTodasLasPublicaciones(req: Request, res: Response, 
             }
         }
 
+        const idUsuario = Number(req.usuario?.sub) || undefined;
         const resultado = await buscarPublicacionesPaginadas({
             page,
             limit,
@@ -75,7 +77,7 @@ export async function obtenerTodasLasPublicaciones(req: Request, res: Response, 
             order,
             tipo,
             estado
-        });
+        }, idUsuario);
 
         if (!resultado || resultado.length == 0) {
             errorResponse(res, "No se encontraron publicaciones", 404);
@@ -96,7 +98,8 @@ export async function obtenerPublicacionPorId(req: Request, res: Response, next:
             errorResponse(res, "El id de la publicacion no es valido", 400);
             return;
         }
-        const publicacion = await buscarPublicacionPorIdDetallado(id);
+        const idUsuario = Number(req.usuario?.sub) || undefined;
+        const publicacion = await buscarPublicacionPorIdDetallado(id, idUsuario);
         if (!publicacion) {
             errorResponse(res, "Publicacion no encontrada", 404);
             return;
@@ -456,6 +459,67 @@ export async function cambiarEstadoPublicacion(
             estado_nombre: nombreEstado
         }, `Publicacion marcada como ${nombreEstado} exitosamente`, 200);
         return;
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function destacarPublicacion(
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> {
+    try {
+        const idPublicacion = Number(req.params.id);
+        const idUsuario = Number(req.usuario?.sub);
+        const { destacar } = req.body;
+
+        if (isNaN(idPublicacion)) {
+            res.status(400).json({ message: "El ID de la publicación no es válido." });
+            return;
+        }
+
+        const publicacion = await buscarPublicacionPorId(idPublicacion);
+        if (!publicacion) {
+            res.status(404).json({ message: "Publicación no encontrada." });
+            return;
+        }
+
+        // Solo el dueño puede destacar
+        if (publicacion.id_usuario !== idUsuario) {
+            res.status(403).json({ message: "No tienes permiso para destacar esta publicación." });
+            return;
+        }
+
+        // Si ya está en el estado solicitado no hacer nada
+        if (publicacion.is_pinned === destacar) {
+            const estado = destacar ? "destacada" : "no destacada";
+            res.status(409).json({ message: `La publicación ya está ${estado}.` });
+            return;
+        }
+
+        // Validar máximo 3 destacadas por tipo si se está destacando
+        if (destacar) {
+            const totalDestacadas = await contarPublicacionesDestacadasPorTipoYUsuario(
+                idUsuario,
+                publicacion.tipo_publicacion
+            );
+
+            if (totalDestacadas >= 3) {
+                res.status(400).json({
+                    message: "Ya tienes 3 publicaciones destacadas de este tipo. Quita una antes de destacar otra."
+                });
+                return;
+            }
+        }
+
+        const actualizada = await actualizarDestacado(idPublicacion, destacar);
+        const accion = destacar ? "destacada" : "quitada de destacados";
+
+        res.status(200).json({
+            message: `Publicación ${accion} exitosamente.`,
+            data: actualizada
+        });
     } catch (error) {
         next(error);
     }
