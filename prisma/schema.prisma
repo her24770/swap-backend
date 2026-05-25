@@ -288,7 +288,7 @@ model Notificacion {
 model UsuarioEtiqueta {
   id_usuario  Int
   id_etiqueta Int
-  peso        Int @default(1)
+  peso        Float @default(1)
 
   usuario  Usuario  @relation(fields: [id_usuario], references: [id_usuario])
   etiqueta Etiqueta @relation(fields: [id_etiqueta], references: [id_etiqueta])
@@ -323,4 +323,11 @@ model UsuarioPublicacion {
 
   @@id([id_usuario, id_publicacion])
   @@map("Usuario_Publicacion")
+}
+
+model EventoRecomendacion {
+  tipo_evento String @id
+  peso        Float
+
+  @@map("evento_recomendacion")
 }

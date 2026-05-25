@@ -245,6 +245,24 @@ async function main() {
 
     console.log("✅ Etiquetas hija creadas");
 
+    // ─────────────────────────────────────────────
+    // 7. Eventos de recomendación
+    // ─────────────────────────────────────────────
+    // Catálogo de acciones del usuario y su peso sobre UsuarioEtiqueta.
+    // FAVORITA: etiquetas elegidas al registrarse (peso más alto, cold start).
+    // Los demás se disparan desde publicaciones interactuadas.
+    await Promise.all([
+        prisma.eventoRecomendacion.upsert({ where: { tipo_evento: "FAVORITA" },           update: {}, create: { tipo_evento: "FAVORITA",           peso: 2.0 } }),
+        prisma.eventoRecomendacion.upsert({ where: { tipo_evento: "VER_PUBLICACION" },    update: {}, create: { tipo_evento: "VER_PUBLICACION",    peso: 0.1 } }),
+        prisma.eventoRecomendacion.upsert({ where: { tipo_evento: "BUSCAR_ETIQUETA" },    update: {}, create: { tipo_evento: "BUSCAR_ETIQUETA",    peso: 0.3 } }),
+        prisma.eventoRecomendacion.upsert({ where: { tipo_evento: "VER_PERFIL" },         update: {}, create: { tipo_evento: "VER_PERFIL",         peso: 0.2 } }),
+        prisma.eventoRecomendacion.upsert({ where: { tipo_evento: "CONTACTAR_VENDEDOR" }, update: {}, create: { tipo_evento: "CONTACTAR_VENDEDOR", peso: 0.5 } }),
+        prisma.eventoRecomendacion.upsert({ where: { tipo_evento: "DEJAR_RESENA" },       update: {}, create: { tipo_evento: "DEJAR_RESENA",       peso: 0.8 } }),
+        prisma.eventoRecomendacion.upsert({ where: { tipo_evento: "AGENDAR_TUTORIA" },    update: {}, create: { tipo_evento: "AGENDAR_TUTORIA",    peso: 1.0 } }),
+        prisma.eventoRecomendacion.upsert({ where: { tipo_evento: "COMPLETAR_COMPRA" },   update: {}, create: { tipo_evento: "COMPLETAR_COMPRA",   peso: 1.0 } }),
+    ]);
+    console.log("  ✅ Eventos de recomendación");
+
     console.log("\n✅ Seed de estructura completado.");
 }
 
