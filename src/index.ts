@@ -6,6 +6,7 @@ import cookieParser from "cookie-parser";
 import multer from "multer";
 import routes from "./api_rest/routes";
 import { conectarRedis } from "./persistencia/redisClient";
+import { iniciarCronRecomendacion } from "./jobs/cronRecomendacion";
 
 const app = express();
 const httpServer = createServer(app);
@@ -28,7 +29,10 @@ io.on("connection", (socket) => {
 });
 
 conectarRedis()
-    .then(() => console.log("Redis conectado"))
+    .then(() => {
+        console.log("Redis conectado");
+        iniciarCronRecomendacion();
+    })
     .catch((err) => console.error("Error conectando Redis:", err));
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
