@@ -26,3 +26,6 @@ Thumbs.db
 
 # ─── cloude ───────────────────────────────────
 CLAUDE.md
+
+# docker-compose
+docker-compose.yml
