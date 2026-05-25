@@ -3,11 +3,12 @@ import { validar } from "../autenticacion/middelwareValidacion.js";
 import { schemaRegistro, schemaLogin } from "../modelo/schemaAuth.js";
 import { registro, iniciarSesion, cerrarSesion, obtenerSesionActual } from "../controlador/controlAuth.js";
 import { autenticar } from "../autenticacion/GestorPermisos.js";
+import { moderarTexto } from "../autenticacion/middlewareModeracion.js";
 
 const router = Router();
 
 //Ruta para registrar un nuevo usuario
-router.post("/register", validar(schemaRegistro), registro);
+router.post("/register", validar(schemaRegistro), moderarTexto(['descripcion']), registro);
 
 //Ruta para iniciar sesión
 router.post("/login", validar(schemaLogin), iniciarSesion);
