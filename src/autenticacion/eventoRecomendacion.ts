@@ -9,6 +9,16 @@ export type TipoEvento =
     | "AGENDAR_TUTORIA"
     | "COMPLETAR_COMPRA";
 
+export const TIPOS_EVENTO_VALIDOS: TipoEvento[] = [
+    "VER_PUBLICACION",
+    "BUSCAR_ETIQUETA",
+    "VER_PERFIL",
+    "CONTACTAR_VENDEDOR",
+    "DEJAR_RESENA",
+    "AGENDAR_TUTORIA",
+    "COMPLETAR_COMPRA",
+];
+
 
 // Cada evento tiene un peso asociado que indica cuánto debe influir en las recomendaciones futuras
 export async function registrarEventoPublicacion(

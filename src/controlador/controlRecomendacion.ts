@@ -10,7 +10,7 @@ import {
     obtenerSimilaresPorJaccard,
 } from "../repository/repositorioRecomendacion";
 import { buscarPublicacionesPorIdsDetallado } from "../repository/repositorioPublicacion";
-import { registrarEventoPublicacion, registrarEventoFavorita, quitarEventoFavorita, TipoEvento } from "../autenticacion/eventoRecomendacion";
+import { registrarEventoPublicacion, registrarEventoFavorita, quitarEventoFavorita, TipoEvento, TIPOS_EVENTO_VALIDOS } from "../autenticacion/eventoRecomendacion";
 import redisClient from "../persistencia/redisClient";
 
 export async function obtenerRecomendacionesGlobales(
@@ -187,6 +187,11 @@ export async function registrarEventoUsuario(
 
         if (!id_publicacion || !tipo_evento) {
             errorResponse(res, "Faltan parámetros: id_publicacion y tipo_evento son requeridos", 400);
+            return;
+        }
+
+        if (!TIPOS_EVENTO_VALIDOS.includes(tipo_evento as TipoEvento)) {
+            errorResponse(res, `tipo_evento no válido. Valores aceptados: ${TIPOS_EVENTO_VALIDOS.join(", ")}`, 400);
             return;
         }
 
