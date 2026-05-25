@@ -301,6 +301,27 @@ export function calcularJaccardPonderado(
     return pesoInterseccion / pesoTotal;
 }
 
+// Combina dos listas de publicaciones (de dos padres distintos), elimina duplicados
+// conservando el score más alto cuando una pub aparece en ambas listas,
+// y retorna el resultado ordenado por score descendente.
+export function mergearListasGrupo(
+    lista1: { id_publicacion: number; score: number }[],
+    lista2: { id_publicacion: number; score: number }[]
+): { id_publicacion: number; score: number }[] {
+    const mapa = new Map<number, number>();
+
+    for (const pub of [...lista1, ...lista2]) {
+        const scoreActual = mapa.get(pub.id_publicacion) ?? 0;
+        if (pub.score > scoreActual) {
+            mapa.set(pub.id_publicacion, pub.score);
+        }
+    }
+
+    return [...mapa.entries()]
+        .map(([id_publicacion, score]) => ({ id_publicacion, score }))
+        .sort((a, b) => b.score - a.score);
+}
+
 // Calcula el score final de relevancia de una publicación para un usuario específico.
 // Combina tres señales:
 //   50% — similitud ponderada de etiquetas (refleja la fuerza de interés del usuario)
