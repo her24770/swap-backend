@@ -36,7 +36,10 @@ router.use("/likes", likesRoutes);
 router.use("/horarios", horarioRoutes);
 router.use("/anuncio", anuncioRoutes);
 router.use("/busqueda", busquedaRoutes);
+<<<<<<< HEAD
 router.use("/certificacion", certificacionRoutes);
+=======
+>>>>>>> 9dff8fb (feat: crud completo para calificación de usuarios)
 router.use("/calificaciones", calificacionRoutes); 
 
 export default router;
