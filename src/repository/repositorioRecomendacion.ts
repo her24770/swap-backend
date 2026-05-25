@@ -108,6 +108,41 @@ export async function obtenerEtiquetasPublicacionCandidata(
 // Recomendaciones personalizadas
 // ─────────────────────────────────────────────
 
+// Retorna publicaciones activas similares a una dada usando Jaccard entre sus etiquetas.
+// Solo retorna ids y score — el llamador se encarga de buscar el detalle completo.
+export async function obtenerSimilaresPorJaccard(
+    idPublicacion: number,
+    limite: number = 10
+): Promise<{ id_publicacion: number; jaccard_score: number }[]> {
+    return prisma.$queryRaw<{ id_publicacion: number; jaccard_score: number }[]>`
+        WITH etiquetas_base AS (
+            SELECT id_etiqueta
+            FROM "Publicacion_Etiquetas"
+            WHERE id_publicacion = ${idPublicacion}
+        ),
+        interseccion AS (
+            SELECT pe.id_publicacion, COUNT(*)::float AS comunes
+            FROM "Publicacion_Etiquetas" pe
+            WHERE pe.id_etiqueta IN (SELECT id_etiqueta FROM etiquetas_base)
+              AND pe.id_publicacion != ${idPublicacion}
+            GROUP BY pe.id_publicacion
+        )
+        SELECT
+            p.id_publicacion,
+            i.comunes / (
+                (SELECT COUNT(*)::float FROM "Publicacion_Etiquetas" WHERE id_publicacion = p.id_publicacion)
+                + (SELECT COUNT(*)::float FROM etiquetas_base)
+                - i.comunes
+            ) AS jaccard_score
+        FROM interseccion i
+        JOIN "Publicacion" p ON i.id_publicacion = p.id_publicacion
+        JOIN "Estado" e ON e.id_estado = p.estado
+        WHERE e.estado = 'activo'
+        ORDER BY jaccard_score DESC
+        LIMIT ${limite}
+    `;
+}
+
 // Retorna todas las etiquetas del usuario con su peso acumulado,
 // ordenadas de mayor a menor peso. Son la base del scoring personalizado.
 export async function obtenerTagsUsuario(idUsuario: number) {
