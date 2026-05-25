@@ -252,7 +252,8 @@ async function main() {
     // FAVORITA: etiquetas elegidas al registrarse (peso más alto, cold start).
     // Los demás se disparan desde publicaciones interactuadas.
     await Promise.all([
-        prisma.eventoRecomendacion.upsert({ where: { tipo_evento: "FAVORITA" },           update: {}, create: { tipo_evento: "FAVORITA",           peso: 2.0 } }),
+        prisma.eventoRecomendacion.upsert({ where: { tipo_evento: "FAVORITA" },           update: {}, create: { tipo_evento: "FAVORITA",           peso:  2.0 } }),
+        prisma.eventoRecomendacion.upsert({ where: { tipo_evento: "QUITAR_FAVORITA" },   update: {}, create: { tipo_evento: "QUITAR_FAVORITA",   peso: -2.0 } }),
         prisma.eventoRecomendacion.upsert({ where: { tipo_evento: "VER_PUBLICACION" },    update: {}, create: { tipo_evento: "VER_PUBLICACION",    peso: 0.1 } }),
         prisma.eventoRecomendacion.upsert({ where: { tipo_evento: "BUSCAR_ETIQUETA" },    update: {}, create: { tipo_evento: "BUSCAR_ETIQUETA",    peso: 0.3 } }),
         prisma.eventoRecomendacion.upsert({ where: { tipo_evento: "VER_PERFIL" },         update: {}, create: { tipo_evento: "VER_PERFIL",         peso: 0.2 } }),
