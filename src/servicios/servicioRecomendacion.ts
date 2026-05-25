@@ -269,3 +269,52 @@ export async function generarRecomendaciones(
 
     return [];
 }
+
+// ─────────────────────────────────────────────
+// Scoring personalizado
+// ─────────────────────────────────────────────
+
+// Factor de suavizado Bayesiano: evita que publicaciones con pocos acuerdos/likes
+// pero alta proporción dominen el ranking. A mayor K, más publicaciones necesitan
+// para destacar. Ajustar si el volumen de datos crece mucho.
+const K_PERSONALIZADO = 5;
+
+export type TagUsuario = { id_etiqueta: number; peso: number };
+
+// Jaccard ponderado: en lugar de tratar todas las etiquetas del usuario igual,
+// pesa la intersección por el peso acumulado del usuario en cada etiqueta.
+// Fórmula: suma(peso_usuario[tag] para tag en intersección) / suma(todos los pesos del usuario)
+// Ejemplo: usuario tiene Cálculo(5.0) y Física(0.1). Una pub de Cálculo obtiene
+// 5.0/5.1 = 0.98, una pub de Física obtiene 0.1/5.1 = 0.02.
+export function calcularJaccardPonderado(
+    idsPublicacion: number[],
+    etiquetasUsuario: TagUsuario[]
+): number {
+    const setPub    = new Set(idsPublicacion);
+    const pesoTotal = etiquetasUsuario.reduce((acc, t) => acc + t.peso, 0);
+    if (pesoTotal === 0) return 0;
+
+    const pesoInterseccion = etiquetasUsuario
+        .filter((t) => setPub.has(t.id_etiqueta))
+        .reduce((acc, t) => acc + t.peso, 0);
+
+    return pesoInterseccion / pesoTotal;
+}
+
+// Calcula el score final de relevancia de una publicación para un usuario específico.
+// Combina tres señales:
+//   50% — similitud ponderada de etiquetas (refleja la fuerza de interés del usuario)
+//   30% — demanda de la publicación (cuántos acuerdos tiene)
+//   20% — popularidad (cuántos me_gusta tiene)
+// Retorna un valor entre 0 y 1. A mayor score, más relevante para ese usuario.
+export function calcularScorePersonalizado(
+    etiquetasPublicacion: number[],
+    etiquetasUsuario: TagUsuario[],
+    acuerdos: number,
+    meGusta: number
+): number {
+    const tagScore     = calcularJaccardPonderado(etiquetasPublicacion, etiquetasUsuario);
+    const acuerdoScore = acuerdos / (acuerdos + K_PERSONALIZADO);
+    const likeScore    = meGusta  / (meGusta  + K_PERSONALIZADO);
+    return (0.5 * tagScore) + (0.3 * acuerdoScore) + (0.2 * likeScore);
+}
