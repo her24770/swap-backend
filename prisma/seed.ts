@@ -79,7 +79,55 @@ async function main() {
     // ─────────────────────────────────────────────
     // 5. Palabras restringidas
     // ─────────────────────────────────────────────
-    for (const palabra of ["spam", "fraude", "estafa", "inapropiado", "prohibido"]) {
+    const palabrasRestringidas = [
+        // Groserías base CA/Guatemala
+        "puta", "putas", "puto", "putada", "putear", "hpta", "hijueputa", "hijuepucha",
+        "malparido", "malparida", "hijuemadre", "hijuemama",
+        // Excremento
+        "mierda", "mierdas", "cagada", "cagado", "cagar", "cagón", "cagona", "cerote",
+        // Genitales como insulto
+        "verga", "vergas", "vergón",
+        // Insultos directos
+        "cabrón", "cabrona", "cabrones",
+        "pendejo", "pendeja", "pendejos",
+        "culero", "culera", "culeros", "culiado", "culiao",
+        "mamón", "mamona", "mamones", "mamada",
+        "maricón", "marica", "maricas", "maricon",
+        "carajo", "carajos",
+        "baboso", "babosa", "babosos",
+        "idiota", "idiotas",
+        "imbécil", "imbéciles",
+        "estúpido", "estúpida", "estúpidos",
+        "bastardo", "bastarda", "bastardos",
+        "zorra", "zorras",
+        "perra", "perras",
+        "gonorrea",
+        "ojete", "ojetes",
+        "piche", "piches",
+        "bicho",
+        // Insultos con chinga (México/CA)
+        "chingada", "chingado", "chingas", "chingón", "chinguen",
+        // Insultos con pinche (CA)
+        "pinche", "pinches",
+        // Insultos con joto
+        "joto", "jotos",
+        // Insultos con güey
+        "güey", "wey", "buey",
+        // Insultos con concha
+        "conchetumare", "conchetumadre",
+        // Insultos con maje (GT)
+        "maje", "majes",
+        // Insultos con zoquete
+        "zoquete", "zoquetes",
+        // Insultos GT adicionales
+        "chucho",
+        // Palabras inglesas vulgares comunes
+        "fuck", "fucking", "fucked", "shit", "bitch", "asshole", "bastard", "damn",
+        // Fraude/spam (originales)
+        "spam", "fraude", "estafa",
+    ];
+
+    for (const palabra of palabrasRestringidas) {
         await prisma.palabraRestringida.upsert({
             where:  { palabra },
             update: {},

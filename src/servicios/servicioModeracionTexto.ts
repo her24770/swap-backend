@@ -1,3 +1,5 @@
+import prisma from "../persistencia/prismaClient.js";
+
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? '';
 const UMBRAL_MODERATION = parseFloat(process.env.MODERATION_UMBRAL ?? '0.5');
 
@@ -7,6 +9,15 @@ interface ResultadoModeracion {
 }
 
 export async function analizarTexto(texto: string): Promise<ResultadoModeracion> {
+    // Pre-filtro: palabras restringidas en BD (gratis, instantáneo)
+    const palabras = await prisma.palabraRestringida.findMany({ select: { palabra: true } });
+    const textoLower = texto.toLowerCase();
+    const encontrada = palabras.find(p => textoLower.includes(p.palabra));
+    if (encontrada) {
+        return { flagged: true, categorias: ['palabras_restringidas'] };
+    }
+
+    // Moderación con OpenAI
     if (!OPENAI_API_KEY) {
         throw new Error('OPENAI_API_KEY no configurada');
     }
