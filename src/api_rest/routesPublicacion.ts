@@ -10,14 +10,15 @@ import {
 } from "../controlador/controlPublicacion.js";
 import { autenticar } from "../autenticacion/GestorPermisos.js";
 import { uploadImagen } from "../servicios/middlewareMulter.js";
+import { moderarTexto } from "../autenticacion/middlewareModeracion.js";
 
 const router = Router();
 
 router.get("/user/:id", autenticar, obtenerPublicacionesUsuario);
 router.get("/", autenticar, obtenerTodasLasPublicaciones);
 router.get("/:id", autenticar, obtenerPublicacionPorId);
-router.post("/", autenticar, uploadImagen.any(), crearPublicacionConImagen);
-router.put("/:id", autenticar, uploadImagen.any(), editarPublicacion);
+router.post("/", autenticar, uploadImagen.any(), moderarTexto(['titulo', 'descripcion']), crearPublicacionConImagen);
+router.put("/:id", autenticar, uploadImagen.any(), moderarTexto(['titulo', 'descripcion']), editarPublicacion);
 router.patch("/:id/estado", autenticar, cambiarEstadoPublicacion);
 router.delete("/:id", autenticar, eliminarPublicacionConImagenes);
 

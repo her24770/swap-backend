@@ -3,6 +3,7 @@ import { obtenerUsuario, obtenerPerfilPublico, actualizarPerfil, agregarContacto
 import { validar } from "../autenticacion/middelwareValidacion.js";
 import { autenticar, gestorPermisos, verificarPropietario } from "../autenticacion/GestorPermisos.js";
 import { schemaActualizarPerfil, schemaAgregarContactos } from "../modelo/schemaUsuario.js";
+import { moderarTexto } from "../autenticacion/middlewareModeracion.js";
 
 const router = Router();
 
@@ -13,7 +14,7 @@ router.get("/:id/perfil-publico", obtenerPerfilPublico);
 router.get("/:id", autenticar, obtenerUsuario);
 
 //Ruta para actualizar datos del usuario
-router.patch("/:id", autenticar, verificarPropietario, gestorPermisos("usuario", "moderador"), validar(schemaActualizarPerfil), actualizarPerfil);
+router.patch("/:id", autenticar, verificarPropietario, gestorPermisos("usuario", "moderador"), validar(schemaActualizarPerfil), moderarTexto(['descripcion']), actualizarPerfil);
 
 //Ruta para agregar/actualizar/eliminar los contactos del usuario
 router.put("/:id/contactos", autenticar, verificarPropietario, gestorPermisos("usuario", "moderador"), validar(schemaAgregarContactos), agregarContacto);
