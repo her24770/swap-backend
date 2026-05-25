@@ -31,7 +31,22 @@ export async function obtenerGuardadosPorUsuario(idUsuario: number) {
                 include: {
                     imagenes: true,
                     etiquetas: { include: { etiqueta: true } },
-                    estadoRel: true
+                    estadoRel: true,
+                    tipoPerfil: true,
+                    usuario: {
+                        select: {
+                            id_usuario: true,
+                            nombre: true,
+                            url_foto_perfil: true,
+                            calificacion: true,
+                            email_institucional: true,
+                        }
+                    },
+                    // ← AGREGAR: traer la relación del usuario actual
+                    usuarioPublicacions: {
+                        where: { id_usuario: idUsuario },
+                        select: { is_save: true, is_like: true }
+                    }
                 }
             }
         }

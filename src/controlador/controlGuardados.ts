@@ -56,7 +56,22 @@ export async function obtenerGuardados(req: Request, res: Response, next: NextFu
     try {
         const idUsuario = Number(req.usuario?.sub);
         const guardados = await obtenerGuardadosPorUsuario(idUsuario);
-        res.status(200).json({ message: "Guardados obtenidos exitosamente.", data: guardados });
+        
+        // Aplanar la relación igual que hace buscarPublicacionesPaginadas
+        const data = guardados.map((g) => {
+            const relacion = g.publicacion.usuarioPublicacions?.[0] ?? null;
+            const { usuarioPublicacions, ...restoPublicacion } = g.publicacion;
+            return {
+                ...g,
+                publicacion: {
+                    ...restoPublicacion,
+                    likeado: relacion?.is_like ?? false,
+                    guardado: relacion?.is_save ?? false,
+                }
+            };
+        });
+        
+        res.status(200).json({ message: "Guardados obtenidos exitosamente.", data });
     } catch (error) {
         next(error);
     }
