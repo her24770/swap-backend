@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { generarRecomendaciones, mergearListasGrupo, calcularScorePersonalizado } from "../servicios/servicioRecomendacion";
+import { generarRecomendaciones, mergearListasGrupo, calcularScorePersonalizado, generarRecomendacionesTutores } from "../servicios/servicioRecomendacion";
 import { obtenerTipoPerfilPorNombre } from "../repository/repositorioTipoPerfil";
 import { errorResponse, exitoResponse } from "../servicios/Response";
 import {
@@ -51,6 +51,46 @@ export async function obtenerRecomendacionesGlobales(
         exitoResponse(res, recomendaciones, "Recomendaciones obtenidas exitosamente", 200);
 
     } catch (error) {
+        next(error);
+    }
+}
+
+// GET /recomendacion/tutores
+// Genera recomendaciones para tutores basadas en etiquetas trending de tutorías.
+export async function obtenerRecomendacionesTutores(
+    _req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> {
+
+    try {
+
+        // Generar recomendaciones de tutores
+        const recomendaciones =
+            await generarRecomendacionesTutores();
+
+        // Sin recomendaciones
+        if (recomendaciones.length === 0) {
+
+            errorResponse(
+                res,
+                "No hay tutores recomendados actualmente",
+                404
+            );
+
+            return;
+        }
+
+        // Respuesta exitosa
+        exitoResponse(
+            res,
+            recomendaciones,
+            "Tutores recomendados obtenidos exitosamente",
+            200
+        );
+
+    } catch (error) {
+
         next(error);
     }
 }

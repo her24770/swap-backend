@@ -1,6 +1,7 @@
 import * as repo from "../repository/repositorioRecomendacion";
 import { buscarPublicacionesPorIdsDetallado } from "../repository/repositorioPublicacion";
 import redisClient from "../persistencia/redisClient";
+import {buscarUsuariosPorIdsDetallado} from "../repository/repositorioUsuario";
 
 type PublicacionCandidata = {
     id_publicacion: number;
@@ -10,6 +11,22 @@ type PublicacionCandidata = {
     _count: {
         acuerdos: number;
     };
+}
+
+type UsuarioCandidato = {
+    id_usuario: number;
+    nombre: string;
+    calificacion: number | null;
+    url_foto_perfil: string;
+
+    _count: {
+        acuerdos: number;
+    };
+}
+
+type EtiquetaUsuario = {
+    id_usuario: number;
+    id_etiqueta: number;
 }
 
 type EtiquetaPublicacion = {
@@ -263,6 +280,250 @@ export async function generarRecomendaciones(
             score:
                 mapaScores.get(
                     publicacion.id_publicacion
+                ) ?? 0
+        }));
+    }
+
+    return [];
+}
+
+export async function generarRecomendacionesTutores() {
+
+    const limiteUsuarios = 50;
+    const topResultados  = 10;
+
+    const intervalos = [7, 30, 90];
+
+    // Cache key
+    const cacheKey =
+        "recomendaciones:tutores";
+
+    // Buscar cache
+    const cache = await redisClient.get(cacheKey);
+
+    if (cache) {
+
+        const usuariosCacheados =
+            JSON.parse(cache);
+
+        const ids =
+            usuariosCacheados.map(
+                (u: any) => u.id_usuario
+            );
+
+        // Obtener detalle completo
+        const usuariosDetallados =
+            await buscarUsuariosPorIdsDetallado(ids);
+
+        // Mapa score
+        const mapaScores =
+            new Map<number, number>();
+
+        usuariosCacheados.forEach((u: any) => {
+            mapaScores.set(
+                u.id_usuario,
+                u.score
+            );
+        });
+
+        // Reinyectar score
+        return usuariosDetallados.map(usuario => ({
+            ...usuario,
+            score:
+                mapaScores.get(
+                    usuario.id_usuario
+                ) ?? 0
+        }));
+    }
+
+    // Generar recomendaciones
+    for (const intervalo of intervalos) {
+
+        // Trending tags
+        const etiquetasTrending: EtiquetaTrending[] =
+            await repo.obtenerEtiquetasTrending(
+                "tutoria",
+                intervalo,
+                10
+            );
+
+        if (etiquetasTrending.length === 0) {
+            continue;
+        }
+
+        // Set trending
+        const idsEtiquetasTrending = new Set(
+            etiquetasTrending.map(
+                etiqueta => etiqueta.id_etiqueta
+            )
+        );
+
+        // Usuarios candidatos
+        const usuariosRaw =
+            await repo.obtenerUsuariosCandidatos(
+                limiteUsuarios
+            );
+
+        const usuarios: UsuarioCandidato[] =
+            usuariosRaw.map(usuario => ({
+                ...usuario,
+
+                calificacion:
+                    usuario.calificacion
+                        ? Number(usuario.calificacion)
+                        : null
+            }));
+        if (usuarios.length === 0) {
+            continue;
+        }
+
+        // Etiquetas usuarios
+        const etiquetasUsuarios: EtiquetaUsuario[] =
+            await repo.obtenerEtiquetasUsuariosCandidatos(
+                usuarios.map(u => u.id_usuario)
+            );
+
+        // Map:
+        // id_usuario -> etiquetas[]
+        const mapEtiquetasUsuarios =
+            new Map<number, number[]>();
+
+        for (const etiqueta of etiquetasUsuarios) {
+
+            const etiquetasActuales =
+                mapEtiquetasUsuarios.get(
+                    etiqueta.id_usuario
+                );
+
+            if (etiquetasActuales) {
+
+                etiquetasActuales.push(
+                    etiqueta.id_etiqueta
+                );
+
+            } else {
+
+                mapEtiquetasUsuarios.set(
+                    etiqueta.id_usuario,
+                    [etiqueta.id_etiqueta]
+                );
+            }
+        }
+
+        // Trending array
+        const trendingArray =
+            etiquetasTrending.map(
+                etiqueta => etiqueta.id_etiqueta
+            );
+
+        // Score usuarios
+        const usuariosScoreados =
+            usuarios.map(usuario => {
+
+                const etiquetasUsuario =
+                    mapEtiquetasUsuarios.get(
+                        usuario.id_usuario
+                    ) || [];
+
+                // Intersección
+                const interseccion =
+                    etiquetasUsuario.filter(
+                        etiqueta =>
+                            idsEtiquetasTrending.has(etiqueta)
+                    ).length;
+
+                // Unión
+                const union = new Set([
+                    ...etiquetasUsuario,
+                    ...trendingArray
+                ]).size;
+
+                // Jaccard
+                const jaccardSimilarity =
+                    union === 0
+                        ? 0
+                        : interseccion / union;
+
+                // Score acuerdos
+                const acuerdosScore =
+                    usuario._count.acuerdos /
+                    (usuario._count.acuerdos + 10);
+
+                // Rating
+                const rating =
+                    Number(usuario.calificacion ?? 0);
+
+                const ratingScore =
+                    rating / 5;
+
+                // Score final
+                const scoreTotal =
+                    (0.45 * jaccardSimilarity) +
+                    (0.25 * acuerdosScore) +
+                    (0.30 * ratingScore);
+
+                return {
+                    ...usuario,
+                    score: Number(scoreTotal.toFixed(2))
+                };
+            });
+
+        // Ordenar
+        const usuariosOrdenados =
+            usuariosScoreados.sort(
+                (a, b) => b.score - a.score
+            );
+
+        // Top resultados
+        const topUsuarios =
+            usuariosOrdenados.slice(
+                0,
+                topResultados
+            );
+
+        // Guardar Redis
+        await redisClient.set(
+            cacheKey,
+            JSON.stringify(
+                topUsuarios.map(u => ({
+                    id_usuario: u.id_usuario,
+                    score: u.score
+                }))
+            ),
+            {
+                EX: 1200
+            }
+        );
+
+        // IDs top
+        const topIds =
+            topUsuarios.map(
+                u => u.id_usuario
+            );
+
+        // Obtener detalle completo
+        const usuariosDetallados =
+            await buscarUsuariosPorIdsDetallado(
+                topIds
+            );
+
+        // Mapa score
+        const mapaScores =
+            new Map<number, number>();
+
+        topUsuarios.forEach(u => {
+            mapaScores.set(
+                u.id_usuario,
+                u.score
+            );
+        });
+
+        // Reinyectar score
+        return usuariosDetallados.map(usuario => ({
+            ...usuario,
+            score:
+                mapaScores.get(
+                    usuario.id_usuario
                 ) ?? 0
         }));
     }

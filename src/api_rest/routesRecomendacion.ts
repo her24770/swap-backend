@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
     obtenerRecomendacionesGlobales,
+    obtenerRecomendacionesTutores,
     obtenerRecomendacionesPersonalizadas,
     obtenerRecomendacionesMias,
     obtenerSimilares,
@@ -13,6 +14,7 @@ import { autenticar } from "../autenticacion/GestorPermisos.js";
 const router = Router();
 
 router.get("/globales/:tipo?",  autenticar, obtenerRecomendacionesGlobales);
+router.get("/tutores",   autenticar, obtenerRecomendacionesTutores);
 router.get("/personalizadas",   autenticar, obtenerRecomendacionesPersonalizadas);
 router.get("/mias",             autenticar, obtenerRecomendacionesMias);
 router.get("/similares/:id",    autenticar, obtenerSimilares);
