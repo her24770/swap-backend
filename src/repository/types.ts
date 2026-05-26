@@ -1,3 +1,4 @@
+import { Publicacion } from "@prisma/client";
 /*
     Interfaz para búsqueda
 */
@@ -10,6 +11,13 @@ export interface PaginationOption {
     estado?: string;
 }
 
+/* 
+    Resultados Paginados de Publicaciones
+*/
+export interface ResultadoBusquedaPublicacion {
+    publicaciones: Publicacion[];
+    total: number;
+}
 
 /*
     Interfaz para anuncios

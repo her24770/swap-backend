@@ -1,4 +1,6 @@
 import prisma from "../persistencia/prismaClient";
+import redisClient from "../persistencia/redisClient";
+import { obtenerTop2PadresUsuario } from "../repository/repositorioRecomendacion";
 
 export type TipoEvento =
     | "VER_PUBLICACION"
@@ -7,7 +9,9 @@ export type TipoEvento =
     | "CONTACTAR_VENDEDOR"
     | "DEJAR_RESENA"
     | "AGENDAR_TUTORIA"
-    | "COMPLETAR_COMPRA";
+    | "COMPLETAR_COMPRA"
+    | "LIKE_PUBLICACION"
+    | "GUARDAR_PUBLICACION";
 
 export const TIPOS_EVENTO_VALIDOS: TipoEvento[] = [
     "VER_PUBLICACION",
@@ -17,8 +21,30 @@ export const TIPOS_EVENTO_VALIDOS: TipoEvento[] = [
     "DEJAR_RESENA",
     "AGENDAR_TUTORIA",
     "COMPLETAR_COMPRA",
+    "LIKE_PUBLICACION",
+    "GUARDAR_PUBLICACION",
 ];
 
+// Elimina las listas cacheadas para un usuario. 
+export async function invalidarCacheRecomendacionesUsuario(
+    idUsuario: number
+): Promise<void> {
+    try {
+        const top2 = await obtenerTop2PadresUsuario(idUsuario);
+
+        await Promise.all(
+            top2.map((id) =>
+                redisClient.del(`rec:grupo:${id}`)
+            )
+        );
+
+    } catch (error) {
+        console.error(
+            "[Recomendacion] Error invalidando cache:",
+            error
+        );
+    }
+}
 
 // Cada evento tiene un peso asociado que indica cuánto debe influir en las recomendaciones futuras
 export async function registrarEventoPublicacion(
@@ -54,6 +80,23 @@ export async function registrarEventoPublicacion(
     }
 }
 
+export async function registrarInteraccionPublicacion(
+    idUsuario: number,
+    idPublicacion: number,
+    tipoEvento: TipoEvento
+): Promise<void> {
+
+    await registrarEventoPublicacion(
+        idUsuario,
+        idPublicacion,
+        tipoEvento
+    );
+
+    await invalidarCacheRecomendacionesUsuario(
+        idUsuario
+    );
+}
+
 
 // Evento específico para cuando un usuario marca una publicación como favorita, ya que puede no estar asociado a una publicación específica (ej: si se marca desde el perfil del vendedor)
 export async function registrarEventoFavorita(
@@ -80,6 +123,21 @@ export async function registrarEventoFavorita(
     } catch (error) {
         console.error("[Recomendacion] Error registrando favoritas:", error);
     }
+}
+
+export async function registrarFavoritasUsuario(
+    idUsuario: number,
+    idsEtiquetas: number[]
+): Promise<void> {
+
+    await registrarEventoFavorita(
+        idUsuario,
+        idsEtiquetas
+    );
+
+    await invalidarCacheRecomendacionesUsuario(
+        idUsuario
+    );
 }
 
 export async function quitarEventoFavorita(
@@ -122,4 +180,19 @@ export async function quitarEventoFavorita(
     } catch (error) {
         console.error("[Recomendacion] Error quitando favoritas:", error);
     }
+}
+
+export async function eliminarFavoritasUsuario(
+    idUsuario: number,
+    idsEtiquetas: number[]
+): Promise<void> {
+
+    await quitarEventoFavorita(
+        idUsuario,
+        idsEtiquetas
+    );
+
+    await invalidarCacheRecomendacionesUsuario(
+        idUsuario
+    );
 }

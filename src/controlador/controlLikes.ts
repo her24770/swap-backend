@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { darLike, quitarLike } from "../repository/repositorioLikes";
 import { buscarPublicacionPorId } from "../repository/repositorioPublicacion";
 import { buscarRelacionUsuarioPublicacion } from "../repository/repositorioGuardados";
+import { registrarInteraccionPublicacion } from "../autenticacion/eventoRecomendacion";
 
 export async function like(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -27,6 +28,16 @@ export async function like(req: Request, res: Response, next: NextFunction): Pro
         }
 
         const resultado = await darLike(idUsuario, idPublicacion);
+
+        //registrar evento de like
+        if(publicacion.id_usuario !== idUsuario) {
+            registrarInteraccionPublicacion(idUsuario, idPublicacion, "LIKE_PUBLICACION").catch((error) => {
+                console.error(
+                    "[Recomendacion] Error registrando like:",
+                    error
+                );
+            });
+        }
         res.status(200).json({ message: "Like agregado exitosamente.", data: resultado });
     } catch (error) {
         next(error);

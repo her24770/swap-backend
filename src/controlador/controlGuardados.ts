@@ -5,6 +5,7 @@ import {
     obtenerGuardadosPorUsuario
 } from "../repository/repositorioGuardados";
 import { buscarPublicacionPorId } from "../repository/repositorioPublicacion";
+import { registrarInteraccionPublicacion } from "../autenticacion/eventoRecomendacion";
 
 export async function guardar(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -23,6 +24,16 @@ export async function guardar(req: Request, res: Response, next: NextFunction): 
         }
 
         const resultado = await guardarPublicacion(idUsuario, idPublicacion);
+
+        //registrar evento de guardado
+        if(publicacion.id_usuario !== idUsuario) {
+            registrarInteraccionPublicacion(idUsuario, idPublicacion, "GUARDAR_PUBLICACION").catch((error) => {
+                console.error(
+                    "[Recomendacion] Error registrando guardado:",
+                    error
+                );
+            });
+        }
         res.status(200).json({ message: "Publicación guardada exitosamente.", data: resultado });
     } catch (error) {
         next(error);

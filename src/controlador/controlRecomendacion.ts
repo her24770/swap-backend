@@ -10,7 +10,7 @@ import {
     obtenerSimilaresPorJaccard,
 } from "../repository/repositorioRecomendacion";
 import { buscarPublicacionesPorIdsDetallado } from "../repository/repositorioPublicacion";
-import { registrarEventoPublicacion, registrarEventoFavorita, quitarEventoFavorita, TipoEvento, TIPOS_EVENTO_VALIDOS } from "../autenticacion/eventoRecomendacion";
+import { registrarInteraccionPublicacion, registrarFavoritasUsuario, eliminarFavoritasUsuario, TipoEvento, TIPOS_EVENTO_VALIDOS } from "../autenticacion/eventoRecomendacion";
 import redisClient from "../persistencia/redisClient";
 
 export async function obtenerRecomendacionesGlobales(
@@ -195,12 +195,7 @@ export async function registrarEventoUsuario(
             return;
         }
 
-        // Asíncrono — no bloquea la respuesta
-        registrarEventoPublicacion(idUsuario, Number(id_publicacion), tipo_evento as TipoEvento);
-
-        // Invalidar cache del usuario
-        const top2 = await obtenerTop2PadresUsuario(idUsuario);
-        await Promise.all(top2.map((id) => redisClient.del(`rec:grupo:${id}`)));
+        await registrarInteraccionPublicacion(idUsuario, Number(id_publicacion), tipo_evento as TipoEvento);
 
         exitoResponse(res, null, "Evento registrado");
     } catch (error) {
@@ -224,7 +219,7 @@ export async function agregarFavoritas(
             return;
         }
 
-        await registrarEventoFavorita(idUsuario, ids_etiquetas.map(Number));
+        await registrarFavoritasUsuario(idUsuario, ids_etiquetas.map(Number));
 
         exitoResponse(res, null, "Favoritas registradas");
     } catch (error) {
@@ -248,7 +243,7 @@ export async function eliminarFavoritas(
             return;
         }
 
-        await quitarEventoFavorita(idUsuario, ids_etiquetas.map(Number));
+        await eliminarFavoritasUsuario(idUsuario, ids_etiquetas.map(Number));
 
         exitoResponse(res, null, "Favoritas eliminadas");
     } catch (error) {
