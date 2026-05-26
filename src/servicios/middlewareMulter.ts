@@ -14,3 +14,17 @@ export const uploadImagen = multer({
         }
     },
 });
+
+const TAMANO_MAX_PDF = 10 * 1024 * 1024; // 10 MB
+
+export const uploadPdf = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: TAMANO_MAX_PDF },
+    fileFilter: (_req, file, cb) => {
+        if (file.mimetype === "application/pdf") {
+            cb(null, true);
+        } else {
+            cb(new Error("Tipo de archivo no permitido. Solo PDF."));
+        }
+    },
+});
