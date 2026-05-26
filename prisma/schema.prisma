@@ -26,6 +26,7 @@ model Usuario {
   url_foto_perfil     String   @db.VarChar(255)
   descripcion         String?
   calificacion        Decimal? @db.Decimal(5, 2)
+  total_resenas       Int      @default(0)
   reportes_recibidos  Int      @default(0)
   tiempo_suspendido   Int      @default(0)
   contactos           Contacto[]
@@ -88,7 +89,6 @@ model TipoPerfil {
   tipo_perfil    String @unique @db.VarChar(100)
 
   publicaciones Publicacion[]
-  resenas       Resena[]
 
   @@map("Tipo_Perfil")
 }
@@ -216,7 +216,14 @@ model Resena {
 
   emisor     Usuario    @relation("EmisorResena", fields: [id_emisor], references: [id_usuario])
   receptor   Usuario    @relation("ReceptorResena", fields: [id_receptor], references: [id_usuario])
-  tipoResena TipoPerfil @relation(fields: [id_tipo_resena], references: [id_tipo_perfil])
+  tipoResena TipoResena @relation(fields: [id_tipo_resena], references: [id_tipo_resena])
+}
+
+model TipoResena {
+  id_tipo_resena Int    @id @default(autoincrement())
+  tipo_resena    String @unique @db.VarChar(100)
+
+  resenas Resena[]
 }
 
 model Conversacion {

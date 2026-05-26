@@ -54,6 +54,17 @@ async function main() {
     console.log("  ✅ Tipos de perfil");
 
     // ─────────────────────────────────────────────
+    // Tipos de resena
+    // ─────────────────────────────────────────────
+
+    await Promise.all([ 
+        prisma.tipoResena.upsert({ where: { tipo_resena: 'consumidor' }, update: {}, create: { tipo_resena: 'consumidor'}, }),
+        prisma.tipoResena.upsert({ where: { tipo_resena:  'vendedor' }, update: {}, create: { tipo_resena: 'vendedor' }, }),
+        prisma.tipoResena.upsert({ where: { tipo_resena:  'tutor' }, update: {}, create: { tipo_resena: 'tutor' }, }),
+    ]);
+    console.log("  ✅ Tipos de perfil");
+
+    // ─────────────────────────────────────────────
     // 3. Tipos de contacto
     // ─────────────────────────────────────────────
     await Promise.all([

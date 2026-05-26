@@ -1,4 +1,4 @@
-import { Prisma, Resena } from "@prisma/client";
+import { Prisma, Resena, TipoResena} from "@prisma/client";
 import prisma from "../persistencia/prismaClient";
 import { EditarResenaInput } from "../modelo/schemaResena";
 
@@ -32,7 +32,7 @@ export async function buscarResenasDeUnUsuario(idReceptor: number, tipoResenaStr
         where: { 
             id_receptor: idReceptor,
             tipoResena: {
-                tipo_perfil: tipoResenaString 
+                tipo_resena: tipoResenaString 
             }
         },
         include: {
@@ -45,7 +45,7 @@ export async function buscarResenasDeUnUsuario(idReceptor: number, tipoResenaStr
             },
             tipoResena: { 
                 select: { 
-                    tipo_perfil: true 
+                    tipo_resena: true 
                 } 
             },
         },
@@ -55,12 +55,20 @@ export async function buscarResenasDeUnUsuario(idReceptor: number, tipoResenaStr
     });
 }
 
-export async function calcularPromedioResenas(idReceptor: number): Promise<{ promedio: number }> {
+export async function calcularPromedioResenas(idReceptor: number): Promise<{ promedio: number; totalResenas: number }> {
     const resultado = await prisma.resena.aggregate({
         where: { id_receptor: idReceptor },
         _avg: { calificacion: true },
+        _count: { id_resena: true },
     });
     return {
         promedio: resultado._avg.calificacion ? parseFloat(resultado._avg.calificacion.toFixed(2)) : 0,
+        totalResenas: resultado._count.id_resena
     };
+}
+
+
+export async function obtenerTipoResenaPorNombre(nombre: string | undefined): Promise<TipoResena | null> {
+    if (!nombre || nombre === "") return null;
+    return await prisma.tipoResena.findUnique({ where: { tipo_resena: nombre } });
 }
