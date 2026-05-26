@@ -1,12 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import { schemaCrearResena, schemaEditarResena } from "../modelo/schemaResena";
 import { 
-  crearResena, 
-  actualizarResena, 
-  buscarResenaPorId, 
-  verificarResenaExistente, 
-  calcularPromedioResenas, 
-  buscarResenasDeUnUsuario 
+    crearResena, 
+    actualizarResena, 
+    buscarResenaPorId, 
+    verificarResenaExistente, 
+    calcularPromedioResenas, 
+    buscarResenasDeUnUsuario 
 } from "../repository/repositorioResena";
 import { obtenerTipoPerfilPorNombre } from "../repository/repositorioTipoPerfil.js";
 import { actualizarUsuario, buscarUsuarioPorId } from "../repository/repositorioUsuario";
@@ -114,13 +114,23 @@ export async function modificarResenaUsuario(req: Request, res: Response, next: 
 export async function obtenerResenasPerfil(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
         const idUsuario = Number(req.params.id_usuario);
+        // Extraemos el tipo desde la query string (?tipo=material)
+        const tipoResena = req.query.tipo as string;
+
         if (isNaN(idUsuario)) {
-        errorResponse(res, "ID de usuario inválido.", 400);
-        return;
+            errorResponse(res, "ID de usuario inválido.", 400);
+            return;
         }
 
-        const historial = await buscarResenasDeUnUsuario(idUsuario);
-        exitoResponse(res, historial, "Historial de reseñas obtenido.", 200);
+        if (!tipoResena) {
+            errorResponse(res, "El parámetro 'tipo' de reseña es obligatorio en la consulta.", 400);
+            return;
+        }
+
+        // Enviamos ambos parámetros a tu función actualizada del repositorio
+        const historial = await buscarResenasDeUnUsuario(idUsuario, tipoResena);
+        
+        exitoResponse(res, historial, `Historial de reseñas para el perfil de '${tipoResena}' obtenido.`, 200);
         return;
     } catch (error) {
         next(error);

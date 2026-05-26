@@ -27,19 +27,31 @@ export async function verificarResenaExistente(idEmisor: number, idReceptor: num
     });
 }
 
-export async function buscarResenasDeUnUsuario(idReceptor: number, tipo_resena: string): Promise<Resena[]> {
+export async function buscarResenasDeUnUsuario(idReceptor: number, tipoResenaString: string): Promise<Resena[]> {
     return await prisma.resena.findMany({
-        where: { id_receptor: idReceptor, tipo_resena: tipo_resena },
+        where: { 
+            id_receptor: idReceptor,
+            tipoResena: {
+                tipo_perfil: tipoResenaString 
+            }
+        },
         include: {
-        emisor: {
-            select: { id_usuario: true, nombre: true, url_foto_perfil: true },
+            emisor: {
+                select: { 
+                    id_usuario: true, 
+                    nombre: true, 
+                    url_foto_perfil: true 
+                },
+            },
+            tipoResena: { 
+                select: { 
+                    tipo_perfil: true 
+                } 
+            },
         },
-        tipoResena:
-            { select: { 
-                tipo_perfil: true,
-                tipo_resena: true } },
+        orderBy: { 
+            fecha_resena: "desc" 
         },
-        orderBy: { fecha_resena: "desc" },
     });
 }
 
