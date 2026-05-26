@@ -21,8 +21,6 @@ export async function buscarPerfilPublicoPorId(id: number) {
             descripcion: true,
             calificacion: true,
             reportes_recibidos: true,
-            resenasRecibidas: true,
-            resenasEmitidas : true,
             contactos: {
                 include: {
                     tipoContacto: true,

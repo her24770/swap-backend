@@ -43,6 +43,7 @@ services:
   # Embeddings (Python FastAPI)
   # ─────────────────────────────────────────────
   embeddings:
+    platform: linux/amd64
     build:
       context: ./embeddings
       dockerfile: Dockerfile
