@@ -23,7 +23,7 @@ async function enviarCodigo(to: string, subject: string, titulo: string, code: s
         html: `
             <p>${titulo}</p>
             <p>Tu código es: <strong>${code}</strong></p>
-            <p>Este código es válido por <strong>5 minutos</strong>.</p>
+            <p>Este código es válido por <strong>10 minutos</strong>.</p>
             <p>Si no solicitaste esto, ignora este correo.</p>
         `,
     });
