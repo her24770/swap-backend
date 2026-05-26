@@ -8,9 +8,21 @@ import {
     buscarUsuarioPorCarnet,
     buscarUsuarioPorId,
     guardarUsuario,
+    actualizarUsuario,
 } from "../repository/repositorioUsuario.js";
+import { sincronizarEtiquetasUsuario, verificarEtiquetasExisten } from "../repository/repositorioEtiqueta.js";
 import { errorResponse, exitoResponse } from "../servicios/Response.js";
 import { construirUrlR2 } from "../servicios/servicioR2.js";
+import redis from "../persistencia/redisClient.js";
+import {
+    construirClaveRecuperacionPassword,
+    construirClaveVerificacionRegistro,
+    generarCodigoVerificacion,
+    TIEMPO_EXPIRACION_CODIGO_SEGUNDOS,
+} from "../servicios/servicioCodigos.js";
+import { enviarCodigoRecuperacion, enviarCodigoVerificacionRegistro } from "../servicios/servicioEmail.js";
+
+const MENSAJE_RECUPERACION = "Si el correo existe, recibirás un código.";
 
 /**
  * POST /api/auth/registro
@@ -19,7 +31,15 @@ import { construirUrlR2 } from "../servicios/servicioR2.js";
  */
 export async function registro(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-        const reqData = req.body;
+        const { codigo_verificacion, etiquetas = [], ...reqData } = req.body;
+        reqData.email_institucional = reqData.email_institucional.toLowerCase();
+
+        const claveCodigo = construirClaveVerificacionRegistro(reqData.email_institucional);
+        const codigoGuardado = await redis.get(claveCodigo);
+        if (!codigoGuardado || codigoGuardado !== codigo_verificacion) {
+            errorResponse(res, "Código de verificación inválido o expirado.", 400);
+            return;
+        }
 
         // Verificar email duplicado
         const emailExistente = await buscarUsuarioPorEmail(reqData.email_institucional);
@@ -35,6 +55,14 @@ export async function registro(req: Request, res: Response, next: NextFunction):
             return;
         }
 
+        if (etiquetas.length > 0) {
+            const etiquetasValidas = await verificarEtiquetasExisten(etiquetas);
+            if (!etiquetasValidas) {
+                errorResponse(res, "Una o más etiquetas no existen en el sistema.", 400);
+                return;
+            }
+        }
+
         // Hashear contraseña
         reqData.password = await ServicioBcrypt.hashearPassword(reqData.password);
 
@@ -44,6 +72,10 @@ export async function registro(req: Request, res: Response, next: NextFunction):
 
         // Guardar usuario
         const nuevoUsuario = await guardarUsuario(reqData);
+        if (etiquetas.length > 0) {
+            await sincronizarEtiquetasUsuario(nuevoUsuario.id_usuario, etiquetas);
+        }
+        await redis.del(claveCodigo);
 
         const payload: PayloadToken = {
             sub: String(nuevoUsuario.id_usuario),
@@ -61,6 +93,35 @@ export async function registro(req: Request, res: Response, next: NextFunction):
         });
 
         exitoResponse(res, { rol: "usuario", usuario: usuarioPublico }, "Usuario creado exitosamente", 201);
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function solicitarCodigoRegistro(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const email = req.body.email_institucional.toLowerCase();
+        const { carnet } = req.body;
+
+        const emailExistente = await buscarUsuarioPorEmail(email);
+        if (emailExistente) {
+            errorResponse(res, "El correo institucional ya está registrado.", 409);
+            return;
+        }
+
+        const carnetExistente = await buscarUsuarioPorCarnet(carnet);
+        if (carnetExistente) {
+            errorResponse(res, "El carnet ya esta registrado", 409);
+            return;
+        }
+
+        const code = generarCodigoVerificacion();
+        await redis.set(construirClaveVerificacionRegistro(email), code, {
+            EX: TIEMPO_EXPIRACION_CODIGO_SEGUNDOS,
+        });
+        await enviarCodigoVerificacionRegistro(email, code);
+
+        exitoResponse(res, [], "Código de verificación enviado.", 200);
     } catch (error) {
         next(error);
     }
@@ -149,6 +210,71 @@ export async function obtenerSesionActual(req: Request, res: Response, next: Nex
 
         const { password: _, ...usuarioPublico } = usuario;
         exitoResponse(res, { rol: req.usuario?.rol ?? "usuario", usuario: usuarioPublico }, "Sesión obtenida exitosamente", 200);
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function solicitarRecuperacionPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const email = req.body.email.toLowerCase();
+        const usuario = await buscarUsuarioPorEmail(email);
+
+        if (usuario) {
+            const code = generarCodigoVerificacion();
+            await redis.set(construirClaveRecuperacionPassword(email), code, {
+                EX: TIEMPO_EXPIRACION_CODIGO_SEGUNDOS,
+            });
+            await enviarCodigoRecuperacion(email, code);
+        }
+
+        exitoResponse(res, [], MENSAJE_RECUPERACION, 200);
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function verificarCodigoRecuperacion(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const email = req.body.email.toLowerCase();
+        const { code } = req.body;
+        const codigoGuardado = await redis.get(construirClaveRecuperacionPassword(email));
+
+        if (!codigoGuardado || codigoGuardado !== code) {
+            errorResponse(res, "Código inválido o expirado.", 400);
+            return;
+        }
+
+        exitoResponse(res, [], "Código válido.", 200);
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function restablecerPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const email = req.body.email.toLowerCase();
+        const { code, newPassword } = req.body;
+        const claveCodigo = construirClaveRecuperacionPassword(email);
+        const codigoGuardado = await redis.get(claveCodigo);
+
+        if (!codigoGuardado || codigoGuardado !== code) {
+            errorResponse(res, "Código inválido o expirado.", 400);
+            return;
+        }
+
+        const usuario = await buscarUsuarioPorEmail(email);
+        if (!usuario) {
+            await redis.del(claveCodigo);
+            errorResponse(res, "Código inválido o expirado.", 400);
+            return;
+        }
+
+        const password = await ServicioBcrypt.hashearPassword(newPassword);
+        await actualizarUsuario(usuario.id_usuario, { password });
+        await redis.del(claveCodigo);
+
+        exitoResponse(res, [], "Contraseña actualizada correctamente.", 200);
     } catch (error) {
         next(error);
     }
