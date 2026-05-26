@@ -163,7 +163,8 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
             precio: req.body.precio ? Number(req.body.precio) : 0,
             tipo_publicacion: req.body.tipo_publicacion,
             estado: req.body.estado ?? undefined,
-            imagenes: []
+            imagenes: [],
+            destacar: req.body.destacar 
         };
 
         const validacion = schemaCrearPublicacion.safeParse(bodyData);
@@ -193,7 +194,7 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
             errorResponse(res, "Tipo de publicacion no encontrado", 404);
             return;
         }
-
+        
         // Resolver estado texto → id_estado
         const nombreEstado = validacion.data.estado ?? "disponible";
         const estadoObj = await obtenerEstadoPorNombre(nombreEstado);
@@ -213,6 +214,7 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
                 tipo_publicacion: tipoPerfil.id_tipo_perfil,
                 estado: idEstado,
                 id_usuario: idUsuario,
+                is_pinned: validacion.data.destacar
             }
         });
 
@@ -550,15 +552,9 @@ export async function destacarPublicacion(
 export async function obtenerPublicacionesDestacadas(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
         const idUsuario = Number(req.params.id);
-        const tipo = req.query.tipo as string;
 
         if (isNaN(idUsuario)) {
             errorResponse(res, "El ID de usuario no es válido", 400);
-            return;
-        }
-
-        if (!tipo) {
-            errorResponse(res, "El tipo de publicación es requerido", 400);
             return;
         }
 
