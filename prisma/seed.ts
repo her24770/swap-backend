@@ -312,6 +312,12 @@ async function main() {
     const eArteDiseno = await prisma.etiqueta.upsert({ where: { nombre: "Arte y Diseño" },    update: {}, create: { nombre: "Arte y Diseño",    descripcion: "Productos y servicios creativos",                  id_etiqueta_padre: eNegocio.id_etiqueta } });
     const eTecnologia = await prisma.etiqueta.upsert({ where: { nombre: "Tecnología" },       update: {}, create: { nombre: "Tecnología",       descripcion: "Venta y reparación de equipos tecnológicos",       id_etiqueta_padre: eNegocio.id_etiqueta } });
 
+    //--------------------------------
+    //Etiquetas de compra y alquiler
+    //--------------------------------
+    const eCompra = await prisma.etiqueta.upsert({where: { nombre: "Compra" },update: {},create: {nombre: "Compra",descripcion: "Publicaciones para compra"}});
+    const eAlquiler = await prisma.etiqueta.upsert({ where: { nombre: "Alquiler" },update: {},create: {nombre: "Alquiler",descripcion: "Publicaciones para alquiler"}});
+    
     // ─────────────────────────────────────────────
     // 7. Eventos de recomendación
     // ─────────────────────────────────────────────

@@ -455,12 +455,87 @@ export async function buscarPublicacionesPorFiltros(
         }
     }
     // 3. Filtro por etiquetas
+
     if (options.etiquetas && options.etiquetas.length > 0) {
-        where.etiquetas = {
-            some: {
-                id_etiqueta: { in: options.etiquetas }
+
+        // Buscar etiquetas especiales por nombre
+        const etiquetasEspeciales = await prisma.etiqueta.findMany({
+            where: {
+                nombre: {
+                    in: ["Compra", "Alquiler"]
+                }
+            },
+            select: {
+                id_etiqueta: true,
+                nombre: true
             }
-        };
+        });
+
+        const compra = etiquetasEspeciales.find(
+            (e) => e.nombre === "Compra"
+        );
+
+        const alquiler = etiquetasEspeciales.find(
+            (e) => e.nombre === "Alquiler"
+        );
+
+        const etiquetas = options.etiquetas;
+
+        const tieneCompra =
+            compra &&
+            etiquetas.includes(compra.id_etiqueta);
+
+        const tieneAlquiler =
+            alquiler &&
+            etiquetas.includes(alquiler.id_etiqueta);
+
+        // Etiquetas normales
+        const etiquetasNormales = etiquetas.filter(
+            (id) =>
+                id !== compra?.id_etiqueta &&
+                id !== alquiler?.id_etiqueta
+        );
+
+        const condicionesEtiquetas: any[] = [];
+
+        // Etiquetas normales → OR
+        if (etiquetasNormales.length > 0) {
+            condicionesEtiquetas.push({
+                etiquetas: {
+                    some: {
+                        id_etiqueta: {
+                            in: etiquetasNormales
+                        }
+                    }
+                }
+            });
+        }
+
+        // SOLO compra
+        if (tieneCompra && !tieneAlquiler) {
+            condicionesEtiquetas.push({
+                etiquetas: {
+                    some: {
+                        id_etiqueta: compra.id_etiqueta
+                    }
+                }
+            });
+        }
+
+        // SOLO alquiler
+        if (tieneAlquiler && !tieneCompra) {
+            condicionesEtiquetas.push({
+                etiquetas: {
+                    some: {
+                        id_etiqueta: alquiler.id_etiqueta
+                    }
+                }
+            });
+        }
+
+        if (condicionesEtiquetas.length > 0) {
+            where.AND = condicionesEtiquetas;
+        }
     }
     // 4. Filtro por tipo de publicación
     if (options.tipo) {
