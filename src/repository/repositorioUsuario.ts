@@ -94,3 +94,64 @@ export async function actualizarContacto(
 ): Promise<Contacto> {
     return prisma.contacto.update({ where: { id_contacto: id }, data });
 }
+
+
+export async function buscarUsuariosPorIdsDetallado(
+    ids: number[]
+): Promise<any[]> {
+
+    const usuarios = await prisma.usuario.findMany({
+
+        where: {
+            id_usuario: {
+                in: ids
+            }
+        },
+
+        select: {
+
+            id_usuario: true,
+            nombre: true,
+            carnet: true,
+            email_institucional: true,
+            url_foto_perfil: true,
+            descripcion: true,
+            calificacion: true,
+            reportes_recibidos: true,
+
+            contactos: {
+                include: {
+                    tipoContacto: true,
+                },
+            },
+
+            etiquetas: {
+                include: {
+                    etiqueta: true,
+                },
+            },
+
+            _count: {
+                select: {
+                    acuerdos: true
+                }
+            }
+        }
+    });
+
+    // Mantener orden original
+    const orden = new Map<number, number>();
+
+    ids.forEach((id, index) => {
+        orden.set(id, index);
+    });
+
+    usuarios.sort((a, b) => {
+        return (
+            (orden.get(a.id_usuario) ?? 0) -
+            (orden.get(b.id_usuario) ?? 0)
+        );
+    });
+
+    return usuarios;
+}

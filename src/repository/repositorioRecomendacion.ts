@@ -233,3 +233,71 @@ export async function obtenerPublicacionesPorPadre(idPadre: number, limite: numb
         .sort((a, b) => b.score - a.score)
         .slice(0, limite);
 }
+
+// Obtener usuarios candidatos
+export async function obtenerUsuariosCandidatos(
+    limit: number
+) {
+
+    return prisma.usuario.findMany({
+
+        where: {
+
+            // Debe tener al menos una tutoría activa
+            publicaciones: {
+
+                some: {
+
+                    estadoRel: {
+                        estado: "activo"
+                    },
+
+                    tipoPerfil: {
+                        tipo_perfil: "tutoria"
+                    }
+                }
+            }
+        },
+
+        select: {
+
+            id_usuario: true,
+            nombre: true,
+            calificacion: true,
+            url_foto_perfil: true,
+
+            // Cantidad de acuerdos totales
+            _count: {
+                select: {
+                    acuerdos: true
+                }
+            }
+        },
+
+        take: limit,
+
+        // Usuarios con más acuerdos primero
+        orderBy: {
+            acuerdos: {
+                _count: "desc"
+            }
+        }
+    });
+}
+
+// Obtiene etiquetas de usuarios candidatos
+export async function obtenerEtiquetasUsuariosCandidatos(
+    ids_usuarios: number[]
+) {
+    return prisma.usuarioEtiqueta.findMany({
+        where: {
+            id_usuario: {
+                in: ids_usuarios
+            }
+        },
+        select: {
+            id_usuario: true,
+            id_etiqueta: true
+        }
+    });
+}
