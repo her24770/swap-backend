@@ -343,14 +343,17 @@ export async function editarPublicacion(req: Request, res: Response, next: NextF
 
         const prisma = require("../persistencia/prismaClient.js").default;
         const urlsNuevas: string[] = [];
+        const imagenesParaModerar: { idImagen: number; url: string; buffer: Buffer }[] = [];
         for (const archivo of archivos) {
             try {
                 const url = await subirImagenR2(archivo.buffer, archivo.mimetype, 'publicaciones', `post_${id_publicacion}_${crypto.randomUUID()}`);
-                await prisma.imagenPublicacion.create({ data: { url_imagen: url, id_publicacion } });
+                const imagenGuardada = await prisma.imagenPublicacion.create({ data: { url_imagen: url, id_publicacion } });
                 urlsNuevas.push(url);
+                imagenesParaModerar.push({ idImagen: imagenGuardada.id_imagen, url, buffer: archivo.buffer });
             } catch { /* continúa si falla una imagen */ }
         }
 
+        const idUsuario = Number(req.usuario?.sub);
         const imagenesFinales = await buscarImagenesPorPublicacion(id_publicacion);
         exitoResponse(res, { imagenes: imagenesFinales, urlsNuevas }, "Publicacion actualizada exitosamente", 200);
 
@@ -358,6 +361,10 @@ export async function editarPublicacion(req: Request, res: Response, next: NextF
             const tituloFinal = body.titulo ?? publicacion.titulo;
             const descripcionFinal = body.descripcion ?? publicacion.descripcion;
             generarYGuardarEmbedding(id_publicacion, `${tituloFinal} ${descripcionFinal}`).catch(() => {});
+        }
+
+        if (imagenesParaModerar.length > 0) {
+            moderarImagenesEnBackground(id_publicacion, idUsuario, imagenesParaModerar).catch(() => {});
         }
 
         return;
