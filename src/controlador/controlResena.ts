@@ -147,6 +147,7 @@ import {
   calcularPromedioResenas, 
   buscarResenasDeUnUsuario 
 } from "../repository/repositorioResena";
+import { obtenerTipoPerfilPorNombre } from "../repository/repositorioTipoPerfil.js";
 import { actualizarUsuario, buscarUsuarioPorId } from "../repository/repositorioUsuario";
 import { errorResponse, exitoResponse, errorValidacionResponse } from "../servicios/Response.js";
 
@@ -164,7 +165,7 @@ export async function registrarNuevaResena(req: Request, res: Response, next: Ne
         return;
         }
 
-        const { id_receptor, id_tipo_resena } = validacion.data;
+        const { id_receptor, tipo_resena } = validacion.data;
 
         if (idEmisor === id_receptor) {
         errorResponse(res, "No puedes dejarte una reseña a ti mismo.", 400);
@@ -177,13 +178,26 @@ export async function registrarNuevaResena(req: Request, res: Response, next: Ne
         return;
         }
 
-        const yaResenado = await verificarResenaExistente(idEmisor, id_receptor, id_tipo_resena);
+        const tipoPerfil = await obtenerTipoPerfilPorNombre(tipo_resena);
+        if (!tipoPerfil) {
+        errorResponse(res, "El tipo de perfil no existe.", 404);
+        return;
+        }
+
+        const yaResenado = await verificarResenaExistente(idEmisor, id_receptor, tipoPerfil.id_tipo_perfil);
         if (yaResenado) {
         errorResponse(res, "Ya calificaste a este usuario para este tipo de perfil.", 400);
         return;
         }
 
-        const nuevaResena = await crearResena(idEmisor, validacion.data);
+        const nuevaResena = await crearResena({
+        emisor: { connect: { id_usuario: idEmisor } },
+        receptor: { connect: { id_usuario: id_receptor } },
+        tipoResena: { connect: { id_tipo_perfil: tipoPerfil.id_tipo_perfil } },
+        contenido: validacion.data.contenido,
+        calificacion: validacion.data.calificacion,
+        fecha_resena: new Date(),
+        });
 
         // Sincronizar promedio de reputación
         const { promedio } = await calcularPromedioResenas(id_receptor);
