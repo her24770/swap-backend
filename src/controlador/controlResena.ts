@@ -8,9 +8,9 @@ import {
     calcularPromedioResenas, 
     buscarResenasDeUnUsuario 
 } from "../repository/repositorioResena";
-import { obtenerTipoPerfilPorNombre } from "../repository/repositorioTipoPerfil.js";
 import { actualizarUsuario, buscarUsuarioPorId } from "../repository/repositorioUsuario";
 import { errorResponse, exitoResponse, errorValidacionResponse } from "../servicios/Response.js";
+import { obtenerTipoResenaPorNombre } from "../repository/repositorioResena";
 
 export async function registrarNuevaResena(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -39,22 +39,22 @@ export async function registrarNuevaResena(req: Request, res: Response, next: Ne
         return;
         }
 
-        const tipoPerfil = await obtenerTipoPerfilPorNombre(tipo_resena);
-        if (!tipoPerfil) {
-        errorResponse(res, "El tipo de perfil no existe.", 404);
+        const tipoResena = await obtenerTipoResenaPorNombre(tipo_resena);
+        if (!tipoResena) {
+        errorResponse(res, "El tipo de resena no existe.", 404);
         return;
         }
 
-        const yaResenado = await verificarResenaExistente(idEmisor, id_receptor, tipoPerfil.id_tipo_perfil);
+        const yaResenado = await verificarResenaExistente(idEmisor, id_receptor, tipoResena.id_tipo_resena);
         if (yaResenado) {
-        errorResponse(res, "Ya calificaste a este usuario para este tipo de perfil.", 400);
+        errorResponse(res, "Ya calificaste a este usuario para este tipo de resena.", 400);
         return;
         }
 
         const nuevaResena = await crearResena({
         emisor: { connect: { id_usuario: idEmisor } },
         receptor: { connect: { id_usuario: id_receptor } },
-        tipoResena: { connect: { id_tipo_perfil: tipoPerfil.id_tipo_perfil } },
+        tipoResena: { connect: { id_tipo_resena: tipoResena.id_tipo_resena } },
         contenido: validacion.data.contenido,
         calificacion: validacion.data.calificacion,
         fecha_resena: new Date(),
@@ -101,8 +101,8 @@ export async function modificarResenaUsuario(req: Request, res: Response, next: 
         const resenaActualizada = await actualizarResena(idResena, validacion.data);
 
         // Actualizar reputación
-        const { promedio } = await calcularPromedioResenas(resenaOriginal.id_receptor);
-        await actualizarUsuario(resenaOriginal.id_receptor, { calificacion: promedio });
+        const { promedio, totalResenas } = await calcularPromedioResenas(resenaOriginal.id_receptor);
+        await actualizarUsuario(resenaOriginal.id_receptor, { calificacion: promedio, total_resenas: totalResenas });
 
         exitoResponse(res, resenaActualizada, "Reseña modificada exitosamente.", 200);
         return;
