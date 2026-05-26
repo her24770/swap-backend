@@ -58,7 +58,12 @@ export async function obtenerPerfilPublico(
             return;
         }
 
-        exitoResponse(res, usuario, "Perfil público obtenido exitosamente", 200);
+        const usuarioFormateado = {
+            ...usuario,
+            calificacion: usuario.calificacion ? Number(usuario.calificacion) : 0
+        };
+
+        exitoResponse(res, usuarioFormateado, "Perfil público obtenido exitosamente", 200);
     } catch (error) {
         next(error);
     }
