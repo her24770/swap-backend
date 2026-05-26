@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
-import { buscarPublicacionesPorTipoYUsuario, buscarPublicacionesPaginadas, buscarPublicacionPorId, actualizarPublicacion, actualizarEstadoPublicacion, buscarPublicacionPorIdDetallado, buscarImagenesPorPublicacion, eliminarImagen, buscarPublicacionesPorFiltros } from "../repository/repositorioPublicacion.js";
+import { buscarPublicacionesPorTipoYUsuario, buscarPublicacionesPaginadas, buscarPublicacionPorId, actualizarPublicacion, actualizarEstadoPublicacion, buscarPublicacionPorIdDetallado, buscarImagenesPorPublicacion, eliminarImagen, buscarPublicacionesPorFiltros, buscarPublicacionesDestacadasUsuario } from "../repository/repositorioPublicacion.js";
 import { obtenerTipoPerfilPorNombre } from "../repository/repositorioTipoPerfil.js";
 import { buscarUsuarioPorId } from "../repository/repositorioUsuario.js";
 import { subirImagenR2, eliminarImagenR2 } from "../servicios/servicioR2.js";
@@ -502,26 +502,26 @@ export async function destacarPublicacion(
         const { destacar } = req.body;
 
         if (isNaN(idPublicacion)) {
-            res.status(400).json({ message: "El ID de la publicación no es válido." });
+            errorResponse(res, "El ID de la publicación no es válido", 400);
             return;
         }
 
         const publicacion = await buscarPublicacionPorId(idPublicacion);
         if (!publicacion) {
-            res.status(404).json({ message: "Publicación no encontrada." });
+            errorResponse(res, "Publicación no encontrada", 404);
             return;
         }
 
         // Solo el dueño puede destacar
         if (publicacion.id_usuario !== idUsuario) {
-            res.status(403).json({ message: "No tienes permiso para destacar esta publicación." });
+            errorResponse(res, "No tienes permiso para destacar esta publicación.", 403);
             return;
         }
 
         // Si ya está en el estado solicitado no hacer nada
         if (publicacion.is_pinned === destacar) {
             const estado = destacar ? "destacada" : "no destacada";
-            res.status(409).json({ message: `La publicación ya está ${estado}.` });
+            errorResponse(res, `La publicación ya está ${estado}.`, 409);
             return;
         }
 
@@ -533,9 +533,7 @@ export async function destacarPublicacion(
             );
 
             if (totalDestacadas >= 3) {
-                res.status(400).json({
-                    message: "Ya tienes 3 publicaciones destacadas de este tipo. Quita una antes de destacar otra."
-                });
+                errorResponse(res, "Ya tienes 3 publicaciones destacadas de este tipo. Quita una antes de destacar otra.", 400);
                 return;
             }
         }
@@ -543,10 +541,31 @@ export async function destacarPublicacion(
         const actualizada = await actualizarDestacado(idPublicacion, destacar);
         const accion = destacar ? "destacada" : "quitada de destacados";
 
-        res.status(200).json({
-            message: `Publicación ${accion} exitosamente.`,
-            data: actualizada
-        });
+        exitoResponse(res, actualizada, `Publicación ${accion} exitosamente`, 200);
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function obtenerPublicacionesDestacadas(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const idUsuario = Number(req.params.id);
+        const tipo = req.query.tipo as string;
+
+        if (isNaN(idUsuario)) {
+            errorResponse(res, "El ID de usuario no es válido", 400);
+            return;
+        }
+
+        if (!tipo) {
+            errorResponse(res, "El tipo de publicación es requerido", 400);
+            return;
+        }
+
+        const publicaciones = await buscarPublicacionesDestacadasUsuario(idUsuario);
+
+        exitoResponse(res, publicaciones, "Publicaciones destacadas obtenidas exitosamente", 200);
+        return;
     } catch (error) {
         next(error);
     }
