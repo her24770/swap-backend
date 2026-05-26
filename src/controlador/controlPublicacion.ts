@@ -8,6 +8,7 @@ import { schemaCrearPublicacion, } from "../modelo/schemaPublicacion.js";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
 import { errorResponse, exitoResponse, errorValidacionResponse } from "../servicios/Response.js";
 import { generarYGuardarEmbedding } from "../servicios/servicioEmbedding.js";
+import { moderarImagenesEnBackground } from "../servicios/servicioModerarImagenesBackground.js";
 import {contarPublicacionesDestacadasPorTipoYUsuario,actualizarDestacado} from "../repository/repositorioPublicacion.js";
 import {registrarInteraccionPublicacion} from "../autenticacion/eventoRecomendacion.js";
 
@@ -218,6 +219,7 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
         // Subir imágenes a R2 y guardarlas en BD
         const archivos = ((req.files as Express.Multer.File[]) ?? []).filter(f => f.fieldname === 'imagenes');
         const urlsImagenes: string[] = [];
+        const imagenesParaModerar: { idImagen: number; url: string; buffer: Buffer }[] = [];
         for (const archivo of archivos) {
             try {
                 const url = await subirImagenR2(
@@ -226,10 +228,11 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
                     'publicaciones',
                     `post_${publicacion.id_publicacion}_${crypto.randomUUID()}`
                 );
-                await prisma.imagenPublicacion.create({
+                const imagenGuardada = await prisma.imagenPublicacion.create({
                     data: { url_imagen: url, id_publicacion: publicacion.id_publicacion }
                 });
                 urlsImagenes.push(url);
+                imagenesParaModerar.push({ idImagen: imagenGuardada.id_imagen, url, buffer: archivo.buffer });
             } catch {
                 // Si falla una imagen se continúa con las demás
             }
@@ -242,6 +245,10 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
 
         const textoEmbedding = `${validacion.data.titulo} ${validacion.data.descripcion}`;
         generarYGuardarEmbedding(publicacion.id_publicacion, textoEmbedding).catch(() => {});
+
+        if (imagenesParaModerar.length > 0) {
+            moderarImagenesEnBackground(publicacion.id_publicacion, idUsuario, imagenesParaModerar).catch(() => {});
+        }
 
         return;
     } catch (error) {
