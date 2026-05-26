@@ -69,6 +69,8 @@ async function main() {
 
     const tcWa = await prisma.tipoContacto.findUniqueOrThrow({ where: { tipo_contacto: "whatsapp" } });
     const tcIg = await prisma.tipoContacto.findUniqueOrThrow({ where: { tipo_contacto: "instagram" } });
+    const tcTel = await prisma.tipoContacto.findUniqueOrThrow({ where: { tipo_contacto: "telefono" } });
+    const tcCo = await prisma.tipoContacto.findUniqueOrThrow({ where: { tipo_contacto: "correo_personal" } });
 
     // Etiquetas de ICC
     const [eAED, eBD1, eIS1, eRedes, ePOO, eEDA, eSO, eArq, eBD2, eIA] = await Promise.all([
@@ -140,7 +142,10 @@ async function main() {
         skipDuplicates: true,
         data: [
             { id_usuario: vendedor.id_usuario, tipo_contacto: tcWa.id_tipo_contacto, valor: "+502 5555-1001" },
-            { id_usuario: vendedor.id_usuario, tipo_contacto: tcIg.id_tipo_contacto, valor: "@carlos.mendez.uvg" },
+            { id_usuario: vendedor.id_usuario, tipo_contacto: tcIg.id_tipo_contacto, valor: "@Danilo67_" },
+            { id_usuario: vendedor.id_usuario, tipo_contacto: tcCo.id_tipo_contacto, valor: "men12345@uvg.edu.gt" },
+            { id_usuario: vendedor.id_usuario, tipo_contacto: tcTel.id_tipo_contacto, valor: "+502 5555-1001" },
+            
         ],
     });
 
@@ -163,6 +168,8 @@ async function main() {
         data: [
             { id_usuario: vendedor1.id_usuario, tipo_contacto: tcWa.id_tipo_contacto, valor: "+502 5164-8081" },
             { id_usuario: vendedor1.id_usuario, tipo_contacto: tcIg.id_tipo_contacto, valor: "@adriana.jimenez.uvg" },
+            { id_usuario: vendedor.id_usuario, tipo_contacto: tcCo.id_tipo_contacto, valor: "jim12345@uvg.edu.gt" },
+            { id_usuario: vendedor.id_usuario, tipo_contacto: tcTel.id_tipo_contacto, valor: "+502 5164-8081" },
         ],
     });
 
