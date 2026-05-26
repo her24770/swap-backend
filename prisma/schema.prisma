@@ -113,6 +113,7 @@ model Estado {
   mensajes           Mensaje[]
   acuerdos           Acuerdo[]
   reportes           Reporte[]
+  notificaciones     Notificacion[]
 }
 
 model Contacto {
@@ -281,9 +282,11 @@ model Notificacion {
   id_notificacion Int      @id @default(autoincrement())
   mensaje         String
   id_usuario      Int
+  id_estado       Int
   fecha           DateTime @default(now())
 
   usuario Usuario @relation(fields: [id_usuario], references: [id_usuario])
+  estado  Estado  @relation(fields: [id_estado], references: [id_estado])
 }
 
 model UsuarioEtiqueta {
