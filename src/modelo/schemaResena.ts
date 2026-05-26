@@ -2,7 +2,9 @@ import { z } from "zod";
 
 export const schemaCrearResena = z.object({
   id_receptor: z.number().int().positive("El ID del receptor es requerido."),
-  id_tipo_resena: z.number().int().positive("El tipo de perfil de la reseña es requerido."),
+  tipo_resena: z.string({ required_error: "El tipo de reseña es obligatorio." })
+                .min(3, "El tipo de reseña debe tener al menos 3 caracteres.")
+                .max(25, "El tipo de reseña no puede superar los 25 caracteres."),
   calificacion: z
     .number()
     .int()
