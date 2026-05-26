@@ -1,6 +1,7 @@
 import { Prisma, Publicacion, ImagenPublicacion, Etiqueta } from "@prisma/client";
 import prisma from "../persistencia/prismaClient";
 import { FiltrosPublicacionInput, PaginationOptionInput } from "../modelo/schemaPublicacion";
+import { ResultadoBusquedaPublicacion } from "./types";
 
 // ─────────────────────────────────────────────
 // Publicacion
@@ -88,7 +89,7 @@ export async function buscarPublicacionesPorUsuario(idUsuario: number): Promise<
     });
 }
 
-export async function buscarPublicacionesPaginadas(options: PaginationOptionInput, idUsuario?: number): Promise<Publicacion[]> {
+export async function buscarPublicacionesPaginadas(options: PaginationOptionInput, idUsuario?: number): Promise<ResultadoBusquedaPublicacion> {
     //Valores por defecto
     const { page = 1, limit = 10, sort = 'fecha', order = 'desc', tipo, estado } = options;
 
@@ -133,32 +134,57 @@ export async function buscarPublicacionesPaginadas(options: PaginationOptionInpu
         }
     }
 
-    const publicaciones = await prisma.publicacion.findMany({
-        where,
-        include: {
-            imagenes: true,
-            etiquetas: { include: { etiqueta: true } },
-            estadoRel: { select: { id_estado: true, estado: true } },
-            // Solo traer la relación del usuario autenticado
-            usuarioPublicacions: idUsuario
-                ? { where: { id_usuario: idUsuario }, select: { is_save: true, is_like: true } }
-                : false
-        },
-        orderBy,
-        skip,
-        take: limit
-    });
+    const [publicaciones, total] = await prisma.$transaction([
+
+        prisma.publicacion.findMany({
+            where,
+            include: {
+                imagenes: true,
+                etiquetas: { include: { etiqueta: true } },
+                estadoRel: { select: { id_estado: true, estado: true } },
+
+                // Solo traer la relación del usuario autenticado
+                usuarioPublicacions: idUsuario
+                    ? {
+                        where: { id_usuario: idUsuario },
+                        select: {
+                            is_save: true,
+                            is_like: true
+                        }
+                    }
+                    : false
+            },
+            orderBy,
+            skip,
+            take: limit
+        }),
+
+        prisma.publicacion.count({
+            where
+        })
+
+    ]);
 
     // Mapear para aplanar guardado y likeado
-    return publicaciones.map((pub) => {
-        const relacion = idUsuario ? (pub.usuarioPublicacions?.[0] ?? null) : null;
+    const publicacionesMapeadas = publicaciones.map((pub) => {
+
+        const relacion = idUsuario
+            ? (pub.usuarioPublicacions?.[0] ?? null)
+            : null;
+
         const { usuarioPublicacions, ...resto } = pub;
+
         return {
             ...resto,
             guardado: relacion?.is_save ?? false,
             likeado: relacion?.is_like ?? false
         };
     });
+
+    return {
+        publicaciones: publicacionesMapeadas,
+        total
+    };
 }
 
 export async function guardarPublicacion(

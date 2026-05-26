@@ -261,6 +261,8 @@ async function main() {
         prisma.eventoRecomendacion.upsert({ where: { tipo_evento: "DEJAR_RESENA" },       update: {}, create: { tipo_evento: "DEJAR_RESENA",       peso: 0.8 } }),
         prisma.eventoRecomendacion.upsert({ where: { tipo_evento: "AGENDAR_TUTORIA" },    update: {}, create: { tipo_evento: "AGENDAR_TUTORIA",    peso: 1.0 } }),
         prisma.eventoRecomendacion.upsert({ where: { tipo_evento: "COMPLETAR_COMPRA" },   update: {}, create: { tipo_evento: "COMPLETAR_COMPRA",   peso: 1.0 } }),
+        prisma.eventoRecomendacion.upsert({ where: { tipo_evento: "LIKE_PUBLICACION" },   update: {}, create: { tipo_evento: "LIKE_PUBLICACION",   peso: 0.7 } }),
+        prisma.eventoRecomendacion.upsert({ where: { tipo_evento: "GUARDAR_PUBLICACION" },   update: {}, create: { tipo_evento: "GUARDAR_PUBLICACION",   peso: 0.9 } }),
     ]);
     console.log("  ✅ Eventos de recomendación");
 

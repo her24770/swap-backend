@@ -9,6 +9,7 @@ import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
 import { errorResponse, exitoResponse, errorValidacionResponse } from "../servicios/Response.js";
 import { generarYGuardarEmbedding } from "../servicios/servicioEmbedding.js";
 import {contarPublicacionesDestacadasPorTipoYUsuario,actualizarDestacado} from "../repository/repositorioPublicacion.js";
+import {registrarInteraccionPublicacion} from "../autenticacion/eventoRecomendacion.js";
 
 export async function obtenerPublicacionesUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -81,12 +82,19 @@ export async function obtenerTodasLasPublicaciones(req: Request, res: Response, 
             estado
         }, idUsuario);
 
-        if (!resultado || resultado.length == 0) {
+        if (!resultado || resultado.publicaciones.length == 0) {
             errorResponse(res, "No se encontraron publicaciones", 404);
             return;
         }
 
-        exitoResponse(res, resultado, "Publicaciones obtenidas exitosamente", 200);
+        res.status(200).json({
+            success: true,
+            message: "Publicaciones obtenidas exitosamente",
+
+            data: resultado.publicaciones,
+
+            total: resultado.total
+        });
         return;
     } catch (error) {
         next(error);
@@ -100,11 +108,22 @@ export async function obtenerPublicacionPorId(req: Request, res: Response, next:
             errorResponse(res, "El id de la publicacion no es valido", 400);
             return;
         }
-        const idUsuario = Number(req.usuario?.sub) || undefined;
+        const idUsuario = Number(req.usuario?.sub);
         const publicacion = await buscarPublicacionPorIdDetallado(id, idUsuario);
         if (!publicacion) {
             errorResponse(res, "Publicacion no encontrada", 404);
             return;
+        }
+
+        //Verificar si el usuario que hace la consulta es el mismo de publicacion
+        if (idUsuario !== publicacion.id_usuario) {
+            //registrar evento de visualizacion
+            registrarInteraccionPublicacion(idUsuario, publicacion.id_publicacion, "VER_PUBLICACION").catch((error) => {
+                console.error(
+                    "[Recomendacion] Error registrando visualizacion:",
+                    error
+                );
+            });
         }
 
         exitoResponse(res, publicacion, "Publicacion obtenida exitosamente", 200);
