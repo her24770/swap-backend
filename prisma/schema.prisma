@@ -144,6 +144,7 @@ model TiempoDisponible {
 model Certificacion {
   id_certificacion Int    @id @default(autoincrement())
   id_usuario       Int
+  nombre           String @db.VarChar(100)
   ruta_pdf         String @db.VarChar(255)
   lugar_emision    String @db.VarChar(100)
   id_etiqueta      Int
