@@ -16,53 +16,55 @@ export async function registrarNuevaResena(req: Request, res: Response, next: Ne
     try {
         const idEmisor = Number(req.usuario?.sub);
         if (!idEmisor || isNaN(idEmisor)) {
-        errorResponse(res, "Usuario no autenticado.", 401);
-        return;
+            errorResponse(res, "Usuario no autenticado.", 401);
+            return;
         }
 
         const validacion = schemaCrearResena.safeParse(req.body);
         if (!validacion.success) {
-        errorValidacionResponse(res, validacion.error.errors);
-        return;
+            errorValidacionResponse(res, validacion.error.errors);
+            return;
         }
 
-        const { id_receptor, tipo_resena } = validacion.data;
+        const { id_receptor, tipo_resena: tipoResenaNombre } = validacion.data;
 
         if (idEmisor === id_receptor) {
-        errorResponse(res, "No puedes dejarte una reseña a ti mismo.", 400);
-        return;
+            errorResponse(res, "No puedes dejarte una reseña a ti mismo.", 400);
+            return;
         }
 
         const receptorExiste = await buscarUsuarioPorId(id_receptor);
         if (!receptorExiste) {
-        errorResponse(res, "El usuario a reseñar no existe.", 404);
-        return;
+            errorResponse(res, "El usuario a reseñar no existe.", 404);
+            return;
         }
 
-        const tipoResena = await obtenerTipoResenaPorNombre(tipo_resena);
-        if (!tipoResena) {
-        errorResponse(res, "El tipo de resena no existe.", 404);
-        return;
+        const tipoResenaDb = await obtenerTipoResenaPorNombre(tipoResenaNombre);
+        if (!tipoResenaDb) {
+            errorResponse(res, "El tipo de reseña no existe.", 404);
+            return;
         }
 
-        const yaResenado = await verificarResenaExistente(idEmisor, id_receptor, tipoResena.id_tipo_resena);
+        const yaResenado = await verificarResenaExistente(idEmisor, id_receptor, tipoResenaDb.id_tipo_resena);
         if (yaResenado) {
-        errorResponse(res, "Ya calificaste a este usuario para este tipo de resena.", 400);
-        return;
+            errorResponse(res, "Ya calificaste a este usuario para este tipo de reseña.", 400);
+            return;
         }
 
         const nuevaResena = await crearResena({
-        emisor: { connect: { id_usuario: idEmisor } },
-        receptor: { connect: { id_usuario: id_receptor } },
-        tipoResena: { connect: { id_tipo_resena: tipoResena.id_tipo_resena } },
-        contenido: validacion.data.contenido,
-        calificacion: validacion.data.calificacion,
-        fecha_resena: new Date(),
+            emisor: { connect: { id_usuario: idEmisor } },
+            receptor: { connect: { id_usuario: id_receptor } },
+            tipoResena: { connect: { id_tipo_resena: tipoResenaDb.id_tipo_resena } },
+            contenido: validacion.data.contenido,
+            calificacion: validacion.data.calificacion,
+            fecha_resena: new Date(),
         });
 
-        // Sincronizar promedio de reputación
-        const { promedio } = await calcularPromedioResenas(id_receptor);
-        await actualizarUsuario(id_receptor, { calificacion: promedio });
+        const { promedio, totalResenas } = await calcularPromedioResenas(id_receptor);
+        await actualizarUsuario(id_receptor, { 
+            calificacion: promedio, 
+            total_resenas: totalResenas 
+        });
 
         exitoResponse(res, nuevaResena, "Reseña guardada y reputación actualizada con éxito.", 201);
         return;
