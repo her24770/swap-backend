@@ -12,6 +12,7 @@ import likesRoutes from "./routesLikes.js";
 import horarioRoutes from "./routesHorario.js";
 import anuncioRoutes from "./routesAnuncio.js";
 import busquedaRoutes from "./routesBusqueda.js";
+import certificacionRoutes from "./routesCertificacion.js";
 
 const router = Router();
 
@@ -34,5 +35,6 @@ router.use("/likes", likesRoutes);
 router.use("/horarios", horarioRoutes);
 router.use("/anuncio", anuncioRoutes);
 router.use("/busqueda", busquedaRoutes);
+router.use("/certificacion", certificacionRoutes);
 
 export default router;
