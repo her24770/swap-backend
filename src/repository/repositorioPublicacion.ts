@@ -209,6 +209,22 @@ export async function buscarPublicacionesPorTipoYUsuario(tipoPerfil: string, idU
     });
 }
 
+export async function buscarPublicacionesDestacadasUsuario(idUsuario: number): Promise<any[]> {
+    return prisma.publicacion.findMany({
+        where: {
+            id_usuario: idUsuario,
+            is_pinned: true
+        },
+        include: {
+            imagenes: true,
+            etiquetas: { include: { etiqueta: true } },
+            estadoRel: { select: { id_estado: true, estado: true } },
+            tipoPerfil: { select: { id_tipo_perfil: true, tipo_perfil: true } }
+        },
+        orderBy: { fecha_publicacion: "desc" },
+    });
+}   
+
 // ─────────────────────────────────────────────
 // Imagen de Publicacion
 // ─────────────────────────────────────────────
