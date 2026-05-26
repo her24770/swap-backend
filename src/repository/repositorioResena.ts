@@ -1,17 +1,10 @@
-import { Resena } from "@prisma/client";
+import { Prisma, Resena } from "@prisma/client";
 import prisma from "../persistencia/prismaClient";
-import { CrearResenaInput, EditarResenaInput } from "../modelo/schemaResena";
+import { EditarResenaInput } from "../modelo/schemaResena";
 
-export async function crearResena(idEmisor: number, data: CrearResenaInput): Promise<Resena> {
-    return await prisma.resena.create({
-        data: {
-        contenido: data.contenido,
-        calificacion: data.calificacion,
-        id_emisor: idEmisor,
-        id_receptor: data.id_receptor,
-        id_tipo_resena: data.id_tipo_resena,
-        },
-    });
+export async function crearResena(data: Prisma.ResenaCreateInput): Promise<Resena> {
+    return await prisma.resena.create({ data });    
+    
 }
 
 export async function actualizarResena(idResena: number, data: EditarResenaInput): Promise<Resena> {
@@ -34,14 +27,17 @@ export async function verificarResenaExistente(idEmisor: number, idReceptor: num
     });
 }
 
-export async function buscarResenasDeUnUsuario(idReceptor: number) {
+export async function buscarResenasDeUnUsuario(idReceptor: number, tipo_resena: string): Promise<Resena[]> {
     return await prisma.resena.findMany({
-        where: { id_receptor: idReceptor },
+        where: { id_receptor: idReceptor, tipo_resena: tipo_resena },
         include: {
         emisor: {
             select: { id_usuario: true, nombre: true, url_foto_perfil: true },
         },
-        tipoResena: true,
+        tipoResena:
+            { select: { 
+                tipo_perfil: true,
+                tipo_resena: true } },
         },
         orderBy: { fecha_resena: "desc" },
     });
