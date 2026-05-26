@@ -32,6 +32,13 @@ export const schemaCrearPublicacion = z.object({
         })
         .optional(),
 
+    destacar: z
+        .boolean({
+            invalid_type_error: "El campo destacar debe ser un booleano."
+        })
+        .optional()
+        .default(false),
+
     imagenes: z
         .array(
             z.string().url("Cada imagen debe ser una URL válida.")
