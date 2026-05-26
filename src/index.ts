@@ -37,11 +37,11 @@ conectarRedis()
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof multer.MulterError) {
-        res.status(400).json({ ok: false, message: `Error de archivo: ${err.message}` });
+        res.status(400).json({ success: false, message: `Error de archivo: ${err.message}` });
         return;
     }
     console.error(err);
-    res.status(500).json({ ok: false, message: "Error interno del servidor" });
+    res.status(500).json({ success: false, message: "Error interno del servidor" });
 });
 
 httpServer.listen(PORT, () => {
