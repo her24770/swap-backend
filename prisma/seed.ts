@@ -80,52 +80,103 @@ async function main() {
     // 5. Palabras restringidas
     // ─────────────────────────────────────────────
     const palabrasRestringidas = [
-        // Groserías base CA/Guatemala
-        "puta", "putas", "puto", "putada", "putear", "hpta", "hijueputa", "hijuepucha",
-        "malparido", "malparida", "hijuemadre", "hijuemama",
-        // Excremento
-        "mierda", "mierdas", "cagada", "cagado", "cagar", "cagón", "cagona", "cerote",
-        // Genitales como insulto
-        "verga", "vergas", "vergón",
-        // Insultos directos
-        "cabrón", "cabrona", "cabrones",
-        "pendejo", "pendeja", "pendejos",
-        "culero", "culera", "culeros", "culiado", "culiao",
-        "mamón", "mamona", "mamones", "mamada",
-        "maricón", "marica", "maricas", "maricon",
-        "carajo", "carajos",
-        "baboso", "babosa", "babosos",
-        "idiota", "idiotas",
-        "imbécil", "imbéciles",
-        "estúpido", "estúpida", "estúpidos",
-        "bastardo", "bastarda", "bastardos",
-        "zorra", "zorras",
-        "perra", "perras",
-        "gonorrea",
-        "ojete", "ojetes",
-        "piche", "piches",
-        "bicho",
-        // Insultos con chinga (México/CA)
-        "chingada", "chingado", "chingas", "chingón", "chinguen",
-        // Insultos con pinche (CA)
-        "pinche", "pinches",
-        // Insultos con joto
-        "joto", "jotos",
-        // Insultos con güey
-        "güey", "wey", "buey",
-        // Insultos con concha
-        "conchetumare", "conchetumadre",
-        // Insultos con maje (GT)
-        "maje", "majes",
-        // Insultos con zoquete
-        "zoquete", "zoquetes",
-        // Insultos GT adicionales
-        "chucho",
-        // Palabras inglesas vulgares comunes
-        "fuck", "fucking", "fucked", "shit", "bitch", "asshole", "bastard", "damn",
-        // Fraude/spam (originales)
-        "spam", "fraude", "estafa",
-    ];
+        // ── Groserías base Guatemala / Centroamérica ──────────────────────────────
+    "puta", "putas", "puto", "putada", "putear", "hpta", "hijueputa", "hijuepucha",
+    "malparido", "malparida", "hijuemadre", "hijuemama", "grandísimaputa",
+    // Excremento
+    "mierda", "mierdas", "cagada", "cagado", "cagar", "cagón", "cagona", "cerote",
+    "popó", "excremento",
+    // Genitales como insulto
+    "verga", "vergas", "vergón", "pene", "pija", "picha", "pito", "pirulo",
+    "vagina", "concha", "chocha", "coño", "panocha", "crica",
+    "teta", "tetas", "chichi", "chichis",
+    "culo", "culos", "nalgas",
+    // Actos sexuales como insulto
+    "follar", "coger", "cojes", "chingar", "chingada", "chingado", "chingas", "chingón", "chinguen",
+    "culiar", "culiado", "culiao", "culear",
+    "mamar", "mamada", "mamón", "mamona", "mamones",
+    // Insultos directos
+    "cabrón", "cabrona", "cabrones", "cabronada",
+    "pendejo", "pendeja", "pendejos", "pendejas", "pendejazo",
+    "culero", "culera", "culeros",
+    "maricón", "marica", "maricas", "maricon", "maricones",
+    "carajo", "carajos", "carajada",
+    "baboso", "babosa", "babosos", "babosada",
+    "idiota", "idiotas", "idiotez",
+    "imbécil", "imbéciles",
+    "estúpido", "estúpida", "estúpidos", "estupidez",
+    "bastardo", "bastarda", "bastardos",
+    "zorra", "zorras", "zorrero",
+    "perra", "perras", "perro", // como insulto
+    "gonorrea",
+    "ojete", "ojetes",
+    "piche", "piches",
+    "bicho", // insulto GT
+    "animal", // como insulto directo
+    "tarado", "tarada", "tarados",
+    "retrasado", "retrasada",
+    "mongolo", "mongola",
+    "cretino", "cretina",
+    "inútil", "inútiles",
+    "maldito", "maldita", "malditos",
+    "desgraciado", "desgraciada",
+    "hdp", "hdp.", "h.d.p",
+    "ptm", "ptm.", "p.t.m",
+    // Insultos con pinche (CA/MX)
+    "pinche", "pinches", "pinchudo",
+    // Insultos con joto / gay como insulto
+    "joto", "jotos", "jota",
+    // Insultos con güey
+    "güey", "wey", "buey",
+    // Insultos con concha (CA)
+    "conchetumare", "conchetumadre", "conchatumadre",
+    // Insultos GT adicionales
+    "maje", "majes", // puede ser neutro pero se filtra por seguridad
+    "zoquete", "zoquetes",
+    "chucho", // insulto GT
+    "cipote", // insulto SA
+    "hueco", // insulto GT/CA
+    "chapín", // puede ser ofensivo en contexto
+    "burro", "burra", // como insulto
+    "bestia", // como insulto
+    "bruto", "bruta",
+    "animal", "animales",
+    "hdpm", "hdlsm",
+    // Abreviaciones/eufemismos comunes en chat
+    "ctm", "stfu", "wtf", "fml",
+    "qeputa", "qepd", // "que lo p..." abreviado
+    // Insultos en inglés vulgares comunes
+    "fuck", "fucking", "fucked", "fucker", "fucks",
+    "shit", "bullshit", "bullshitter",
+    "bitch", "bitches",
+    "asshole", "assholes",
+    "bastard", "bastards",
+    "damn", "goddamn",
+    "cunt", "cunts",
+    "dick", "dicks", "dickhead",
+    "cock", "cocks",
+    "pussy", "pussies",
+    "whore", "whores",
+    "slut", "sluts",
+    "motherfucker", "mofo",
+    "nigga", "nigger", // racistas
+    "faggot", "fag",
+    "retard", "retarded",
+    "dumbass", "dumb",
+    "idiot", "idiots", "moron", "morons", "stupid",
+    // Racismo / discriminación en español
+    "indio", "india", // como insulto peyorativo
+    "negro", // como insulto (no descriptivo)
+    "ladino", // puede ser insultante en contexto
+    "chaparro", // como insulto
+    // Fraude / spam (originales)
+    "spam", "fraude", "estafa",
+    // Acoso / amenazas
+    "matar", "matarte", "te mato", "te voy a matar",
+    "golpear", "golpearte",
+    "violar", "violarte",
+    "amenaza", "amenazarte",
+];
 
     for (const palabra of palabrasRestringidas) {
         await prisma.palabraRestringida.upsert({
@@ -244,6 +295,22 @@ async function main() {
     ]);
 
     console.log("✅ Etiquetas hija creadas");
+
+    // ─────────────────────────────────────────────
+    // Etiquetas padre e Hija — Negocios / Servicios
+    // ─────────────────────────────────────────────
+
+    const eNegocio = await prisma.etiqueta.upsert({ where:  { nombre: "Negocio" }, update: {}, create: { nombre: "Negocio", descripcion: "Categorías de negocios" },
+});
+
+    const eComida     = await prisma.etiqueta.upsert({ where: { nombre: "Comida" },           update: {}, create: { nombre: "Comida",           descripcion: "Categoría de comida y alimentos",                  id_etiqueta_padre: eNegocio.id_etiqueta } });
+    const eReposteria = await prisma.etiqueta.upsert({ where: { nombre: "Repostería" },       update: {}, create: { nombre: "Repostería",       descripcion: "Categoría de repostería y panadería",              id_etiqueta_padre: eNegocio.id_etiqueta } });
+    const eRegalos    = await prisma.etiqueta.upsert({ where: { nombre: "Regalos" },          update: {}, create: { nombre: "Regalos",          descripcion: "Categoría de regalos y detalles",                  id_etiqueta_padre: eNegocio.id_etiqueta } });
+    const eArreglos   = await prisma.etiqueta.upsert({ where: { nombre: "Arreglos" },         update: {}, create: { nombre: "Arreglos",         descripcion: "Categoría de arreglos decorativos",                id_etiqueta_padre: eNegocio.id_etiqueta } });
+    const eServicios  = await prisma.etiqueta.upsert({ where: { nombre: "Servicios" },        update: {}, create: { nombre: "Servicios",        descripcion: "Categoría general de servicios estudiantiles",     id_etiqueta_padre: eNegocio.id_etiqueta } });
+    const eRopa       = await prisma.etiqueta.upsert({ where: { nombre: "Ropa y Accesorios" }, update: {}, create: { nombre: "Ropa y Accesorios", descripcion: "Venta de ropa, accesorios y complementos",      id_etiqueta_padre: eNegocio.id_etiqueta } });
+    const eArteDiseno = await prisma.etiqueta.upsert({ where: { nombre: "Arte y Diseño" },    update: {}, create: { nombre: "Arte y Diseño",    descripcion: "Productos y servicios creativos",                  id_etiqueta_padre: eNegocio.id_etiqueta } });
+    const eTecnologia = await prisma.etiqueta.upsert({ where: { nombre: "Tecnología" },       update: {}, create: { nombre: "Tecnología",       descripcion: "Venta y reparación de equipos tecnológicos",       id_etiqueta_padre: eNegocio.id_etiqueta } });
 
     // ─────────────────────────────────────────────
     // 7. Eventos de recomendación
