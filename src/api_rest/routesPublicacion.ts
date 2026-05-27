@@ -18,7 +18,7 @@ import { moderarTexto } from "../autenticacion/middlewareModeracion.js";
 
 const router = Router();
 
-router.get("/buscar", autenticar, validar(schemaFiltrosPublicacion), obtenerPublicacionesPorFiltros);
+router.post("/buscar", autenticar, validar(schemaFiltrosPublicacion), obtenerPublicacionesPorFiltros);
 router.get("/user/:id", autenticar, obtenerPublicacionesUsuario);
 router.get("/", autenticar, obtenerTodasLasPublicaciones);
 router.get("/:id", autenticar, obtenerPublicacionPorId);
