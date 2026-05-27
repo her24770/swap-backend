@@ -23,6 +23,6 @@ router.put("/:id/contactos", autenticar, verificarPropietario, gestorPermisos("u
 router.get("/:id/contactos", autenticar, obtenerContactos);
 
 //Ruta para obtener tutores por filtros
-router.get("/tutores/buscar", autenticar, validar(schemaFiltrosTutor), obtenerTutoresPorFiltros);
+router.post("/tutores/buscar", autenticar, validar(schemaFiltrosTutor), obtenerTutoresPorFiltros);
 
 export default router;
