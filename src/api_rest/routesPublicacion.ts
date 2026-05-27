@@ -8,7 +8,9 @@ import {
     obtenerPublicacionPorId,
     eliminarPublicacionConImagenes,
     destacarPublicacion,
-    obtenerPublicacionesPorFiltros
+    obtenerPublicacionesPorFiltros,
+    obtenerPublicacionesDestacadas
+
 } from "../controlador/controlPublicacion.js";
 import { autenticar } from "../autenticacion/GestorPermisos.js";
 import { uploadImagen } from "../servicios/middlewareMulter.js";
@@ -27,5 +29,6 @@ router.put("/:id", autenticar, uploadImagen.any(), moderarTexto(['titulo', 'desc
 router.patch("/:id/estado", autenticar, cambiarEstadoPublicacion);
 router.delete("/:id", autenticar, eliminarPublicacionConImagenes);
 router.patch("/:id/destacar", autenticar, validar(schemaDestacarPublicacion), destacarPublicacion);
+router.get("/destacadas/user/:id", autenticar, obtenerPublicacionesDestacadas);
 
 export default router;

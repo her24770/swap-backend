@@ -1,4 +1,4 @@
-import { Prisma, Usuario, Contacto } from "@prisma/client";
+import { Prisma, Usuario, Contacto, UsuarioEtiqueta} from "@prisma/client";
 import prisma from "../persistencia/prismaClient";
 
 // ─────────────────────────────────────────────
@@ -21,6 +21,7 @@ export async function buscarPerfilPublicoPorId(id: number) {
             descripcion: true,
             calificacion: true,
             reportes_recibidos: true,
+            total_resenas: true,
             contactos: {
                 include: {
                     tipoContacto: true,
@@ -154,4 +155,26 @@ export async function buscarUsuariosPorIdsDetallado(
     });
 
     return usuarios;
+}
+// ─────────────────────────────────────────────
+// Etiquetas de Usuario
+// ─────────────────────────────────────────────
+
+export async function guardarEtiquetaUsuario(data: Prisma.UsuarioEtiquetaCreateInput | Prisma.UsuarioEtiquetaCreateInput[]): Promise<UsuarioEtiqueta | UsuarioEtiqueta[]> {
+    const datosArray = Array.isArray(data) ? data : [data]; //Si es un solo objeto se convierte en array
+    const resultados = await prisma.$transaction(
+        datosArray.map(data => prisma.usuarioEtiqueta.create({ data })) //Se almacenan todos dentro de una transacción
+    );
+
+    return Array.isArray(data) ? resultados : resultados[0];
+}
+
+export async function eliminarEtiquetaUsuario(idUsuario: number, idEtiqueta: number): Promise<number> {
+    const result = await prisma.usuarioEtiqueta.deleteMany({
+        where: {
+            id_usuario: idUsuario,
+            id_etiqueta: idEtiqueta
+        }
+    });
+    return result.count;
 }

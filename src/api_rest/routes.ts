@@ -14,6 +14,7 @@ import anuncioRoutes from "./routesAnuncio.js";
 import busquedaRoutes from "./routesBusqueda.js";
 import certificacionRoutes from "./routesCertificacion.js";
 import notificacionRoutes from "./routesNotificacion.js";
+import resenaRoutes from "./routesResena.js";
 
 const router = Router();
 
@@ -38,5 +39,6 @@ router.use("/anuncio", anuncioRoutes);
 router.use("/busqueda", busquedaRoutes);
 router.use("/certificacion", certificacionRoutes);
 router.use("/notificacion", notificacionRoutes);
+router.use("/resenas", resenaRoutes); 
 
 export default router;
