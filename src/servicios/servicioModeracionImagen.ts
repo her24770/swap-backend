@@ -8,17 +8,16 @@ const rekognition = new RekognitionClient({
     },
 });
 
-const UMBRAL_IMAGEN = parseFloat(process.env.MODERATION_IMAGEN_UMBRAL ?? '70');
+const UMBRALES: Record<string, number> = {
+    'Explicit Nudity':     parseFloat(process.env.MODERATION_UMBRAL_EXPLICIT_NUDITY     ?? '50'),
+    'Non-Explicit Nudity': parseFloat(process.env.MODERATION_UMBRAL_NON_EXPLICIT_NUDITY ?? '80'),
+    'Violence':            parseFloat(process.env.MODERATION_UMBRAL_VIOLENCE            ?? '70'),
+    'Drugs':               parseFloat(process.env.MODERATION_UMBRAL_DRUGS               ?? '90'),
+    'Hate Symbols':        parseFloat(process.env.MODERATION_UMBRAL_HATE_SYMBOLS        ?? '70'),
+    'Visually Disturbing': parseFloat(process.env.MODERATION_UMBRAL_VISUALLY_DISTURBING ?? '60'),
+};
 
-// Categorías que justifican rechazo inmediato
-const CATEGORIAS_BLOQUEADAS = [
-    'Explicit Nudity',
-    'Non-Explicit Nudity',
-    'Violence',
-    'Drugs',
-    'Hate Symbols',
-    'Visually Disturbing',
-];
+const UMBRAL_MIN = Math.min(...Object.values(UMBRALES));
 
 interface ResultadoModeracionImagen {
     flagged: boolean;
@@ -28,16 +27,19 @@ interface ResultadoModeracionImagen {
 async function llamarRekognition(buffer: Buffer): Promise<ResultadoModeracionImagen> {
     const comando = new DetectModerationLabelsCommand({
         Image: { Bytes: buffer },
-        MinConfidence: UMBRAL_IMAGEN,
+        MinConfidence: UMBRAL_MIN,
     });
 
     const respuesta = await rekognition.send(comando);
-    const etiquetas = (respuesta.ModerationLabels ?? [])
-        .map(l => l.ParentName ?? l.Name ?? '')
-        .filter(Boolean);
 
-    const flagged = etiquetas.some(e => CATEGORIAS_BLOQUEADAS.includes(e));
-    return { flagged, etiquetas };
+    const etiquetasFlagged = (respuesta.ModerationLabels ?? []).filter(l => {
+        const categoria = l.ParentName ?? l.Name ?? '';
+        const umbral = UMBRALES[categoria];
+        return umbral !== undefined && (l.Confidence ?? 0) >= umbral;
+    }).map(l => l.ParentName ?? l.Name ?? '');
+
+    const flagged = etiquetasFlagged.length > 0;
+    return { flagged, etiquetas: etiquetasFlagged };
 }
 
 export async function analizarImagen(buffer: Buffer): Promise<ResultadoModeracionImagen> {
