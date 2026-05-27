@@ -13,10 +13,7 @@ import horarioRoutes from "./routesHorario.js";
 import anuncioRoutes from "./routesAnuncio.js";
 import busquedaRoutes from "./routesBusqueda.js";
 import certificacionRoutes from "./routesCertificacion.js";
-<<<<<<< HEAD
 import notificacionRoutes from "./routesNotificacion.js";
-=======
->>>>>>> d00207f (fix: remover rutas no utilizadas)
 import resenaRoutes from "./routesResena.js";
 
 const router = Router();
