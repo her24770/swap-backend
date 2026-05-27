@@ -102,6 +102,17 @@ export async function sincronizarEtiquetasUsuarioController(
             return;
         }
 
+        if(ids.length === 0 ) {
+            errorResponse(res, "Debe proporcionar al menos una etiqueta", 400);
+            return;
+        }
+
+
+        if (ids.length > 20) {
+            errorResponse(res, "No se pueden asignar más de 20 etiquetas a un usuario", 400);
+            return;
+        }
+
         // 4. Verificar que todas las etiquetas existen
         const etiquetasExisten = await verificarEtiquetasExisten(ids);
         if (!etiquetasExisten) {
