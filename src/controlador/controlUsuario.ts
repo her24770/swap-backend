@@ -8,6 +8,7 @@ import {
     eliminarContacto
 } from "../repository/repositorioUsuario";
 import { exitoResponse, errorResponse } from "../servicios/Response";
+import { buscarTutoresPorFiltros } from "../repository/repositorioTutoria";
 
 /**
  * GET /api/user/:id
@@ -173,6 +174,49 @@ export async function obtenerContactos(
         }
         exitoResponse(res, contactos, "Contactos obtenidos exitosamente", 200);
     } catch (error) {
+        next(error);
+    }
+}
+
+
+export async function obtenerTutoresPorFiltros(
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> {
+
+    try {
+
+        const options = req.body;
+
+        const tutores =
+            await buscarTutoresPorFiltros(options);
+
+        if (!tutores || tutores.length === 0) {
+
+            errorResponse(
+                res,
+                "No se encontraron tutores que coincidan con los filtros",
+                404
+            );
+
+            return;
+        }
+
+        exitoResponse(
+            res,
+            {
+                tutores,
+                total: tutores.length,
+                page: options.page,
+                limit: options.limit
+            },
+            "Tutores obtenidos exitosamente",
+            200
+        );
+
+    } catch (error) {
+
         next(error);
     }
 }

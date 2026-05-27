@@ -317,6 +317,12 @@ async function main() {
     //--------------------------------
     const eCompra = await prisma.etiqueta.upsert({where: { nombre: "Compra" },update: {},create: {nombre: "Compra",descripcion: "Publicaciones para compra"}});
     const eAlquiler = await prisma.etiqueta.upsert({ where: { nombre: "Alquiler" },update: {},create: {nombre: "Alquiler",descripcion: "Publicaciones para alquiler"}});
+
+    // ─────────────────────────────────────────────
+    // Etiquetas padre — Producto / Servicio
+    // ─────────────────────────────────────────────
+    const eProducto = await prisma.etiqueta.upsert({where: { nombre: "Producto" },update: {},create: {nombre: "Producto",descripcion: "Publicaciones de productos"}});
+    const eServicio = await prisma.etiqueta.upsert({where: { nombre: "Servicio" },update: {},create: {nombre: "Servicio",descripcion: "Publicaciones de servicios"}});
     
     // ─────────────────────────────────────────────
     // 7. Eventos de recomendación

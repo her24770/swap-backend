@@ -455,14 +455,21 @@ export async function buscarPublicacionesPorFiltros(
         }
     }
     // 3. Filtro por etiquetas
-
     if (options.etiquetas && options.etiquetas.length > 0) {
 
-        // Buscar etiquetas especiales por nombre
+        const etiquetas = options.etiquetas;
+
+        // Grupos exclusivos
+        const gruposEspeciales = [
+            ["Compra", "Alquiler"],
+            ["Producto", "Servicio"]
+        ];
+
+        // Obtener etiquetas especiales desde BD
         const etiquetasEspeciales = await prisma.etiqueta.findMany({
             where: {
                 nombre: {
-                    in: ["Compra", "Alquiler"]
+                    in: gruposEspeciales.flat()
                 }
             },
             select: {
@@ -471,35 +478,21 @@ export async function buscarPublicacionesPorFiltros(
             }
         });
 
-        const compra = etiquetasEspeciales.find(
-            (e) => e.nombre === "Compra"
+        const condicionesEtiquetas: any[] = [];
+
+        // IDs especiales
+        const idsEspeciales = etiquetasEspeciales.map(
+            (e) => e.id_etiqueta
         );
-
-        const alquiler = etiquetasEspeciales.find(
-            (e) => e.nombre === "Alquiler"
-        );
-
-        const etiquetas = options.etiquetas;
-
-        const tieneCompra =
-            compra &&
-            etiquetas.includes(compra.id_etiqueta);
-
-        const tieneAlquiler =
-            alquiler &&
-            etiquetas.includes(alquiler.id_etiqueta);
 
         // Etiquetas normales
         const etiquetasNormales = etiquetas.filter(
-            (id) =>
-                id !== compra?.id_etiqueta &&
-                id !== alquiler?.id_etiqueta
+            (id) => !idsEspeciales.includes(id)
         );
 
-        const condicionesEtiquetas: any[] = [];
-
-        // Etiquetas normales → OR
+        // Etiquetas normales → OR clásico
         if (etiquetasNormales.length > 0) {
+
             condicionesEtiquetas.push({
                 etiquetas: {
                     some: {
@@ -511,26 +504,30 @@ export async function buscarPublicacionesPorFiltros(
             });
         }
 
-        // SOLO compra
-        if (tieneCompra && !tieneAlquiler) {
-            condicionesEtiquetas.push({
-                etiquetas: {
-                    some: {
-                        id_etiqueta: compra.id_etiqueta
-                    }
-                }
-            });
-        }
+        // Procesar grupos exclusivos
+        for (const grupo of gruposEspeciales) {
 
-        // SOLO alquiler
-        if (tieneAlquiler && !tieneCompra) {
-            condicionesEtiquetas.push({
-                etiquetas: {
-                    some: {
-                        id_etiqueta: alquiler.id_etiqueta
+            const etiquetasGrupo = etiquetasEspeciales.filter(
+                (e) => grupo.includes(e.nombre)
+            );
+
+            const seleccionadas = etiquetasGrupo.filter(
+                (e) => etiquetas.includes(e.id_etiqueta)
+            );
+
+            // SOLO una seleccionada → aplicar filtro
+            if (seleccionadas.length === 1) {
+
+                condicionesEtiquetas.push({
+                    etiquetas: {
+                        some: {
+                            id_etiqueta: seleccionadas[0].id_etiqueta
+                        }
                     }
-                }
-            });
+                });
+            }
+
+            // Si vienen ambas o ninguna → ignorar
         }
 
         if (condicionesEtiquetas.length > 0) {
