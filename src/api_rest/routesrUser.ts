@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { obtenerUsuario, obtenerPerfilPublico, actualizarPerfil, agregarContacto, obtenerContactos } from "../controlador/controlUsuario.js";
+import { obtenerUsuario, obtenerPerfilPublico, actualizarPerfil, agregarContacto, obtenerContactos, obtenerTutoresPorFiltros } from "../controlador/controlUsuario.js";
 import { validar } from "../autenticacion/middelwareValidacion.js";
 import { autenticar, gestorPermisos, verificarPropietario } from "../autenticacion/GestorPermisos.js";
-import { schemaActualizarPerfil, schemaAgregarContactos } from "../modelo/schemaUsuario.js";
+import { schemaActualizarPerfil, schemaAgregarContactos, schemaFiltrosTutor } from "../modelo/schemaUsuario.js";
 import { moderarTexto } from "../autenticacion/middlewareModeracion.js";
 
 const router = Router();
@@ -21,5 +21,8 @@ router.put("/:id/contactos", autenticar, verificarPropietario, gestorPermisos("u
 
 //Ruta para obtener los contactos del usuario
 router.get("/:id/contactos", autenticar, obtenerContactos);
+
+//Ruta para obtener tutores por filtros
+router.get("/tutores/buscar", autenticar, validar(schemaFiltrosTutor), obtenerTutoresPorFiltros);
 
 export default router;

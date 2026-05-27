@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paginationOptions } from "./schemaPublicacion";
 
 /**
  * Schema para PUT /api/user/:id
@@ -61,5 +62,90 @@ export const schemaAgregarContactos = z.object({
     )
 });
 
+
+
+// Filtros para búsqueda de tutores
+export const schemaFiltrosTutor = paginationOptions.extend({
+
+    precio_min: z
+        .number({
+            invalid_type_error:
+                "El precio mínimo debe ser un número."
+        })
+        .min(0, "El precio mínimo no puede ser negativo.")
+        .default(0)
+        .optional(),
+
+    precio_max: z
+        .number({
+            invalid_type_error:
+                "El precio máximo debe ser un número."
+        })
+        .min(0, "El precio máximo no puede ser negativo.")
+        .default(999.99)
+        .optional(),
+
+    calificacion_min: z
+        .number({
+            invalid_type_error:
+                "La calificación mínima debe ser un número."
+        })
+        .min(0, "La calificación mínima no puede ser negativa.")
+        .max(5, "La calificación máxima no puede superar 5.")
+        .default(0)
+        .optional(),
+
+    calificacion_max: z
+        .number({
+            invalid_type_error:
+                "La calificación máxima debe ser un número."
+        })
+        .min(0, "La calificación máxima no puede ser negativa.")
+        .max(5, "La calificación máxima no puede superar 5.")
+        .default(5)
+        .optional(),
+
+    etiquetas: z
+        .array(
+            z.number()
+                .int()
+                .positive(
+                    "Cada etiqueta debe ser un ID válido."
+                )
+        )
+        .optional(),
+
+    dias: z
+        .array(
+            z.enum([
+                "lunes",
+                "martes",
+                "miercoles",
+                "jueves",
+                "viernes",
+                "sabado",
+                "domingo"
+            ])
+        )
+        .optional(),
+
+    hora_inicio: z
+        .string()
+        .regex(
+            /^([01]\d|2[0-3]):([0-5]\d)$/,
+            "La hora de inicio debe tener formato HH:mm"
+        )
+        .optional(),
+
+    hora_final: z
+        .string()
+        .regex(
+            /^([01]\d|2[0-3]):([0-5]\d)$/,
+            "La hora final debe tener formato HH:mm"
+        )
+        .optional(),
+});
+
 export type ActualizarPerfilInput = z.infer<typeof schemaActualizarPerfil>;
 export type AgregarContactoInput = z.infer<typeof schemaAgregarContactos>;
+export type FiltrosTutorInput = z.infer<typeof schemaFiltrosTutor>;
