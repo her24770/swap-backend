@@ -132,11 +132,32 @@ export async function agregarContacto(
             return;
         }
 
+        if (contactos.length > 4) {
+            errorResponse(res, "No se pueden agregar más de 4 contactos", 400);
+            return;
+        }
+
+        const tiposVistos = new Set();
+        for (const contacto of contactos) {
+            if (!contacto.tipo_contacto || !contacto.valor) {
+                errorResponse(res, "Cada contacto debe tener un tipo y un valor", 400);
+                return;
+            }
+            if (tiposVistos.has(contacto.tipo_contacto)) {
+                errorResponse(res, "No se pueden repetir tipos de contacto", 400);
+                return;
+            }
+            tiposVistos.add(contacto.tipo_contacto);
+        }   
+
+
+
         const usuarioExistente = await buscarUsuarioPorId(idUsuario);
         if (!usuarioExistente) {
             errorResponse(res, "Usuario no encontrado", 404);
             return;
         }
+
 
         await eliminarContacto(idUsuario);
 
@@ -146,7 +167,8 @@ export async function agregarContacto(
                 usuario: { connect: { id_usuario: idUsuario } },
                 tipoContacto: { connect: { id_tipo_contacto: Number(contacto.tipo_contacto) } }
             });
-
+        
+        
             const datosContactos = contactos.map(prepararContacto);
             const resultado = await guardarContacto(datosContactos);
 
