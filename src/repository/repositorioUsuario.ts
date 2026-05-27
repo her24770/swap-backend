@@ -131,6 +131,13 @@ export async function buscarUsuariosPorIdsDetallado(
                     etiqueta: true,
                 },
             },
+            publicaciones: {
+                where: {
+                    tipoPerfil: { tipo_perfil: "tutoria" },
+                    estadoRel: { estado: "activo" }
+                },
+                select: { titulo: true }
+            },
 
             _count: {
                 select: {
