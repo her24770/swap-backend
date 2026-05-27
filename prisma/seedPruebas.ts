@@ -106,6 +106,20 @@ async function main() {
         where: { nombre: "Biologia" },
     });
 
+    //Etiquetas especiales de compra, alquiler, producto y servicio
+    const [eCompra, eAlquiler, eProducto, eServicio] = await Promise.all([
+        prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Compra" } }),
+        prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Alquiler" } }),
+        prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Producto" } }),
+        prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Servicio" } }),
+    ]);
+
+    //Etiquetas especiales de modalidad presencial o en linea
+    const [ePresencial, eEnLinea] = await Promise.all([
+        prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Presencial" } }),
+        prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "En Línea" } }),
+    ]);
+
     console.log("  ✅ Catálogos de referencia leídos");
 
     // ─────────────────────────────────────────────
@@ -232,6 +246,17 @@ async function main() {
             { id_publicacion: materiales[5].id_publicacion, id_etiqueta: eSO.id_etiqueta },
             { id_publicacion: materiales[6].id_publicacion, id_etiqueta: eBioCel.id_etiqueta },
             { id_publicacion: materiales[7].id_publicacion, id_etiqueta: eEDA.id_etiqueta },
+            // Compra
+            { id_publicacion: materiales[0].id_publicacion, id_etiqueta: eCompra.id_etiqueta },
+            { id_publicacion: materiales[1].id_publicacion, id_etiqueta: eCompra.id_etiqueta },
+            { id_publicacion: materiales[4].id_publicacion, id_etiqueta: eCompra.id_etiqueta },
+            { id_publicacion: materiales[5].id_publicacion, id_etiqueta: eCompra.id_etiqueta },
+            { id_publicacion: materiales[7].id_publicacion, id_etiqueta: eCompra.id_etiqueta },
+
+            // Alquiler
+            { id_publicacion: materiales[2].id_publicacion, id_etiqueta: eAlquiler.id_etiqueta },
+            { id_publicacion: materiales[3].id_publicacion, id_etiqueta: eAlquiler.id_etiqueta },
+            { id_publicacion: materiales[6].id_publicacion, id_etiqueta: eAlquiler.id_etiqueta },
             // Tutorías
             { id_publicacion: tutorias[0].id_publicacion, id_etiqueta: eAED.id_etiqueta },
             { id_publicacion: tutorias[1].id_publicacion, id_etiqueta: eBD1.id_etiqueta },
@@ -245,6 +270,22 @@ async function main() {
             { id_publicacion: tutorias[6].id_publicacion, id_etiqueta: eArq.id_etiqueta },
             { id_publicacion: tutorias[6].id_publicacion, id_etiqueta: eBD2.id_etiqueta },
             { id_publicacion: tutorias[7].id_publicacion, id_etiqueta: eMicro.id_etiqueta },
+            // Presencial
+            { id_publicacion: tutorias[0].id_publicacion, id_etiqueta: ePresencial.id_etiqueta },
+            { id_publicacion: tutorias[2].id_publicacion, id_etiqueta: ePresencial.id_etiqueta },
+            { id_publicacion: tutorias[6].id_publicacion, id_etiqueta: ePresencial.id_etiqueta },
+
+            // En Línea
+            { id_publicacion: tutorias[1].id_publicacion, id_etiqueta: eEnLinea.id_etiqueta },
+            { id_publicacion: tutorias[4].id_publicacion, id_etiqueta: eEnLinea.id_etiqueta },
+            { id_publicacion: tutorias[7].id_publicacion, id_etiqueta: eEnLinea.id_etiqueta },
+
+            // Mixtas (ambas)
+            { id_publicacion: tutorias[3].id_publicacion, id_etiqueta: ePresencial.id_etiqueta },
+            { id_publicacion: tutorias[3].id_publicacion, id_etiqueta: eEnLinea.id_etiqueta },
+
+            { id_publicacion: tutorias[5].id_publicacion, id_etiqueta: ePresencial.id_etiqueta },
+            { id_publicacion: tutorias[5].id_publicacion, id_etiqueta: eEnLinea.id_etiqueta },
             // Negocios
             { id_publicacion: negocios[0].id_publicacion, id_etiqueta: eBD2.id_etiqueta },
             { id_publicacion: negocios[1].id_publicacion, id_etiqueta: eIA.id_etiqueta },
@@ -258,8 +299,21 @@ async function main() {
             { id_publicacion: negocios[7].id_publicacion, id_etiqueta: eIS1.id_etiqueta },
             { id_publicacion: negocios[7].id_publicacion, id_etiqueta: eRedes.id_etiqueta },
             { id_publicacion: negocios[7].id_publicacion, id_etiqueta: ePOO.id_etiqueta },
+            // Servicios
+            { id_publicacion: negocios[0].id_publicacion, id_etiqueta: eServicio.id_etiqueta },
+            { id_publicacion: negocios[1].id_publicacion, id_etiqueta: eServicio.id_etiqueta },
+            { id_publicacion: negocios[4].id_publicacion, id_etiqueta: eServicio.id_etiqueta },
+            { id_publicacion: negocios[5].id_publicacion, id_etiqueta: eServicio.id_etiqueta },
+            { id_publicacion: negocios[6].id_publicacion, id_etiqueta: eServicio.id_etiqueta },
+            { id_publicacion: negocios[7].id_publicacion, id_etiqueta: eServicio.id_etiqueta },
+            // Productos
+            { id_publicacion: negocios[2].id_publicacion, id_etiqueta: eProducto.id_etiqueta },
+            { id_publicacion: negocios[3].id_publicacion, id_etiqueta: eProducto.id_etiqueta },
         ],
     });
+
+    //Aplicación de etiquetas especiales de compra/alquiler
+    
 
     console.log("  ✅ Etiquetas vinculadas a publicaciones");
 
