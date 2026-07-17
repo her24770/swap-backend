@@ -18,17 +18,17 @@ enum Dias {
 }
 
 model Usuario {
-  id_usuario          Int      @id @default(autoincrement())
-  nombre              String   @db.VarChar(100)
-  carnet              Int      @unique
-  email_institucional String   @unique @db.VarChar(100)
-  password            String   @db.VarChar(255)
-  url_foto_perfil     String   @db.VarChar(255)
+  id_usuario          Int                  @id @default(autoincrement())
+  nombre              String               @db.VarChar(100)
+  carnet              Int                  @unique
+  email_institucional String               @unique @db.VarChar(100)
+  password            String               @db.VarChar(255)
+  url_foto_perfil     String               @db.VarChar(255)
   descripcion         String?
-  calificacion        Decimal? @db.Decimal(5, 2)
-  total_resenas       Int      @default(0)
-  reportes_recibidos  Int      @default(0)
-  tiempo_suspendido   Int      @default(0)
+  calificacion        Decimal?             @db.Decimal(5, 2)
+  total_resenas       Int                  @default(0)
+  reportes_recibidos  Int                  @default(0)
+  tiempo_suspendido   Int                  @default(0)
   contactos           Contacto[]
   tiemposDisponibles  TiempoDisponible[]
   certificaciones     Certificacion[]
@@ -45,8 +45,8 @@ model Usuario {
   notificaciones      Notificacion[]
   etiquetas           UsuarioEtiqueta[]
   usuarioPublicacions UsuarioPublicacion[]
-
 }
+
 model Moderador {
   id_moderador Int    @id @default(autoincrement())
   usuario      String @unique @db.VarChar(100)
@@ -154,11 +154,11 @@ model Certificacion {
 }
 
 model Anuncio {
-  id_anuncio  Int    @id @default(autoincrement())
-  titulo      String @db.VarChar(100)
-  imagen_url  String @db.VarChar(255) @default("")
-  descripcion String @db.VarChar(255)
-  id_usuario  Int
+  id_anuncio    Int      @id @default(autoincrement())
+  titulo        String   @db.VarChar(100)
+  imagen_url    String   @default("") @db.VarChar(255)
+  descripcion   String   @db.VarChar(255)
+  id_usuario    Int
   fecha_anuncio DateTime @default(now())
 
   usuario Usuario @relation(fields: [id_usuario], references: [id_usuario])
@@ -182,10 +182,10 @@ model Publicacion {
   id_usuario        Int
   is_pinned         Boolean  @default(false)
 
-  estadoRel           Estado                @relation(fields: [estado], references: [id_estado])
-  tipoPerfil          TipoPerfil            @relation(fields: [tipo_publicacion], references: [id_tipo_perfil])
-  usuario             Usuario               @relation(fields: [id_usuario], references: [id_usuario])
-  embedding           Unsupported("vector(384)")?
+  estadoRel  Estado                      @relation(fields: [estado], references: [id_estado])
+  tipoPerfil TipoPerfil                  @relation(fields: [tipo_publicacion], references: [id_tipo_perfil])
+  usuario    Usuario                     @relation(fields: [id_usuario], references: [id_usuario])
+  embedding  Unsupported("vector(384)")?
 
   imagenes            ImagenPublicacion[]
   acuerdos            Acuerdo[]
@@ -196,8 +196,8 @@ model Publicacion {
 }
 
 model ImagenPublicacion {
-  id_imagen      Int    @id @default(autoincrement())
-  url_imagen     String @db.VarChar(255)
+  id_imagen      Int         @id @default(autoincrement())
+  url_imagen     String      @db.VarChar(255)
   id_publicacion Int
   publicacion    Publicacion @relation(fields: [id_publicacion], references: [id_publicacion])
 
@@ -205,10 +205,10 @@ model ImagenPublicacion {
 }
 
 model Resena {
-  id_resena      Int    @id @default(autoincrement())
+  id_resena      Int      @id @default(autoincrement())
   contenido      String
-  calificacion   Int    @default(0)
-  me_gusta       Int    @default(0)
+  calificacion   Int      @default(0)
+  me_gusta       Int      @default(0)
   id_emisor      Int
   id_receptor    Int
   id_tipo_resena Int
@@ -236,6 +236,7 @@ model Conversacion {
   usuario2  Usuario   @relation("Usuario2Conversacion", fields: [id_usuario_2], references: [id_usuario])
   estadoRel Estado    @relation(fields: [estado_conversacion], references: [id_estado])
   mensajes  Mensaje[]
+  acuerdos  Acuerdo[]
 
   @@unique([id_usuario_1, id_usuario_2])
 }
@@ -254,16 +255,19 @@ model Mensaje {
 }
 
 model Acuerdo {
-  id_acuerdo     Int      @id @default(autoincrement())
-  id_usuario     Int
-  id_publicacion Int
-  fecha_entrega  DateTime
-  lugar_entrega  String   @db.VarChar(100)
-  estado         Int
+  id_acuerdo      Int      @id @default(autoincrement())
+  id_usuario      Int
+  id_publicacion  Int
+  fecha_entrega   DateTime
+  lugar_entrega   String   @db.VarChar(100)
+  observaciones   String   @db.VarChar(200)
+  id_conversacion Int
+  estado          Int
 
-  usuario     Usuario     @relation(fields: [id_usuario], references: [id_usuario])
-  publicacion Publicacion @relation(fields: [id_publicacion], references: [id_publicacion])
-  estadoRel   Estado      @relation(fields: [estado], references: [id_estado])
+  usuario      Usuario      @relation(fields: [id_usuario], references: [id_usuario])
+  publicacion  Publicacion  @relation(fields: [id_publicacion], references: [id_publicacion])
+  estadoRel    Estado       @relation(fields: [estado], references: [id_estado])
+  conversacion Conversacion @relation(fields: [id_conversacion], references: [id_conversacion])
 
   @@index([fecha_entrega, id_publicacion])
 }
