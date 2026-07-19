@@ -16,6 +16,7 @@ export async function obtenerAcuerdosUsuario(req: Request, res: Response, next: 
     try {
         const idUsuario = Number(req.params.id);
         const tipo = req.query.tipo as string | undefined;
+        const q = req.query.q as string | undefined;
         const page = parsePositiveInt(req.query.page);
         const limit = parsePositiveInt(req.query.limit);
         if (isNaN(idUsuario)) {
@@ -35,7 +36,7 @@ export async function obtenerAcuerdosUsuario(req: Request, res: Response, next: 
             errorResponse(res, "El usuario no existe", 404);
             return;
         }
-        const resultado = await obtenerAcuerdosPorUsuario(idUsuario, { tipo, page, limit });
+        const resultado = await obtenerAcuerdosPorUsuario(idUsuario, { tipo, page, limit, q });
         const data =
             page !== undefined && limit !== undefined
                 ? { data: resultado.acuerdos, total: resultado.total, page, limit }
