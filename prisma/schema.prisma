@@ -231,14 +231,23 @@ model Conversacion {
   id_usuario_1        Int
   id_usuario_2        Int
   estado_conversacion Int
+  tipo_conversacion    Int
 
   usuario1  Usuario   @relation("Usuario1Conversacion", fields: [id_usuario_1], references: [id_usuario])
   usuario2  Usuario   @relation("Usuario2Conversacion", fields: [id_usuario_2], references: [id_usuario])
+  tipoRel   TipoConversacion @relation(fields: [tipo_conversacion], references: [id_tipo_conversacion])
   estadoRel Estado    @relation(fields: [estado_conversacion], references: [id_estado])
   mensajes  Mensaje[]
   acuerdos  Acuerdo[]
 
   @@unique([id_usuario_1, id_usuario_2])
+}
+
+model TipoConversacion {
+  id_tipo_conversacion Int    @id @default(autoincrement())
+  tipo_conversacion    String @unique @db.VarChar(100)
+
+  conversaciones Conversacion[]
 }
 
 model Mensaje {
