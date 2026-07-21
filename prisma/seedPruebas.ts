@@ -313,9 +313,26 @@ async function main() {
     });
 
     //Aplicación de etiquetas especiales de compra/alquiler
-    
+
 
     console.log("  ✅ Etiquetas vinculadas a publicaciones");
+
+    //Conversaciones
+    const c1 = await prisma.conversacion.upsert({
+    where: {
+        id_usuario_1_id_usuario_2: {
+        id_usuario_1: vendedor1.id_usuario,
+        id_usuario_2: vendedor.id_usuario,
+        },
+    },
+    update: {},
+    create: {
+        id_usuario_1: vendedor1.id_usuario,
+        id_usuario_2: vendedor.id_usuario,
+        estado_conversacion: 1, // o el estado que corresponda
+    },
+    });
+
 
     // ─────────────────────────────────────────────
     // Acuerdos de ejemplo
@@ -323,14 +340,14 @@ async function main() {
     await prisma.acuerdo.createMany({
         skipDuplicates: true,
         data: [
-            { id_usuario: vendedor1.id_usuario, id_publicacion: negocios[1].id_publicacion,   fecha_entrega: new Date(),                                       lugar_entrega: "Plaza Paiz",                       estado: eCompletado.id_estado },
-            { id_usuario: vendedor.id_usuario,  id_publicacion: negocios[4].id_publicacion,   fecha_entrega: new Date(),                                       lugar_entrega: "Plaza Isabel Gutierrez de Bosch",  estado: ePendiente.id_estado  },
-            { id_usuario: vendedor1.id_usuario, id_publicacion: tutorias[2].id_publicacion,   fecha_entrega: new Date(),                                       lugar_entrega: "Plaza Isabel Gutierrez de Bosch",  estado: eCompletado.id_estado },
-            { id_usuario: vendedor.id_usuario,  id_publicacion: tutorias[4].id_publicacion,   fecha_entrega: new Date(),                                       lugar_entrega: "CIT",                              estado: ePendiente.id_estado  },
-            { id_usuario: vendedor1.id_usuario, id_publicacion: materiales[5].id_publicacion, fecha_entrega: new Date(),                                       lugar_entrega: "Campus Central",                   estado: ePendiente.id_estado  },
-            { id_usuario: vendedor1.id_usuario, id_publicacion: negocios[5].id_publicacion,   fecha_entrega: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),  lugar_entrega: "Plaza Cayalá",                     estado: eActivo.id_estado     },
-            { id_usuario: vendedor.id_usuario,  id_publicacion: tutorias[5].id_publicacion,   fecha_entrega: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),  lugar_entrega: "Biblioteca Central",               estado: eCompletado.id_estado },
-            { id_usuario: vendedor.id_usuario,  id_publicacion: materiales[6].id_publicacion, fecha_entrega: new Date(),                                       lugar_entrega: "Plaza Paiz",                       estado: ePendiente.id_estado  },
+            { id_usuario: vendedor1.id_usuario, id_publicacion: negocios[1].id_publicacion, observaciones:"Lleva tu lapiz y calculadora.", id_conversacion: c1.id_conversacion,   fecha_entrega: new Date(),                                       lugar_entrega: "Plaza Paiz",                       estado: eCompletado.id_estado },
+            { id_usuario: vendedor.id_usuario,  id_publicacion: negocios[4].id_publicacion, observaciones:"Encontrarnos en el carril bici.", id_conversacion: c1.id_conversacion,   fecha_entrega: new Date(),                                       lugar_entrega: "Plaza Isabel Gutierrez de Bosch",  estado: ePendiente.id_estado  },
+            { id_usuario: vendedor1.id_usuario, id_publicacion: tutorias[2].id_publicacion, observaciones:"Trae tus libros de mate.", id_conversacion: c1.id_conversacion,   fecha_entrega: new Date(),                                       lugar_entrega: "Plaza Isabel Gutierrez de Bosch",  estado: eCompletado.id_estado },
+            { id_usuario: vendedor.id_usuario,  id_publicacion: tutorias[4].id_publicacion, observaciones:"Hagamos un grupos de estudio.", id_conversacion: c1.id_conversacion,   fecha_entrega: new Date(),                                       lugar_entrega: "CIT",                              estado: ePendiente.id_estado  },
+            { id_usuario: vendedor1.id_usuario, id_publicacion: materiales[5].id_publicacion, observaciones:"Trae tus cuadernos viejos.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(),                                       lugar_entrega: "Campus Central",                   estado: ePendiente.id_estado  },
+            { id_usuario: vendedor1.id_usuario, id_publicacion: negocios[5].id_publicacion, observaciones:"Seria ideal vernos un fin de semana.", id_conversacion: c1.id_conversacion,   fecha_entrega: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),  lugar_entrega: "Plaza Cayalá",                     estado: eActivo.id_estado     },
+            { id_usuario: vendedor.id_usuario,  id_publicacion: tutorias[5].id_publicacion, observaciones:"Quizás a media semana sea mejor para ambos.", id_conversacion: c1.id_conversacion,   fecha_entrega: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),  lugar_entrega: "Biblioteca Central",               estado: eCompletado.id_estado },
+            { id_usuario: vendedor.id_usuario,  id_publicacion: materiales[6].id_publicacion, observaciones:"Lleva tus apuntes de clase.", id_conversacion: c1.id_conversacion,   fecha_entrega: new Date(),                                       lugar_entrega: "Plaza Paiz",                       estado: ePendiente.id_estado  },
         ],
     });
 

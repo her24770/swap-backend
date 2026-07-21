@@ -4,38 +4,38 @@ Backend service for **Swap** — a platform for student tutoring, academic mater
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Runtime | Node.js 20 |
-| Framework | Express.js |
-| Language | TypeScript |
-| Real-time | Socket.io |
-| Validation | Zod |
-| Auth | JSON Web Token + bcrypt |
-| ORM | Prisma |
-| Database | PostgreSQL 16 |
-| Cache / Pub-Sub | Redis 7 |
+| Layer            | Technology              |
+| ---------------- | ----------------------- |
+| Runtime          | Node.js 20              |
+| Framework        | Express.js              |
+| Language         | TypeScript              |
+| Real-time        | Socket.io               |
+| Validation       | Zod                     |
+| Auth             | JSON Web Token + bcrypt |
+| ORM              | Prisma                  |
+| Database         | PostgreSQL 16           |
+| Cache / Pub-Sub  | Redis 7                 |
 | Containerization | Docker + Docker Compose |
 
 ## Project Structure
 
-| Carpeta | Qué va ahí |
-|---|---|
-| `api_rest/` | Routers de Express — solo enrutan, sin lógica. Ej: `routerAuth.ts`, `routerPublicacion.ts` |
-| `controlador/` | Lógica de negocio. Recibe la request, llama al repositorio, devuelve respuesta. Ej: `controlUsuario.ts` |
-| `modelo/` | Interfaces y tipos TypeScript del dominio. Ej: `Usuario.ts`, `Publicacion.ts` |
-| `repository/` | Queries a Prisma. Solo acceso a datos, sin lógica de negocio. Ej: `repositorioUsuario.ts` |
-| `persistencia/` | Singleton de `PrismaClient` — un único cliente para toda la app. Solo `prismaClient.ts` |
+| Carpeta          | Qué va ahí                                                                                                       |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `api_rest/`      | Routers de Express — solo enrutan, sin lógica. Ej: `routerAuth.ts`, `routerPublicacion.ts`                       |
+| `controlador/`   | Lógica de negocio. Recibe la request, llama al repositorio, devuelve respuesta. Ej: `controlUsuario.ts`          |
+| `modelo/`        | Interfaces y tipos TypeScript del dominio. Ej: `Usuario.ts`, `Publicacion.ts`                                    |
+| `repository/`    | Queries a Prisma. Solo acceso a datos, sin lógica de negocio. Ej: `repositorioUsuario.ts`                        |
+| `persistencia/`  | Singleton de `PrismaClient` — un único cliente para toda la app. Solo `prismaClient.ts`                          |
 | `autenticacion/` | Lógica de JWT y bcrypt: generar/verificar tokens, hashear contraseñas. Ej: `servicioJWT.ts`, `servicioBcrypt.ts` |
-| `tiempo_real/` | Handlers de Socket.io — eventos de chat y notificaciones. Ej: `socketHandlers.ts` |
+| `tiempo_real/`   | Handlers de Socket.io — eventos de chat y notificaciones. Ej: `socketHandlers.ts`                                |
 
 ## Services (Docker)
 
-| Container | Image | Port |
-|---|---|---|
-| `backend` | node:20-alpine | 3001 |
-| `postgres` | postgres:16 | 5432 |
-| `redis` | redis:7-alpine | 6379 |
+| Container  | Image          | Port |
+| ---------- | -------------- | ---- |
+| `backend`  | node:20-alpine | 3001 |
+| `postgres` | postgres:16    | 5432 |
+| `redis`    | redis:7-alpine | 6379 |
 
 ---
 
@@ -78,6 +78,7 @@ curl http://localhost:3001/health
 > **El seed NO corre automáticamente con Docker.** Cada integrante lo ejecuta manualmente cuando lo necesita.
 
 El seed crea:
+
 - 1 usuario vendedor de prueba (`vendedor@uvg.edu.gt`)
 - 1 moderador de prueba (`moderador1`)
 - Etiquetas de carrera y cursos (ICC, Biología, etc.)
@@ -100,10 +101,10 @@ docker compose exec api npx tsx prisma/backfillEmbeddings.ts
 
 ### Credenciales de prueba
 
-| Rol | Email / Usuario | Contraseña |
-|---|---|---|
-| Usuario (vendedor) | `vendedor@uvg.edu.gt` | `Vendedor123!` |
-| Moderador | `moderador1` | `Moderador123!` |
+| Rol                | Email / Usuario       | Contraseña      |
+| ------------------ | --------------------- | --------------- |
+| Usuario (vendedor) | `vendedor@uvg.edu.gt` | `Vendedor123!`  |
+| Moderador          | `moderador1`          | `Moderador123!` |
 
 ---
 
@@ -131,18 +132,122 @@ docker compose exec api npx prisma generate
 
 ---
 
+## Testing
+
+El proyecto utiliza **Vitest** como framework de pruebas y **Supertest** para validar endpoints HTTP.
+
+La configuración de pruebas se encuentra en:
+
+```
+
+vitest.config.ts
+
+```
+
+Los tests están organizados dentro de la carpeta:
+
+```
+
+tests/
+├── integration/
+│   └── health.test.ts
+├── unit/
+└── setup.ts
+
+```
+
+### Tipos de pruebas
+
+### Unit Tests
+
+Los tests unitarios validan lógica interna de forma aislada. Las dependencias externas son simuladas mediante mocks para evitar depender de servicios como Redis, PostgreSQL o servicios externos.
+
+Se utilizan principalmente para probar:
+
+- Controladores.
+- Middlewares.
+- Validaciones con Zod.
+- Servicios de autenticación.
+- Lógica de negocio.
+
+Ejemplo:
+
+```
+
+tests/unit/controlAuth.test.ts
+
+```
+
+---
+
+### Integration Tests
+
+Los tests de integración validan que diferentes componentes funcionen correctamente juntos.
+
+Actualmente incluyen pruebas de endpoints utilizando `Supertest`, importando directamente la aplicación Express desde `src/app.ts`.
+
+Ejemplo:
+
+```
+
+tests/integration/health.test.ts
+
+```
+
+---
+
+## Ejecutar tests
+
+Después de instalar las dependencias:
+
+```bash
+npm install
+```
+
+Ejecutar tests en modo desarrollo:
+
+```bash
+npm test
+```
+
+Ejecutar todos los tests una sola vez:
+
+```bash
+npm run test:run
+```
+
+Generar reporte de cobertura:
+
+```bash
+npm run test:coverage
+```
+
+---
+
+## Notas de implementación
+
+Para permitir pruebas sin levantar el servidor HTTP completo, la configuración de Express fue separada:
+
+- `src/app.ts`: configuración de Express y rutas, utilizada por los tests.
+- `src/index.ts`: arranque del servidor, Socket.io y conexiones a servicios externos.
+
+Esta separación permite importar la aplicación en los tests sin iniciar el servidor ni abrir puertos adicionales.
+
+---
+
 ## Flujo de trabajo recomendado al integrarse al proyecto
 
 1. Clonar el repo y copiar `.env.example` → `.env`
-2. `docker compose up -d --build`
-3. Verificar `curl http://localhost:3001/health`
-4. Correr los seeds si necesitas datos:
+2. (Opcional) Instalar dependencias: `npm install` y ejecutar pruebas con `npm test`
+3. `docker compose up -d --build`
+4. Verificar `curl http://localhost:3001/health`
+5. Correr los seeds si necesitas datos:
    ```bash
    docker compose exec api npm run prisma:seed
    docker compose exec api npx tsx prisma/seedPruebas.ts
    docker compose exec api npx tsx prisma/backfillEmbeddings.ts
    ```
-5. (Opcional) Abrir Prisma Studio para explorar la BD: `docker compose exec backend npx prisma studio`
+6. (Opcional) Abrir Prisma Studio para explorar la BD: `docker compose exec backend npx prisma studio`
 
 ---
 
