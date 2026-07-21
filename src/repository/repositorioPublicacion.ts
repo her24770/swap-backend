@@ -1,7 +1,13 @@
 import { Prisma, Publicacion, ImagenPublicacion, Etiqueta } from "@prisma/client";
 import prisma from "../persistencia/prismaClient";
 import { FiltrosPublicacionInput, PaginationOptionInput } from "../modelo/schemaPublicacion";
-import { ResultadoBusquedaPublicacion } from "./types";
+
+
+// Interfaz para la búsqueda de publicaciones
+export interface ResultadoBusquedaPublicacion {
+    publicaciones: Publicacion[];
+    total: number;
+}
 
 // ─────────────────────────────────────────────
 // Publicacion
