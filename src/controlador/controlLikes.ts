@@ -3,6 +3,7 @@ import { darLike, quitarLike } from "../repository/repositorioLikes";
 import { buscarPublicacionPorId } from "../repository/repositorioPublicacion";
 import { buscarRelacionUsuarioPublicacion } from "../repository/repositorioGuardados";
 import { registrarInteraccionPublicacion } from "../autenticacion/eventoRecomendacion";
+import { exitoResponse, errorResponse } from "../servicios/Response";
 
 export async function like(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -10,20 +11,20 @@ export async function like(req: Request, res: Response, next: NextFunction): Pro
         const idPublicacion = Number(req.params.publicacionId);
 
         if (isNaN(idPublicacion)) {
-            res.status(400).json({ message: "El ID de la publicación no es válido." });
+            errorResponse(res, "El ID de la publicación no es válido.", 400);
             return;
         }
 
         const publicacion = await buscarPublicacionPorId(idPublicacion);
         if (!publicacion) {
-            res.status(404).json({ message: "Publicación no encontrada." });
+            exitoResponse(res, [], "Publicación no encontrada.", 404);
             return;
         }
 
         // Verificar que no haya dado like ya
         const relacion = await buscarRelacionUsuarioPublicacion(idUsuario, idPublicacion);
         if (relacion?.is_like) {
-            res.status(409).json({ message: "Ya diste like a esta publicación." });
+            errorResponse(res, "Ya diste like a esta publicación.", 409);
             return;
         }
 
@@ -38,7 +39,7 @@ export async function like(req: Request, res: Response, next: NextFunction): Pro
                 );
             });
         }
-        res.status(200).json({ message: "Like agregado exitosamente.", data: resultado });
+        exitoResponse(res, resultado, "Like agregado exitosamente.", 200);
     } catch (error) {
         next(error);
     }
@@ -50,25 +51,25 @@ export async function unlike(req: Request, res: Response, next: NextFunction): P
         const idPublicacion = Number(req.params.publicacionId);
 
         if (isNaN(idPublicacion)) {
-            res.status(400).json({ message: "El ID de la publicación no es válido." });
+            errorResponse(res, "El ID de la publicación no es válido.", 400);
             return;
         }
 
         const publicacion = await buscarPublicacionPorId(idPublicacion);
         if (!publicacion) {
-            res.status(404).json({ message: "Publicación no encontrada." });
+            exitoResponse(res, [], "Publicación no encontrada.", 404);
             return;
         }
 
         // Verificar que haya dado like previamente
         const relacion = await buscarRelacionUsuarioPublicacion(idUsuario, idPublicacion);
         if (!relacion?.is_like) {
-            res.status(409).json({ message: "No has dado like a esta publicación." });
+            errorResponse(res, "No has dado like a esta publicación.", 409);
             return;
         }
 
         const resultado = await quitarLike(idUsuario, idPublicacion);
-        res.status(200).json({ message: "Like eliminado exitosamente.", data: resultado });
+        exitoResponse(res, resultado, "Like eliminado exitosamente.", 200);
     } catch (error) {
         next(error);
     }

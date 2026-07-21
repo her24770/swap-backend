@@ -88,14 +88,10 @@ export async function obtenerTodasLasPublicaciones(req: Request, res: Response, 
             return;
         }
 
-        res.status(200).json({
-            success: true,
-            message: "Publicaciones obtenidas exitosamente",
-
-            data: resultado.publicaciones,
-
+        exitoResponse(res, {
+            publicaciones: resultado.publicaciones,
             total: resultado.total
-        });
+        }, "Publicaciones obtenidas exitosamente", 200);
         return;
     } catch (error) {
         next(error);

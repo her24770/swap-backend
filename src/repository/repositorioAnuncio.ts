@@ -1,7 +1,14 @@
 import { Prisma, Anuncio } from "@prisma/client";
 import prisma from "../persistencia/prismaClient";
-import { BuscarAnuncios } from "./types";
 
+/*
+    Interfaz para parametros de busqueda de anuncios
+*/
+
+export interface BuscarAnuncios{
+    limit?: number
+    order?: "asc" | "desc"
+}
 
 export async function buscarAnunciosPorUsuario(id_usuario: number): Promise<Anuncio[]> {
     return prisma.anuncio.findMany({
