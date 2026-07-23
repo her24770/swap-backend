@@ -15,6 +15,7 @@ interface OpcionesAcuerdosUsuario {
     page?: number;
     limit?: number;
     q?: string;
+    estado?: string;
 }
 
 export interface ResultadoAcuerdosUsuario {
@@ -29,15 +30,20 @@ export async function obtenerAcuerdosPorUsuario(
     idUsuario: number,
     opciones: OpcionesAcuerdosUsuario = {}
 ): Promise<ResultadoAcuerdosUsuario> {
-    const { tipo, page, limit, q } = opciones;
+    const { tipo, page, limit, q, estado } = opciones;
+
     const tiposPublicacion = obtenerTiposPublicacionHistorial(tipo);
     const search = q?.trim();
+
     const where: Prisma.AcuerdoWhereInput = {
-        id_usuario: idUsuario,
-        estadoRel: {
-            estado: "completado"
-        }
+        id_usuario: idUsuario
     };
+
+    if (estado) {
+        where.estadoRel = {
+            estado: estado.toLowerCase()
+        };
+    }
 
     if (tiposPublicacion) {
         where.publicacion = {
@@ -77,7 +83,9 @@ export async function obtenerAcuerdosPorUsuario(
             },
             estadoRel: true
         },
-        orderBy: { fecha_entrega: "desc" }
+        orderBy: {
+            fecha_entrega: "desc"
+        }
     };
 
     if (page !== undefined && limit !== undefined) {
