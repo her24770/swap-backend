@@ -16,3 +16,5 @@ export const schemaObtenerConversacion = z.object({
         invalid_type_error: "El estado de la conversación debe ser un número."
     }).int().positive("El estado de la conversación debe ser un número positivo.")
 });
+
+export type ObtenerConversacionInput = z.infer<typeof schemaObtenerConversacion>;
