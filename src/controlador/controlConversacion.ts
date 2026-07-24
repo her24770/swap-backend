@@ -65,7 +65,7 @@ export async function actualizarEstadoConversacion(req: Request, res: Response, 
         }
 
         //Actualizar el estado
-        const conversacionActualizada = await actualizarConversacion(idConversacion, { estado_conversacion: estado_id });
+        const conversacionActualizada = await actualizarConversacion(idConversacion, { estadoRel: estado_id });
 
         const nombreEstado = estado_id === estadoActivo.id_estado ? "activo" : "inactivo";
         const mensaje = nombreEstado === "activo" ? "Solicitud de conversacion aceptada exitosamente" : "Solicitud de conversacion bloqueada exitosamente";
