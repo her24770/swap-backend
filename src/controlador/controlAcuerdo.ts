@@ -1,8 +1,10 @@
 import { Request, Response, NextFunction } from "express";
-import { obtenerAcuerdosPorUsuario, obtenerAcuerdosPorConversacion } from "../repository/repositorioAcuerdo";
+import { obtenerAcuerdosPorUsuario, obtenerAcuerdosPorConversacion, crearAcuerdo, existeSolicitudDuplicada, contarAcuerdosActivosConversacion } from "../repository/repositorioAcuerdo";
 import { buscarUsuarioPorId } from "../repository/repositorioUsuario";
 import { buscarConversacionPorId } from "../repository/repositorioMensaje";
 import { errorResponse, exitoResponse } from "../servicios/Response.js";
+import { obtenerEstadoPorNombre } from "../repository/repositorioEstado";
+import { buscarPublicacionPorId } from "../repository/repositorioPublicacion";
 
 // Interfaz para la agrupación de acuerdos en base a la publicacion y el usuario que la obtiene
 interface AcuerdoAgrupado {
@@ -136,6 +138,87 @@ export async function obtenerAcuerdosConversacion(req: Request, res: Response, n
 
         const acuerdos = await obtenerAcuerdosPorConversacion(idConversacion);
         exitoResponse(res, acuerdos, "Acuerdos de la conversacion obtenidos exitosamente", 200);
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function crearSolicitarAcuerdo(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const idPublicacion = Number(req.params.id);
+        const idUsuarioSolicitante = Number(req.usuario?.sub);
+        const data = req.body;
+
+        if (isNaN(idPublicacion)) {
+            errorResponse(res, "El id de la publicacion no es valido", 400);
+            return;
+        }
+
+        //Búsqueda de publicación para validación
+        const publicacion = await buscarPublicacionPorId(idPublicacion);
+        if (!publicacion) {
+            errorResponse(res, "La publicacion no existe", 404);
+            return;
+        }
+
+        //Contar acuerdos activos de una conversacion
+        const acuerdosActivos = await contarAcuerdosActivosConversacion(data.id_conversacion);
+        //Si la conversación ya posee el máximo de solicitudes activas
+        if (acuerdosActivos >= 4) {
+            errorResponse(res, "La conversación ya posee el máximo de solicitudes activas", 409);
+            return;
+        }
+
+        //Verificar si ya existe una solicitud con los mismos datos
+        if ( await existeSolicitudDuplicada(
+                    idUsuarioSolicitante,
+                    idPublicacion,
+                    data.id_conversacion,
+                    data.fecha_entrega,
+                    data.lugar_entrega,
+                    data.observaciones
+            )) {
+                errorResponse(res, "Ya existe una solicitud con los mismos datos", 409);
+                return;
+            }
+
+        //Verificar si la publicación está reservada o no está activa
+        if(publicacion.estadoRel.estado != "activo") {
+            errorResponse(res, "La publicacion no esta activa o se encuentra reservada", 400);
+            return;
+        }
+
+        //Verificar que el usuario no solicite un acuerdo con su propia publicación
+        if(publicacion.id_usuario == idUsuarioSolicitante) {
+            errorResponse(res, "No puedes solicitar un acuerdo con tu propia publicacion", 400);
+            return;
+        }
+
+        //Validar fecha de entrega con la fecha actual
+        const fechaActual = new Date();
+        if(data.fecha_entrega < fechaActual) {
+            errorResponse(res, "La fecha de entrega debe ser mayor a la fecha actual", 400);
+            return;
+        }
+
+        const estadoPendiente = await obtenerEstadoPorNombre("pendiente");
+        if(!estadoPendiente) {
+            errorResponse(res, "El estado pendiente no existe", 500);
+            return;
+        }
+        
+        const nuevaSolicitud = await crearAcuerdo({
+            publicacion: {connect: {id_publicacion: idPublicacion}},
+            usuario: {connect: {id_usuario: idUsuarioSolicitante}},
+            fecha_entrega: data.fecha_entrega,
+            lugar_entrega: data.lugar_entrega,
+            observaciones: data.observaciones,
+            estadoRel: {connect: {id_estado: estadoPendiente.id_estado}},
+            conversacion: {connect: {id_conversacion: data.id_conversacion}}
+        });
+
+        exitoResponse(res, nuevaSolicitud, "Acuerdo creado exitosamente", 201);
+
     } catch (error) {
         next(error);
     }

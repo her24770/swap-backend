@@ -132,3 +132,46 @@ export async function obtenerAcuerdosPorConversacion(idConversacion: number): Pr
         orderBy: { fecha_entrega: "desc" }
     });
 }
+
+// Funcion de verificación de existencia de una solicitud con los mismo datos que recibe
+export async function existeSolicitudDuplicada(
+    idUsuario: number,
+    idPublicacion: number,
+    idConversacion: number,
+    fechaEntrega: Date,
+    lugarEntrega: string,
+    observaciones: string
+): Promise<boolean> {
+    const acuerdo = await prisma.acuerdo.findFirst({
+        where: {
+            id_usuario: idUsuario,
+            id_publicacion: idPublicacion,
+            id_conversacion: idConversacion,
+            fecha_entrega: fechaEntrega,
+            lugar_entrega: lugarEntrega,
+            observaciones
+        }
+    });
+
+    return acuerdo !== null;
+}
+
+// Contar acuerdos activos de una conversacion
+export async function contarAcuerdosActivosConversacion(
+    idConversacion: number
+): Promise<number> {
+    return prisma.acuerdo.count({
+        where: {
+            id_conversacion: idConversacion,
+            estadoRel: {
+                estado: {
+                    in: ["activo", "pendiente"]
+                }
+            }
+        }
+    });
+}
+
+export async function crearAcuerdo(data: Prisma.AcuerdoCreateInput): Promise<Acuerdo> {
+    return await prisma.acuerdo.create({ data });
+}
