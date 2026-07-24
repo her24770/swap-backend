@@ -10,3 +10,9 @@ export const solicitudAcuerdoSchema = z.object({
 export const actualizarEstadoAcuerdoSchema = z.object({
     estado: z.enum(["activo", "pendiente", "completado", "cancelado"])
 });
+
+export const actualizarAcuerdoSchema = z.object({
+    fecha_entrega: z.coerce.date(),
+    lugar_entrega: z.string().min(1),
+    observaciones: z.string().min(1)
+});

@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { autenticar } from "../autenticacion/GestorPermisos";
-import { obtenerAcuerdosUsuario, obtenerAcuerdosConversacion, crearSolicitarAcuerdo, actualizarEstadoAcuerdo } from "../controlador/controlAcuerdo";
+import { obtenerAcuerdosUsuario, obtenerAcuerdosConversacion, crearSolicitarAcuerdo, actualizarEstadoAcuerdo, editarAcuerdo } from "../controlador/controlAcuerdo";
 import { validar } from "../autenticacion/middelwareValidacion";
-import { actualizarEstadoAcuerdoSchema, solicitudAcuerdoSchema } from "../modelo/schemaAcuerdo";
+import { actualizarAcuerdoSchema, actualizarEstadoAcuerdoSchema, solicitudAcuerdoSchema } from "../modelo/schemaAcuerdo";
 
 const router = Router();
 
@@ -12,5 +12,5 @@ router.get("/conversacion/:id", autenticar, obtenerAcuerdosConversacion); //Ruta
 router.post("/:id", autenticar, validar(solicitudAcuerdoSchema), crearSolicitarAcuerdo); //Ruta para crear una solicitud de acuerdo (id: idPublicacion)
 
 router.put("/:id", autenticar, validar(actualizarEstadoAcuerdoSchema), actualizarEstadoAcuerdo); //Ruta para actualizar el estado de un acuerdo
-
+router.put("/:id/editar", autenticar, validar(actualizarAcuerdoSchema), editarAcuerdo); //Ruta para editar un acuerdo (fecha, lugar, observaciones)
 export default router;

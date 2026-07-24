@@ -295,3 +295,66 @@ export async function actualizarEstadoAcuerdo(req: Request, res: Response, next:
         next(error);
     }
 }
+
+
+export async function editarAcuerdo(
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> {
+
+    try {
+
+        const idAcuerdo = Number(req.params.id);
+        const idUsuario = Number(req.usuario?.sub);
+        const data = req.body;
+
+        if (isNaN(idAcuerdo)) {
+            errorResponse(res, "El id del acuerdo no es valido", 400);
+            return;
+        }
+
+        const acuerdo = await buscarAcuerdoPorId(idAcuerdo);
+
+        if (!acuerdo) {
+            errorResponse(res, "El acuerdo no existe", 404);
+            return;
+        }
+
+        const esPropietario =
+            acuerdo.publicacion.id_usuario === idUsuario;
+
+        const esBeneficiario =
+            acuerdo.id_usuario === idUsuario;
+
+        if (!esPropietario && !esBeneficiario) {
+            errorResponse(res, "No tienes permiso para editar este acuerdo", 403);
+            return;
+        }
+
+        if (acuerdo.estadoRel.estado !== "pendiente") {
+            errorResponse(res, "Solo se pueden editar acuerdos pendientes", 400);
+            return;
+        }
+
+        if (data.fecha_entrega < new Date()) {
+            errorResponse(res, "La fecha de entrega debe ser posterior a la fecha actual", 400);
+            return;
+        }
+
+        const acuerdoActualizado = await actualizarAcuerdo(
+                idAcuerdo,
+                {
+                    fecha_entrega: data.fecha_entrega,
+                    lugar_entrega: data.lugar_entrega,
+                    observaciones: data.observaciones
+                }
+            );
+
+        exitoResponse(res, acuerdoActualizado, "Acuerdo actualizado exitosamente", 200);
+
+    } catch (error) {
+        next(error);
+    }
+
+}
