@@ -6,3 +6,7 @@ export const solicitudAcuerdoSchema = z.object({
     observaciones: z.string().min(1, "Las observaciones son requeridas"),
     id_conversacion: z.number().min(1, "La conversacion es requerida")
 });
+
+export const actualizarEstadoAcuerdoSchema = z.object({
+    estado: z.enum(["activo", "pendiente", "completado", "cancelado"])
+});

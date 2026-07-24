@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from "express";
-import { obtenerAcuerdosPorUsuario, obtenerAcuerdosPorConversacion, crearAcuerdo, existeSolicitudDuplicada, contarAcuerdosActivosConversacion } from "../repository/repositorioAcuerdo";
+import { obtenerAcuerdosPorUsuario, obtenerAcuerdosPorConversacion, crearAcuerdo, existeSolicitudDuplicada, contarAcuerdosActivosConversacion, buscarAcuerdoPorId, actualizarAcuerdo } from "../repository/repositorioAcuerdo";
 import { buscarUsuarioPorId } from "../repository/repositorioUsuario";
 import { buscarConversacionPorId } from "../repository/repositorioMensaje";
 import { errorResponse, exitoResponse } from "../servicios/Response.js";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado";
-import { buscarPublicacionPorId } from "../repository/repositorioPublicacion";
+import { actualizarPublicacion, buscarPublicacionPorId } from "../repository/repositorioPublicacion";
 
 // Interfaz para la agrupación de acuerdos en base a la publicacion y el usuario que la obtiene
 interface AcuerdoAgrupado {
@@ -219,6 +219,78 @@ export async function crearSolicitarAcuerdo(req: Request, res: Response, next: N
 
         exitoResponse(res, nuevaSolicitud, "Acuerdo creado exitosamente", 201);
 
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function actualizarEstadoAcuerdo(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const idAcuerdo = Number(req.params.id);
+        const idUsuario = Number(req.usuario?.sub);
+        const data = req.body;
+
+        if (isNaN(idAcuerdo)) {
+            errorResponse(res, "El id del acuerdo no es valido", 400);
+            return;
+        }
+
+        const acuerdo = await buscarAcuerdoPorId(idAcuerdo);
+        if (!acuerdo) {
+            errorResponse(res, "El acuerdo no existe", 404);
+            return;
+        }
+
+        // Verificar que el usuario forme parte del acuerdo
+        const esPropietario = acuerdo.publicacion.id_usuario === idUsuario;
+        const esBeneficiario = acuerdo.id_usuario === idUsuario;
+
+        if (!esPropietario && !esBeneficiario) {
+            errorResponse(res,"No tienes permiso para actualizar este acuerdo.",403);
+            return;
+        }
+
+        //Verificar que no se pueda cancelar un acuerdo que no sea pendiente
+        if(data.estado == "cancelado") {
+            if(acuerdo.estadoRel.estado != "pendiente") {
+                errorResponse(res, "No puedes cancelar el acuerdo. Solo se pueden cancelar los acuerdos pendientes.", 400);
+                return;
+            }
+        }
+
+        //Verificar que el estado no sea el mismo
+        if(data.estado == acuerdo.estadoRel.estado) {
+            errorResponse(res, "El estado no ha cambiado", 400);
+            return;
+        }
+
+        const estado = await obtenerEstadoPorNombre(data.estado);
+        if(!estado) {
+            errorResponse(res, "El estado no existe", 500);
+            return;
+        }
+
+        const nuevoAcuerdo = await actualizarAcuerdo(idAcuerdo, {
+            estadoRel: {connect: {id_estado: estado.id_estado}}
+        });
+
+        //Actualizar el estado de la publicacion si el acuerdo se confirma
+        if(data.estado == "confirmado") {
+            const estadoPublicacion = acuerdo.publicacion.tipoPerfil.tipo_perfil === "material"
+                ? "vendido" : "reservado";
+            
+            const estado = await obtenerEstadoPorNombre(estadoPublicacion);
+            
+            await actualizarPublicacion(acuerdo.publicacion.id_publicacion, {
+                estadoRel: {
+                    connect: {
+                        id_estado: estado?.id_estado
+                    }
+                }
+            })
+        }        
+
+        exitoResponse(res, nuevoAcuerdo, "Acuerdo actualizado exitosamente", 200);
     } catch (error) {
         next(error);
     }

@@ -133,6 +133,22 @@ export async function obtenerAcuerdosPorConversacion(idConversacion: number): Pr
     });
 }
 
+export async function buscarAcuerdoPorId(id: number) {
+    return prisma.acuerdo.findUnique({
+        where: { id_acuerdo: id },
+        include: {
+            publicacion: {
+                include: {
+                    usuario: true,
+                    tipoPerfil: true,
+                    estadoRel: true
+                }
+            },
+            estadoRel: true
+        }
+    });
+}
+
 // Funcion de verificación de existencia de una solicitud con los mismo datos que recibe
 export async function existeSolicitudDuplicada(
     idUsuario: number,
@@ -174,4 +190,11 @@ export async function contarAcuerdosActivosConversacion(
 
 export async function crearAcuerdo(data: Prisma.AcuerdoCreateInput): Promise<Acuerdo> {
     return await prisma.acuerdo.create({ data });
+}
+
+export async function actualizarAcuerdo(
+    id: number,
+    data: Prisma.AcuerdoUpdateInput
+): Promise<Acuerdo> {
+    return prisma.acuerdo.update({ where: { id_acuerdo: id }, data });
 }
