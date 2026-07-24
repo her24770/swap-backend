@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
-import { obtenerAcuerdosPorUsuario } from "../repository/repositorioAcuerdo";
+import { obtenerAcuerdosPorUsuario, obtenerAcuerdosPorConversacion } from "../repository/repositorioAcuerdo";
 import { buscarUsuarioPorId } from "../repository/repositorioUsuario";
+import { buscarConversacionPorId } from "../repository/repositorioMensaje";
 import { errorResponse, exitoResponse } from "../servicios/Response.js";
 
 // Interfaz para la agrupación de acuerdos en base a la publicacion y el usuario que la obtiene
@@ -102,6 +103,39 @@ export async function obtenerAcuerdosUsuario(req: Request, res: Response, next: 
                 : acuerdos;
 
         exitoResponse(res, data, "Acuerdos obtenidos exitosamente", 200);
+    } catch (error) {
+        next(error);
+    }
+}
+
+/*
+    Obtener los acuerdos asociados a una conversacion.
+    Solo los participantes de la conversacion pueden consultarlos.
+*/
+export async function obtenerAcuerdosConversacion(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const idConversacion = Number(req.params.id);
+        const idUsuario = Number(req.usuario?.sub);
+
+        if (isNaN(idConversacion)) {
+            errorResponse(res, "El id de la conversacion no es valido", 400);
+            return;
+        }
+
+        const conversacion = await buscarConversacionPorId(idConversacion);
+        if (!conversacion) {
+            errorResponse(res, "La conversacion no existe", 404);
+            return;
+        }
+
+        const esParticipante = conversacion.id_usuario_1 === idUsuario || conversacion.id_usuario_2 === idUsuario;
+        if (!esParticipante) {
+            errorResponse(res, "No tienes permiso para ver los acuerdos de esta conversacion", 403);
+            return;
+        }
+
+        const acuerdos = await obtenerAcuerdosPorConversacion(idConversacion);
+        exitoResponse(res, acuerdos, "Acuerdos de la conversacion obtenidos exitosamente", 200);
     } catch (error) {
         next(error);
     }
