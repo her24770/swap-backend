@@ -13,9 +13,12 @@ export interface ResultadoBusquedaPublicacion {
 // Publicacion
 // ─────────────────────────────────────────────
 
-export async function buscarPublicacionPorId(id: number): Promise<Publicacion | null> {
+export async function buscarPublicacionPorId(id: number) {
     return prisma.publicacion.findUnique({
-        where: { id_publicacion: id }
+        where: { id_publicacion: id },
+        include: {
+            estadoRel: true
+        }
     });
 }
 
