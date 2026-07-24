@@ -18,7 +18,7 @@ export async function obtenerTodosLosEstados(req: Request, res: Response, next: 
             publicacion: ["activo", "inactivo"],
             mensaje: ["leido", "enviado"],
             material: ["activo", "inactivo", "reservado", "vendido"],
-            acuerdo: ["activo", "cancelado", "atrasado", "completado", "rechazado", "propuesto"]
+            acuerdo: ["activo", "pendiente", "completado", "cancelado"]
         };
 
         // Si no hay opción, devolver todos
