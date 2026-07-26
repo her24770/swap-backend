@@ -67,9 +67,20 @@ Esto inicia PostgreSQL, Redis y el backend. El contenedor de la API corre autom�
 ### 4. Verificar que todo corre
 
 ```bash
-curl http://localhost:3001/health
+curl http://localhost:3001/api/health
 # Respuesta esperada: {"status":"ok"}
 ```
+
+### 5. Explorar y probar la API
+
+Con el backend en ejecución, la documentación interactiva está disponible en:
+
+- Swagger UI: `http://localhost:3001/api/docs`
+- Especificación OpenAPI 3.2: `http://localhost:3001/api/openapi.json`
+
+Swagger UI permite ejecutar cada operación desde el navegador. Las rutas protegidas
+aceptan la cookie `swap-token` creada por el inicio de sesión o un JWT configurado
+desde el botón **Authorize**.
 
 ---
 

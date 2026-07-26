@@ -1,6 +1,7 @@
 import cors from "cors";
 import multer from "multer";
 import routes from "./api_rest/routes";
+import swaggerRoutes from "./openapi/swagger";
 import cookieParser from "cookie-parser";
 import express, { NextFunction, Request, Response } from "express";
 
@@ -14,6 +15,7 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.use("/api", swaggerRoutes);
 app.use("/api", routes);
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

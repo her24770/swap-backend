@@ -1,15 +1,24 @@
 import { Prisma, Publicacion, ImagenPublicacion, Etiqueta } from "@prisma/client";
 import prisma from "../persistencia/prismaClient";
 import { FiltrosPublicacionInput, PaginationOptionInput } from "../modelo/schemaPublicacion";
-import { ResultadoBusquedaPublicacion } from "./types";
+
+
+// Interfaz para la búsqueda de publicaciones
+export interface ResultadoBusquedaPublicacion {
+    publicaciones: Publicacion[];
+    total: number;
+}
 
 // ─────────────────────────────────────────────
 // Publicacion
 // ─────────────────────────────────────────────
 
-export async function buscarPublicacionPorId(id: number): Promise<Publicacion | null> {
+export async function buscarPublicacionPorId(id: number) {
     return prisma.publicacion.findUnique({
-        where: { id_publicacion: id }
+        where: { id_publicacion: id },
+        include: {
+            estadoRel: true
+        }
     });
 }
 
