@@ -7,6 +7,9 @@ export async function crearNotificacion(
 ) {
     return prisma.notificacion.create({
         data: { id_usuario: idUsuario, mensaje, id_estado: idEstado },
+        // Misma forma que obtenerNotificacionesPorUsuario: el evento de socket
+        // "notificacion:nueva" reutiliza el mismo mapeo que el GET /api/notificacion.
+        include: { estado: { select: { estado: true } } },
     });
 }
 

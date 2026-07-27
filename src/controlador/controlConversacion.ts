@@ -1,7 +1,16 @@
 import { Request, Response, NextFunction } from "express";
-import { buscarConversacionPorId, actualizarConversacion, buscarConversacionesPorUsuario } from "../repository/repositorioMensaje.js";
+import {
+    buscarConversacionPorId,
+    actualizarConversacion,
+    buscarConversacionesPorUsuario,
+    buscarConversacionEntreDosUsuarios,
+    buscarMensajesPorConversacion,
+    guardarConversacion,
+} from "../repository/repositorioMensaje.js";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
 import { errorResponse, exitoResponse } from "../servicios/Response.js";
+import { crearMensajeYNotificar } from "../servicios/servicioMensajeria.js";
+import { IniciarConversacionInput } from "../modelo/schemaMensaje.js";
 
 /*
     Aceptar o bloquear la solicitud de conversacion.
@@ -65,7 +74,9 @@ export async function actualizarEstadoConversacion(req: Request, res: Response, 
         }
 
         //Actualizar el estado
-        const conversacionActualizada = await actualizarConversacion(idConversacion, { estadoRel: estado_id });
+        const conversacionActualizada = await actualizarConversacion(idConversacion, {
+            estadoRel: { connect: { id_estado: estado_id } },
+        });
 
         const nombreEstado = estado_id === estadoActivo.id_estado ? "activo" : "inactivo";
         const mensaje = nombreEstado === "activo" ? "Solicitud de conversacion aceptada exitosamente" : "Solicitud de conversacion bloqueada exitosamente";
@@ -93,10 +104,95 @@ export async function obtenerConversacionesDeUsuario(req: Request, res: Response
 
         const conversaciones = await buscarConversacionesPorUsuario(idUsuario);
 
-        exitoResponse(res, conversaciones, "Conversaciones obtenidas exitosamente", 200);
+        // Prisma no soporta ordenar un findMany por la fecha de una relación anidada
+        // (el último mensaje, traído con take:1), así que se ordena en memoria.
+        const conversacionesOrdenadas = [...conversaciones].sort((a, b) => {
+            const fechaA = a.mensajes[0]?.fecha_enviado ?? null;
+            const fechaB = b.mensajes[0]?.fecha_enviado ?? null;
+
+            if (fechaA && fechaB) return fechaB.getTime() - fechaA.getTime();
+            if (fechaA) return -1;
+            if (fechaB) return 1;
+            return b.id_conversacion - a.id_conversacion;
+        });
+
+        exitoResponse(res, conversacionesOrdenadas, "Conversaciones obtenidas exitosamente", 200);
     } catch (error) {
         next(error);
     }
-}   
+}
+
+/*
+    Inicia una conversación con otro usuario enviando el primer mensaje.
+    Si ya existe una conversación entre ambos (en cualquier sentido), reutiliza
+    esa conversación y solo agrega el mensaje nuevo.
+    body: { id_usuario_2: number, mensaje: string }
+*/
+export async function iniciarConversacion(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const idUsuario = Number(req.usuario?.sub);
+        const { id_usuario_2, mensaje } = req.body as IniciarConversacionInput;
+
+        if (id_usuario_2 === idUsuario) {
+            errorResponse(res, "No puedes iniciar una conversación contigo mismo", 400);
+            return;
+        }
+
+        let conversacion = await buscarConversacionEntreDosUsuarios(idUsuario, id_usuario_2);
+
+        if (!conversacion) {
+            const estadoPendiente = await obtenerEstadoPorNombre("pendiente");
+            if (!estadoPendiente) {
+                errorResponse(res, "Error de configuracion: estado 'pendiente' no encontrado", 500);
+                return;
+            }
+
+            conversacion = await guardarConversacion({
+                usuario1: { connect: { id_usuario: idUsuario } },
+                usuario2: { connect: { id_usuario: id_usuario_2 } },
+                estadoRel: { connect: { id_estado: estadoPendiente.id_estado } },
+            });
+        }
+
+        const nuevoMensaje = await crearMensajeYNotificar(conversacion.id_conversacion, idUsuario, mensaje);
+
+        exitoResponse(res, { conversacion, mensaje: nuevoMensaje }, "Mensaje enviado exitosamente", 201);
+    } catch (error) {
+        next(error);
+    }
+}
+
+/*
+    Lista los mensajes de una conversación, ordenados cronológicamente.
+    Solo puede verlos alguno de los dos participantes.
+*/
+export async function obtenerMensajesDeConversacion(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const idConversacion = Number(req.params.id);
+        const idUsuario = Number(req.usuario?.sub);
+
+        if (isNaN(idConversacion)) {
+            errorResponse(res, "El ID de la conversacion no es valido", 400);
+            return;
+        }
+
+        const conversacion = await buscarConversacionPorId(idConversacion);
+        if (!conversacion) {
+            errorResponse(res, "Conversacion no encontrada", 404);
+            return;
+        }
+
+        if (conversacion.id_usuario_1 !== idUsuario && conversacion.id_usuario_2 !== idUsuario) {
+            errorResponse(res, "No tienes permiso para ver esta conversacion", 403);
+            return;
+        }
+
+        const mensajes = await buscarMensajesPorConversacion(idConversacion);
+
+        exitoResponse(res, mensajes, "Mensajes obtenidos exitosamente", 200);
+    } catch (error) {
+        next(error);
+    }
+}
 
 
