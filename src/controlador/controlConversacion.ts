@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { buscarConversacionPorId, actualizarConversacion } from "../repository/repositorioMensaje.js";
+import { buscarConversacionPorId, actualizarConversacion, buscarConversacionesPorUsuario } from "../repository/repositorioMensaje.js";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
 import { errorResponse, exitoResponse } from "../servicios/Response.js";
 
@@ -79,3 +79,24 @@ export async function actualizarEstadoConversacion(req: Request, res: Response, 
         next(error);
     }
 }
+
+
+export async function obtenerConversacionesDeUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {
+
+    try {
+        const idUsuario = Number(req.usuario?.sub);
+
+        if (!idUsuario) {
+            errorResponse(res, "Usuario no autenticado", 401);
+            return;
+        }
+
+        const conversaciones = await buscarConversacionesPorUsuario(idUsuario);
+
+        exitoResponse(res, conversaciones, "Conversaciones obtenidas exitosamente", 200);
+    } catch (error) {
+        next(error);
+    }
+}   
+
+

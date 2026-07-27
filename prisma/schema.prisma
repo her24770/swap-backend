@@ -241,6 +241,7 @@ model Conversacion {
   @@unique([id_usuario_1, id_usuario_2])
 }
 
+
 model Mensaje {
   id_mensaje      Int      @id @default(autoincrement())
   id_conversacion Int
