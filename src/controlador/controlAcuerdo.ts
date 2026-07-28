@@ -4,7 +4,7 @@ import { buscarUsuarioPorId } from "../repository/repositorioUsuario";
 import { buscarConversacionPorId } from "../repository/repositorioMensaje";
 import { errorResponse, exitoResponse } from "../servicios/Response.js";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado";
-import { actualizarPublicacion, buscarPublicacionPorId } from "../repository/repositorioPublicacion";
+import { buscarPublicacionPorId } from "../repository/repositorioPublicacion";
 
 // Interfaz para la agrupación de acuerdos en base a la publicacion y el usuario que la obtiene
 interface AcuerdoAgrupado {
@@ -214,7 +214,8 @@ export async function crearSolicitarAcuerdo(req: Request, res: Response, next: N
             lugar_entrega: data.lugar_entrega,
             observaciones: data.observaciones,
             estadoRel: {connect: {id_estado: estadoPendiente.id_estado}},
-            conversacion: {connect: {id_conversacion: data.id_conversacion}}
+            conversacion: {connect: {id_conversacion: data.id_conversacion}},
+            ofertante: {connect: {id_usuario: idUsuarioSolicitante}}
         });
 
         exitoResponse(res, nuevaSolicitud, "Acuerdo creado exitosamente", 201);
@@ -244,9 +245,15 @@ export async function actualizarEstadoAcuerdo(req: Request, res: Response, next:
         // Verificar que el usuario forme parte del acuerdo
         const esPropietario = acuerdo.publicacion.id_usuario === idUsuario;
         const esBeneficiario = acuerdo.id_usuario === idUsuario;
+        const esOfertante = acuerdo.ofertante.id_usuario === idUsuario;
 
         if (!esPropietario && !esBeneficiario) {
             errorResponse(res,"No tienes permiso para actualizar este acuerdo.",403);
+            return;
+        }
+
+        if(esOfertante){
+            errorResponse(res, "Solo la contraperte puede aceptar/rechazar una solicitud.", 403);
             return;
         }
 
@@ -272,23 +279,7 @@ export async function actualizarEstadoAcuerdo(req: Request, res: Response, next:
 
         const nuevoAcuerdo = await actualizarAcuerdo(idAcuerdo, {
             estadoRel: {connect: {id_estado: estado.id_estado}}
-        });
-
-        //Actualizar el estado de la publicacion si el acuerdo se confirma
-        if(data.estado == "confirmado") {
-            const estadoPublicacion = acuerdo.publicacion.tipoPerfil.tipo_perfil === "material"
-                ? "vendido" : "reservado";
-            
-            const estado = await obtenerEstadoPorNombre(estadoPublicacion);
-            
-            await actualizarPublicacion(acuerdo.publicacion.id_publicacion, {
-                estadoRel: {
-                    connect: {
-                        id_estado: estado?.id_estado
-                    }
-                }
-            })
-        }        
+        }); 
 
         exitoResponse(res, nuevoAcuerdo, "Acuerdo actualizado exitosamente", 200);
     } catch (error) {
@@ -320,15 +311,18 @@ export async function editarAcuerdo(
             errorResponse(res, "El acuerdo no existe", 404);
             return;
         }
-
-        const esPropietario =
-            acuerdo.publicacion.id_usuario === idUsuario;
-
-        const esBeneficiario =
-            acuerdo.id_usuario === idUsuario;
+        // Verificar que el usuario forme parte del acuerdo
+        const esPropietario = acuerdo.publicacion.id_usuario === idUsuario;
+        const esBeneficiario = acuerdo.id_usuario === idUsuario;
+        const esOfertante = acuerdo.ofertante.id_usuario === idUsuario;
 
         if (!esPropietario && !esBeneficiario) {
-            errorResponse(res, "No tienes permiso para editar este acuerdo", 403);
+            errorResponse(res,"No tienes permiso para actualizar este acuerdo.",403);
+            return;
+        }
+
+        if(esOfertante){
+            errorResponse(res, "Solo la contraperte puede aceptar/rechazar una solicitud.", 403);
             return;
         }
 
@@ -347,7 +341,8 @@ export async function editarAcuerdo(
                 {
                     fecha_entrega: data.fecha_entrega,
                     lugar_entrega: data.lugar_entrega,
-                    observaciones: data.observaciones
+                    observaciones: data.observaciones,
+                    ofertante: {connect: {id_usuario: idUsuario}}
                 }
             );
 
