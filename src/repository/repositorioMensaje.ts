@@ -27,16 +27,22 @@ export async function buscarConversacionEntreDosUsuarios(
     });
 }
 
-export async function buscarConversacionesPorUsuario(idUsuario: number): Promise<Conversacion[]> {
+const conversacionConUltimoMensaje = Prisma.validator<Prisma.ConversacionDefaultArgs>()({
+    include: {
+        usuario1: { select: { id_usuario: true, nombre: true, url_foto_perfil: true } },
+        usuario2: { select: { id_usuario: true, nombre: true, url_foto_perfil: true } },
+        mensajes: { orderBy: { fecha_enviado: "desc" }, take: 1 },
+    },
+});
+
+export type ConversacionConUltimoMensaje = Prisma.ConversacionGetPayload<typeof conversacionConUltimoMensaje>;
+
+export async function buscarConversacionesPorUsuario(idUsuario: number): Promise<ConversacionConUltimoMensaje[]> {
     return prisma.conversacion.findMany({
         where: {
             OR: [{ id_usuario_1: idUsuario }, { id_usuario_2: idUsuario }],
         },
-        include: {
-            usuario1: { select: { id_usuario: true, nombre: true, url_foto_perfil: true } },
-            usuario2: { select: { id_usuario: true, nombre: true, url_foto_perfil: true } },
-            mensajes: { orderBy: { fecha_enviado: "desc" }, take: 1 },
-        },
+        ...conversacionConUltimoMensaje,
         orderBy: { id_conversacion: "desc" },
     });
 }

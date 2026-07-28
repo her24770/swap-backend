@@ -27,5 +27,23 @@ export const schemaCrearConversacion = z.object({
         .positive("El ID del destinatario debe ser un ID válido."),
 });
 
+/**
+ * Schema para POST /api/conversacion
+ * Inicia una conversación con otro usuario enviando el primer mensaje.
+ * Si ya existe una conversación entre ambos usuarios, solo agrega el mensaje.
+ */
+export const schemaIniciarConversacion = z.object({
+    id_usuario_2: z
+        .number({ required_error: "El ID del destinatario es obligatorio.", invalid_type_error: "El ID del destinatario debe ser un número." })
+        .int()
+        .positive("El ID del destinatario debe ser un ID válido."),
+
+    mensaje: z
+        .string({ required_error: "El mensaje es obligatorio." })
+        .min(1, "El mensaje no puede estar vacío.")
+        .max(2000, "El mensaje no puede superar 2000 caracteres."),
+});
+
 export type EnviarMensajeInput = z.infer<typeof schemaEnviarMensaje>;
 export type CrearConversacionInput = z.infer<typeof schemaCrearConversacion>;
+export type IniciarConversacionInput = z.infer<typeof schemaIniciarConversacion>;

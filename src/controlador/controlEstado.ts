@@ -18,7 +18,8 @@ export async function obtenerTodosLosEstados(req: Request, res: Response, next: 
             publicacion: ["activo", "inactivo"],
             mensaje: ["leido", "enviado"],
             material: ["activo", "inactivo", "reservado", "vendido"],
-            acuerdo: ["activo", "pendiente", "completado", "cancelado"]
+            acuerdo: ["activo", "pendiente", "completado", "cancelado"],
+            conversacion: ["activo", "inactivo", "pendiente"]
         };
 
         // Si no hay opción, devolver todos
@@ -32,7 +33,7 @@ export async function obtenerTodosLosEstados(req: Request, res: Response, next: 
 
         // Si la opción no es válida, devolver error
         if (!nombresPermitidos) {
-            errorResponse(res, `Opción '${opt_elegida}' no válida. Opciones disponibles: publicacion, mensaje, material, acuerdo`, 400);
+            errorResponse(res, `Opción '${opt_elegida}' no válida. Opciones disponibles: publicacion, mensaje, material, acuerdo, conversacion`, 400);
             return;
         }
 
