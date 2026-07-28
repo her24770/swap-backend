@@ -144,7 +144,12 @@ export async function buscarAcuerdoPorId(id: number) {
                     estadoRel: true
                 }
             },
-            estadoRel: true
+            estadoRel: true,
+            ofertante: {
+                select: {
+                    id_usuario: true,
+                }
+            }
         }
     });
 }

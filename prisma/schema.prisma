@@ -39,7 +39,8 @@ model Usuario {
   conversaciones1     Conversacion[]       @relation("Usuario1Conversacion")
   conversaciones2     Conversacion[]       @relation("Usuario2Conversacion")
   mensajes            Mensaje[]
-  acuerdos            Acuerdo[]
+  acuerdos            Acuerdo[]            @relation("UsuarioAcuerdo")
+  ofertante           Acuerdo[]            @relation("OfertanteAcuerdo")
   reportesEmitidos    Reporte[]            @relation("EmisorReporte")
   reportesRecibidos2  Reporte[]            @relation("ReceptorReporte")
   notificaciones      Notificacion[]
@@ -241,7 +242,6 @@ model Conversacion {
   @@unique([id_usuario_1, id_usuario_2])
 }
 
-
 model Mensaje {
   id_mensaje      Int      @id @default(autoincrement())
   id_conversacion Int
@@ -264,8 +264,10 @@ model Acuerdo {
   observaciones   String   @db.VarChar(200)
   id_conversacion Int
   estado          Int
+  id_ofertante    Int
 
-  usuario      Usuario      @relation(fields: [id_usuario], references: [id_usuario])
+  usuario      Usuario      @relation("UsuarioAcuerdo", fields: [id_usuario], references: [id_usuario])
+  ofertante    Usuario      @relation("OfertanteAcuerdo", fields: [id_ofertante], references: [id_usuario])
   publicacion  Publicacion  @relation(fields: [id_publicacion], references: [id_publicacion])
   estadoRel    Estado       @relation(fields: [estado], references: [id_estado])
   conversacion Conversacion @relation(fields: [id_conversacion], references: [id_conversacion])

@@ -357,17 +357,17 @@ async function main() {
     // Acuerdos de ejemplo
     // ─────────────────────────────────────────────
     await Promise.all([
-        upsertAcuerdoPrueba({ id_usuario: vendedor1.id_usuario, id_publicacion: negocios[1].id_publicacion, observaciones:"Lleva tu lapiz y calculadora.", id_conversacion: c1.id_conversacion,   fecha_entrega: new Date(),                                       lugar_entrega: "Plaza Paiz",                       estado: eCompletado.id_estado }),
-        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario,  id_publicacion: negocios[4].id_publicacion, observaciones:"Encontrarnos en el carril bici.", id_conversacion: c1.id_conversacion,   fecha_entrega: new Date(),                                       lugar_entrega: "Plaza Isabel Gutierrez de Bosch",  estado: eCompletado.id_estado }),
-        upsertAcuerdoPrueba({ id_usuario: vendedor1.id_usuario, id_publicacion: tutorias[2].id_publicacion, observaciones:"Trae tus libros de mate.", id_conversacion: c1.id_conversacion,   fecha_entrega: new Date(),                                       lugar_entrega: "Plaza Isabel Gutierrez de Bosch",  estado: eCompletado.id_estado }),
-        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario,  id_publicacion: tutorias[4].id_publicacion, observaciones:"Hagamos un grupos de estudio.", id_conversacion: c1.id_conversacion,   fecha_entrega: new Date(),                                       lugar_entrega: "CIT",                              estado: eCompletado.id_estado }),
-        upsertAcuerdoPrueba({ id_usuario: vendedor1.id_usuario, id_publicacion: materiales[5].id_publicacion, observaciones:"Trae tus cuadernos viejos.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(),                                       lugar_entrega: "Campus Central",                   estado: ePendiente.id_estado  }),
-        upsertAcuerdoPrueba({ id_usuario: vendedor1.id_usuario, id_publicacion: negocios[5].id_publicacion, observaciones:"Seria ideal vernos un fin de semana.", id_conversacion: c1.id_conversacion,   fecha_entrega: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),  lugar_entrega: "Plaza Cayalá",                     estado: eActivo.id_estado     }),
-        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario,  id_publicacion: tutorias[5].id_publicacion, observaciones:"Quizás a media semana sea mejor para ambos.", id_conversacion: c1.id_conversacion,   fecha_entrega: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),  lugar_entrega: "Biblioteca Central",               estado: eCompletado.id_estado }),
-        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario,  id_publicacion: materiales[6].id_publicacion, observaciones:"Lleva tus apuntes de clase.", id_conversacion: c1.id_conversacion,   fecha_entrega: new Date(),                                       lugar_entrega: "Plaza Paiz",                       estado: eCompletado.id_estado }),
-        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario,  id_publicacion: materiales[3].id_publicacion, observaciones:"Historial consumidor vendedor - compra de material.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), lugar_entrega: "Cafetería Central", estado: eCompletado.id_estado }),
-        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario,  id_publicacion: negocios[2].id_publicacion, observaciones:"Historial consumidor vendedor - producto comprado.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000), lugar_entrega: "Edificio CIT", estado: eCompletado.id_estado }),
-        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario,  id_publicacion: tutorias[7].id_publicacion, observaciones:"Historial consumidor vendedor - tutoría tomada.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), lugar_entrega: "Biblioteca UVG", estado: eCompletado.id_estado }),
+        upsertAcuerdoPrueba({ id_usuario: vendedor1.id_usuario, id_publicacion: negocios[1].id_publicacion, observaciones:"Lleva tu lapiz y calculadora.", id_conversacion: c1.id_conversacion,   fecha_entrega: new Date(), id_ofertante: vendedor1.id_usuario,                                       lugar_entrega: "Plaza Paiz",                       estado: eCompletado.id_estado }),
+        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario,  id_publicacion: negocios[4].id_publicacion, observaciones:"Encontrarnos en el carril bici.", id_conversacion: c1.id_conversacion,   fecha_entrega: new Date(), id_ofertante: vendedor.id_usuario,                                       lugar_entrega: "Plaza Isabel Gutierrez de Bosch",  estado: eCompletado.id_estado }),
+        upsertAcuerdoPrueba({ id_usuario: vendedor1.id_usuario, id_publicacion: tutorias[2].id_publicacion, observaciones:"Trae tus libros de mate.", id_conversacion: c1.id_conversacion,   fecha_entrega: new Date(), id_ofertante: vendedor1.id_usuario,                                       lugar_entrega: "Plaza Isabel Gutierrez de Bosch",  estado: eCompletado.id_estado }),
+        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario,  id_publicacion: tutorias[4].id_publicacion, observaciones:"Hagamos un grupos de estudio.", id_conversacion: c1.id_conversacion,   fecha_entrega: new Date(), id_ofertante: vendedor.id_usuario,                                       lugar_entrega: "CIT",                              estado: eCompletado.id_estado }),
+        upsertAcuerdoPrueba({ id_usuario: vendedor1.id_usuario, id_publicacion: materiales[5].id_publicacion, observaciones:"Trae tus cuadernos viejos.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(), id_ofertante: vendedor1.id_usuario,                                       lugar_entrega: "Campus Central",                   estado: ePendiente.id_estado  }),
+        upsertAcuerdoPrueba({ id_usuario: vendedor1.id_usuario, id_publicacion: negocios[5].id_publicacion, observaciones:"Seria ideal vernos un fin de semana.", id_conversacion: c1.id_conversacion,   fecha_entrega: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),  id_ofertante: vendedor1.id_usuario, lugar_entrega: "Plaza Cayalá",                     estado: eActivo.id_estado     }),
+        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario,  id_publicacion: tutorias[5].id_publicacion, observaciones:"Quizás a media semana sea mejor para ambos.", id_conversacion: c1.id_conversacion,   fecha_entrega: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), id_ofertante: vendedor1.id_usuario,  lugar_entrega: "Biblioteca Central",               estado: eCompletado.id_estado }),
+        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario,  id_publicacion: materiales[6].id_publicacion, observaciones:"Lleva tus apuntes de clase.", id_conversacion: c1.id_conversacion,   fecha_entrega: new Date(), id_ofertante: vendedor1.id_usuario,                                       lugar_entrega: "Plaza Paiz",                       estado: eCompletado.id_estado }),
+        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario,  id_publicacion: materiales[3].id_publicacion, observaciones:"Historial consumidor vendedor - compra de material.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), id_ofertante: vendedor1.id_usuario, lugar_entrega: "Cafetería Central", estado: eCompletado.id_estado }),
+        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario,  id_publicacion: negocios[2].id_publicacion, observaciones:"Historial consumidor vendedor - producto comprado.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000), id_ofertante: vendedor1.id_usuario, lugar_entrega: "Edificio CIT", estado: eCompletado.id_estado }),
+        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario,  id_publicacion: tutorias[7].id_publicacion, observaciones:"Historial consumidor vendedor - tutoría tomada.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), id_ofertante: vendedor1.id_usuario, lugar_entrega: "Biblioteca UVG", estado: eCompletado.id_estado }),
     ]);
 
     const lugaresHistorial = [
@@ -392,6 +392,7 @@ async function main() {
                 fecha_entrega: new Date(Date.now() - (index + 1) * 24 * 60 * 60 * 1000),
                 lugar_entrega: lugaresHistorial[index % lugaresHistorial.length],
                 estado: eCompletado.id_estado,
+                id_ofertante: vendedor.id_usuario,
             })
         ),
         ...tutoriasHistorial.map((publicacion, index) =>
@@ -403,6 +404,7 @@ async function main() {
                 fecha_entrega: new Date(Date.now() - (index + 1) * 12 * 60 * 60 * 1000),
                 lugar_entrega: lugaresHistorial[(index + 2) % lugaresHistorial.length],
                 estado: eCompletado.id_estado,
+                id_ofertante: vendedor.id_usuario,
             })
         ),
     ]);
