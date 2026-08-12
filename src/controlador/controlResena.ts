@@ -6,7 +6,8 @@ import {
     buscarResenaPorId, 
     verificarResenaExistente, 
     calcularPromedioResenas, 
-    buscarResenasDeUnUsuario 
+    buscarResenasDeUnUsuario,
+    eliminarResena, 
 } from "../repository/repositorioResena";
 import { actualizarUsuario, buscarUsuarioPorId } from "../repository/repositorioUsuario";
 import { errorResponse, exitoResponse, errorValidacionResponse } from "../servicios/Response.js";
@@ -138,3 +139,37 @@ export async function obtenerResenasPerfil(req: Request, res: Response, next: Ne
         next(error);
     }
 }
+
+export async function eliminarResenaUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const idResena = Number(req.params.id_resena);
+        const idEmisor = Number(req.usuario?.sub);
+
+        if (isNaN(idResena)) {
+            errorResponse(res, "El ID de la reseña no es válido.", 400);
+            return;
+        }
+
+        const resenaOriginal = await buscarResenaPorId(idResena);
+        if (!resenaOriginal) {
+            errorResponse(res, "La reseña no existe.", 404);
+            return;
+        }
+
+        if (resenaOriginal.id_emisor !== idEmisor) {
+            errorResponse(res, "No tienes permisos para eliminar esta reseña.", 403);
+            return;
+        }
+
+        await eliminarResena(idResena);
+
+        // Actualizar reputación
+        const { promedio, totalResenas } = await calcularPromedioResenas(resenaOriginal.id_receptor);
+        await actualizarUsuario(resenaOriginal.id_receptor, { calificacion: promedio, total_resenas: totalResenas });
+
+        exitoResponse(res, null, "Reseña eliminada exitosamente.", 200);
+        return;
+    } catch (error) {
+        next(error);
+    }
+}   
