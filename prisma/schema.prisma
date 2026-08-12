@@ -49,9 +49,10 @@ model Usuario {
 }
 
 model Moderador {
-  id_moderador Int    @id @default(autoincrement())
-  usuario      String @unique @db.VarChar(100)
-  password     String @db.VarChar(255)
+  id_moderador  Int     @id @default(autoincrement())
+  usuario       String  @unique @db.VarChar(100)
+  password      String  @db.VarChar(255)
+  is_superadmin Boolean @default(false)
 
   reportes Reporte[]
 }
@@ -192,6 +193,7 @@ model Publicacion {
   acuerdos            Acuerdo[]
   etiquetas           PublicacionEtiqueta[]
   usuarioPublicacions UsuarioPublicacion[]
+  reportes            Reporte[]
 
   @@index([estado, fecha_publicacion, tipo_publicacion])
 }
@@ -253,6 +255,7 @@ model Mensaje {
   conversacion Conversacion @relation(fields: [id_conversacion], references: [id_conversacion])
   emisor       Usuario      @relation(fields: [id_emisor], references: [id_usuario])
   estadoRel    Estado       @relation(fields: [estado_mensaje], references: [id_estado])
+  reportes     Reporte[]
 }
 
 model Acuerdo {
@@ -276,20 +279,25 @@ model Acuerdo {
 }
 
 model Reporte {
-  id_reporte    Int      @id @default(autoincrement())
-  id_emisor     Int
-  id_receptor   Int
-  motivo        Int
-  observaciones String
-  fecha         DateTime @default(now())
-  estado        Int
-  id_moderador  Int?
+  id_reporte     Int      @id @default(autoincrement())
+  id_emisor      Int
+  id_receptor    Int
+  id_publicacion Int?
+  id_mensaje     Int?
+  motivo         Int
+  observaciones  String
+  fecha          DateTime @default(now())
+  estado         Int
+  link_imagen    String   @default("")
+  id_moderador   Int?
 
-  emisor    Usuario       @relation("EmisorReporte", fields: [id_emisor], references: [id_usuario])
-  receptor  Usuario       @relation("ReceptorReporte", fields: [id_receptor], references: [id_usuario])
-  motivoRel MotivoReporte @relation(fields: [motivo], references: [id_motivo])
-  estadoRel Estado        @relation(fields: [estado], references: [id_estado])
-  moderador Moderador?    @relation(fields: [id_moderador], references: [id_moderador])
+  emisor      Usuario       @relation("EmisorReporte", fields: [id_emisor], references: [id_usuario])
+  receptor    Usuario       @relation("ReceptorReporte", fields: [id_receptor], references: [id_usuario])
+  motivoRel   MotivoReporte @relation(fields: [motivo], references: [id_motivo])
+  estadoRel   Estado        @relation(fields: [estado], references: [id_estado])
+  publicacion Publicacion?  @relation(fields: [id_publicacion], references: [id_publicacion])
+  mensaje     Mensaje?      @relation(fields: [id_mensaje], references: [id_mensaje])
+  moderador   Moderador?    @relation(fields: [id_moderador], references: [id_moderador])
 }
 
 model Notificacion {
