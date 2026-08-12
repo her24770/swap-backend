@@ -338,6 +338,19 @@ const schemas: Record<string, OpenApiSchema> = {
             estado: ref("Estado"),
         },
     },
+    Reporte: {
+        type: "object",
+        properties: {
+            id_reporte: id,
+            id_emisor: id,
+            id_receptor: id,
+            motivo: id,
+            observaciones: { type: "string" },
+            fecha: dateTime,
+            estado: id,
+            id_moderador: { type: ["integer", "null"], minimum: 1 },
+        },
+    },
 };
 
 const email = { type: "string", format: "email" };
@@ -370,6 +383,37 @@ const reviewCreateSchema: OpenApiSchema = {
         tipo_resena: { type: "string", minLength: 3, maxLength: 25 },
         calificacion: { type: "integer", minimum: 1, maximum: 5 },
         contenido: { type: "string", minLength: 10, maxLength: 500 },
+    },
+};
+const reportReason = {
+    type: "string",
+    enum: [
+        "No cumplió con fechas",
+        "Información falsa",
+        "Incumple las normas",
+        "Cuenta falsa o suplantación de identidad",
+        "Publica contenido inapropiado",
+        "Acoso, amenazas o bullying",
+        "Spam o estafa",
+        "Es ofensivo, insultante o usa lenguaje vulgar",
+        "Es spam, publicidad no deseada o enlace sospechoso",
+        "Acoso dirigido a otro usuario en la conversación",
+        "Revela información personal privada",
+        "Venta o promoción de objetos inapropiados",
+        "Discurso de odio o símbolos ofensivos",
+        "Violencia, daño o actividades peligrosas",
+        "Desnudez o contenido sexual explícito",
+        "Propiedad intelectual o derechos de autor",
+    ],
+};
+const reportCreateSchema: OpenApiSchema = {
+    type: "object",
+    required: ["tipo_objetivo", "id_objetivo", "motivo"],
+    properties: {
+        tipo_objetivo: { type: "string", enum: ["usuario", "publicacion", "comentario"] },
+        id_objetivo: id,
+        motivo: reportReason,
+        detalle: { type: "string", maxLength: 500 },
     },
 };
 
@@ -1093,6 +1137,14 @@ const paths: Record<string, Record<string, unknown>> = {
             responseSchema: ref("Notificacion"),
         }),
     },
+    "/reportes": {
+        post: operation("Reportes", "createReport", "Crear un reporte sobre un usuario o elemento", {
+            status: 201,
+            description: "Crea un reporte genérico para usuarios, publicaciones o comentarios usando una sola petición.",
+            body: jsonBody(reportCreateSchema),
+            responseSchema: ref("Reporte"),
+        }),
+    },
     "/resenas": {
         post: operation("Reseñas", "createReview", "Crear una reseña", {
             status: 201,
@@ -1144,6 +1196,7 @@ const tags = [
     ["Búsqueda", "Búsqueda semántica de publicaciones."],
     ["Certificaciones", "Certificaciones y documentos PDF."],
     ["Notificaciones", "Notificaciones del usuario."],
+    ["Reportes", "Reportes de contenido y usuarios."],
     ["Reseñas", "Calificaciones y reputación de perfiles."],
 ].map(([name, description]) => ({ name, description }));
 

@@ -1,4 +1,4 @@
-import { Prisma, Reporte, PalabraRestringida } from "@prisma/client";
+import { Prisma, Reporte, PalabraRestringida, MotivoReporte } from "@prisma/client";
 import prisma from "../persistencia/prismaClient";
 
 // ─────────────────────────────────────────────
@@ -47,6 +47,14 @@ export async function buscarReportesPorEmisor(idEmisor: number): Promise<Reporte
 
 export async function guardarReporte(data: Prisma.ReporteCreateInput): Promise<Reporte> {
     return prisma.reporte.create({ data });
+}
+
+export async function obtenerOCrearMotivoReportePorNombre(motivo: string): Promise<MotivoReporte> {
+    return prisma.motivoReporte.upsert({
+        where: { motivo },
+        update: {},
+        create: { motivo },
+    });
 }
 
 export async function actualizarReporte(
