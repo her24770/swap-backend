@@ -150,6 +150,7 @@ async function main() {
         create: {
             usuario:  "moderador1",
             password: await bcrypt.hash("Moderador123!", SALT_ROUNDS),
+            is_superadmin: true
         },
     });
     console.log("  ✅ Moderador");
