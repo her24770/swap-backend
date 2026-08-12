@@ -144,6 +144,7 @@ async function main() {
     // ─────────────────────────────────────────────
     // Moderador
     // ─────────────────────────────────────────────
+    //Superadmin
     await prisma.moderador.upsert({
         where:  { usuario: "moderador1" },
         update: {},
@@ -151,6 +152,18 @@ async function main() {
             usuario:  "moderador1",
             password: await bcrypt.hash("Moderador123!", SALT_ROUNDS),
             is_superadmin: true
+        },
+    });
+    console.log("  ✅ Moderador Superadmin");
+
+    //Moderador
+    await prisma.moderador.upsert({
+        where:  { usuario: "moderador2" },
+        update: {},
+        create: {
+            usuario:  "moderador2",
+            password: await bcrypt.hash("Moderador123!", SALT_ROUNDS),
+            is_superadmin: false
         },
     });
     console.log("  ✅ Moderador");
