@@ -48,11 +48,22 @@ model Usuario {
 }
 
 model Moderador {
-  id_moderador Int    @id @default(autoincrement())
-  usuario      String @unique @db.VarChar(100)
-  password     String @db.VarChar(255)
+  id_moderador      Int    @id @default(autoincrement())
+  usuario           String @unique @db.VarChar(100)
+  password          String @db.VarChar(255)
+  id_tipo_moderador Int
 
+  tipoRel  TipoModerador @relation(fields: [id_tipo_moderador], references: [id_tipo_moderador])
   reportes Reporte[]
+}
+
+model TipoModerador {
+  id_tipo_moderador Int    @id @default(autoincrement())
+  tipo_moderador    String @unique @db.VarChar(100)
+
+  moderadores Moderador[]
+
+  @@map("Tipo_Moderador")
 }
 
 model Etiqueta {

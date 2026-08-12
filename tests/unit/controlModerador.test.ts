@@ -43,18 +43,24 @@ vi.mock("../../src/servicios/Response", () => ({
   exitoResponse: vi.fn(),
 }));
 
+function moderadorMock(nivel: "moderador" | "superadmin") {
+  return {
+    id_moderador: 1,
+    usuario: nivel === "superadmin" ? "superadmin1" : "moderador1",
+    password: "hash",
+    id_tipo_moderador: nivel === "superadmin" ? 2 : 1,
+    tipoRel: { id_tipo_moderador: nivel === "superadmin" ? 2 : 1, tipo_moderador: nivel },
+  };
+}
+
 describe("iniciarSesionModerador", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("permite iniciar sesion con credenciales correctas y setea rol moderador", async () => {
+  it("permite iniciar sesion con credenciales correctas y setea el rol segun el nivel (moderador)", async () => {
     vi.mocked(estaBloqueado).mockResolvedValue(false);
-    vi.mocked(buscarModeradorPorUsuario).mockResolvedValue({
-      id_moderador: 1,
-      usuario: "moderador1",
-      password: "hash",
-    } as any);
+    vi.mocked(buscarModeradorPorUsuario).mockResolvedValue(moderadorMock("moderador") as any);
     vi.mocked(ServicioBcrypt.compararPassword).mockResolvedValue(true);
     vi.mocked(ServicioJWT.generarToken).mockReturnValue("jwt-token");
 
@@ -76,6 +82,31 @@ describe("iniciarSesionModerador", () => {
     expect(next).not.toHaveBeenCalled();
   });
 
+  it("setea el rol 'superadmin' en el JWT cuando el moderador es de ese nivel", async () => {
+    vi.mocked(estaBloqueado).mockResolvedValue(false);
+    vi.mocked(buscarModeradorPorUsuario).mockResolvedValue(moderadorMock("superadmin") as any);
+    vi.mocked(ServicioBcrypt.compararPassword).mockResolvedValue(true);
+    vi.mocked(ServicioJWT.generarToken).mockReturnValue("jwt-token-superadmin");
+
+    const req: any = {
+      ip: "127.0.0.1",
+      body: { usuario: "superadmin1", password: "SuperAdmin123!" },
+    };
+    const res: any = { cookie: vi.fn() };
+
+    await iniciarSesionModerador(req, res, vi.fn());
+
+    expect(ServicioJWT.generarToken).toHaveBeenCalledWith(
+      expect.objectContaining({ sub: "1", rol: "superadmin" })
+    );
+    expect(exitoResponse).toHaveBeenCalledWith(
+      res,
+      expect.objectContaining({ rol: "superadmin" }),
+      "Inicio de sesion exitoso",
+      200
+    );
+  });
+
   it("rechaza si el usuario moderador no existe", async () => {
     vi.mocked(estaBloqueado).mockResolvedValue(false);
     vi.mocked(buscarModeradorPorUsuario).mockResolvedValue(null);
@@ -94,11 +125,7 @@ describe("iniciarSesionModerador", () => {
 
   it("rechaza contraseña incorrecta y registra el intento fallido", async () => {
     vi.mocked(estaBloqueado).mockResolvedValue(false);
-    vi.mocked(buscarModeradorPorUsuario).mockResolvedValue({
-      id_moderador: 1,
-      usuario: "moderador1",
-      password: "hash",
-    } as any);
+    vi.mocked(buscarModeradorPorUsuario).mockResolvedValue(moderadorMock("moderador") as any);
     vi.mocked(ServicioBcrypt.compararPassword).mockResolvedValue(false);
 
     const req: any = {
@@ -135,12 +162,8 @@ describe("obtenerSesionModeradorActual", () => {
     vi.clearAllMocks();
   });
 
-  it("devuelve los datos del moderador autenticado", async () => {
-    vi.mocked(buscarModeradorPorId).mockResolvedValue({
-      id_moderador: 1,
-      usuario: "moderador1",
-      password: "hash",
-    } as any);
+  it("devuelve los datos del moderador autenticado con su nivel", async () => {
+    vi.mocked(buscarModeradorPorId).mockResolvedValue(moderadorMock("moderador") as any);
 
     const req: any = { usuario: { sub: "1", rol: "moderador" } };
     const res: any = {};
@@ -149,7 +172,23 @@ describe("obtenerSesionModeradorActual", () => {
 
     expect(exitoResponse).toHaveBeenCalledWith(
       res,
-      { rol: "moderador", moderador: { id_moderador: 1, usuario: "moderador1" } },
+      { rol: "moderador", moderador: { id_moderador: 1, usuario: "moderador1", nivel: "moderador" } },
+      "Sesion obtenida exitosamente",
+      200
+    );
+  });
+
+  it("devuelve nivel 'superadmin' cuando corresponde", async () => {
+    vi.mocked(buscarModeradorPorId).mockResolvedValue(moderadorMock("superadmin") as any);
+
+    const req: any = { usuario: { sub: "1", rol: "superadmin" } };
+    const res: any = {};
+
+    await obtenerSesionModeradorActual(req, res, vi.fn());
+
+    expect(exitoResponse).toHaveBeenCalledWith(
+      res,
+      expect.objectContaining({ rol: "superadmin", moderador: expect.objectContaining({ nivel: "superadmin" }) }),
       "Sesion obtenida exitosamente",
       200
     );

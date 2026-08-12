@@ -76,6 +76,15 @@ async function main() {
     console.log("  ✅ Tipos de contacto");
 
     // ─────────────────────────────────────────────
+    // Tipos de moderador
+    // ─────────────────────────────────────────────
+    await Promise.all([
+        prisma.tipoModerador.upsert({ where: { tipo_moderador: "moderador" },  update: {}, create: { tipo_moderador: "moderador" } }),
+        prisma.tipoModerador.upsert({ where: { tipo_moderador: "superadmin" }, update: {}, create: { tipo_moderador: "superadmin" } }),
+    ]);
+    console.log("  ✅ Tipos de moderador");
+
+    // ─────────────────────────────────────────────
     // 4. Motivos de reporte
     // ─────────────────────────────────────────────
     await Promise.all([

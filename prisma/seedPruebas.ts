@@ -22,7 +22,8 @@
  * Credenciales creadas:
  *   Usuario   : vendedor@uvg.edu.gt    / Vendedor123!
  *   Usuario   : vendedor123@uvg.edu.gt / Vendedor123!
- *   Moderador : moderador1             / Moderador123!
+ *   Moderador : moderador1             / Moderador123!  (nivel: moderador)
+ *   Moderador : superadmin1            / SuperAdmin123!  (nivel: superadmin)
  */
 
 import { PrismaClient } from "@prisma/client";
@@ -91,6 +92,9 @@ async function main() {
     const tcTel = await prisma.tipoContacto.findUniqueOrThrow({ where: { tipo_contacto: "telefono" } });
     const tcCo = await prisma.tipoContacto.findUniqueOrThrow({ where: { tipo_contacto: "correo_personal" } });
 
+    const tmModerador  = await prisma.tipoModerador.findUniqueOrThrow({ where: { tipo_moderador: "moderador" } });
+    const tmSuperadmin = await prisma.tipoModerador.findUniqueOrThrow({ where: { tipo_moderador: "superadmin" } });
+
     // Etiquetas de ICC
     const [eAED, eBD1, eIS1, eRedes, ePOO, eEDA, eSO, eArq, eBD2, eIA] = await Promise.all([
         prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Algoritmos y Estructuras de Datos" } }),
@@ -142,17 +146,27 @@ async function main() {
     console.log("  ✅ Catálogos de referencia leídos");
 
     // ─────────────────────────────────────────────
-    // Moderador
+    // Moderadores (dos niveles, para poder probar ambos)
     // ─────────────────────────────────────────────
     await prisma.moderador.upsert({
         where:  { usuario: "moderador1" },
         update: {},
         create: {
-            usuario:  "moderador1",
-            password: await bcrypt.hash("Moderador123!", SALT_ROUNDS),
+            usuario:           "moderador1",
+            password:          await bcrypt.hash("Moderador123!", SALT_ROUNDS),
+            id_tipo_moderador: tmModerador.id_tipo_moderador,
         },
     });
-    console.log("  ✅ Moderador");
+    await prisma.moderador.upsert({
+        where:  { usuario: "superadmin1" },
+        update: {},
+        create: {
+            usuario:           "superadmin1",
+            password:          await bcrypt.hash("SuperAdmin123!", SALT_ROUNDS),
+            id_tipo_moderador: tmSuperadmin.id_tipo_moderador,
+        },
+    });
+    console.log("  ✅ Moderadores");
 
     // ─────────────────────────────────────────────
     // Usuarios de prueba
@@ -465,7 +479,8 @@ async function main() {
     console.log("\n▶  Credenciales:");
     console.log("   Usuario   : vendedor@uvg.edu.gt    / Vendedor123!");
     console.log("   Usuario   : vendedor123@uvg.edu.gt / Vendedor123!");
-    console.log("   Moderador : moderador1              / Moderador123!");
+    console.log("   Moderador : moderador1              / Moderador123!  (nivel: moderador)");
+    console.log("   Moderador : superadmin1             / SuperAdmin123!  (nivel: superadmin)");
 }
 
 main()
