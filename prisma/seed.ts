@@ -84,6 +84,21 @@ async function main() {
         prisma.motivoReporte.upsert({ where: { motivo: "Spam" }, update: {}, create: { motivo: "Spam" } }),
         prisma.motivoReporte.upsert({ where: { motivo: "Acoso" }, update: {}, create: { motivo: "Acoso" } }),
         prisma.motivoReporte.upsert({ where: { motivo: "Información falsa" }, update: {}, create: { motivo: "Información falsa" } }),
+        prisma.motivoReporte.upsert({ where: { motivo: "No cumplió con fechas" }, update: {}, create: { motivo: "No cumplió con fechas" } }),
+        prisma.motivoReporte.upsert({ where: { motivo: "Incumple las normas" }, update: {}, create: { motivo: "Incumple las normas" } }),
+        prisma.motivoReporte.upsert({ where: { motivo: "Cuenta falsa o suplantación de identidad" }, update: {}, create: { motivo: "Cuenta falsa o suplantación de identidad" } }),
+        prisma.motivoReporte.upsert({ where: { motivo: "Publica contenido inapropiado" }, update: {}, create: { motivo: "Publica contenido inapropiado" } }),
+        prisma.motivoReporte.upsert({ where: { motivo: "Acoso, amenazas o bullying" }, update: {}, create: { motivo: "Acoso, amenazas o bullying" } }),
+        prisma.motivoReporte.upsert({ where: { motivo: "Spam o estafa" }, update: {}, create: { motivo: "Spam o estafa" } }),
+        prisma.motivoReporte.upsert({ where: { motivo: "Es ofensivo, insultante o usa lenguaje vulgar" }, update: {}, create: { motivo: "Es ofensivo, insultante o usa lenguaje vulgar" } }),
+        prisma.motivoReporte.upsert({ where: { motivo: "Es spam, publicidad no deseada o enlace sospechoso" }, update: {}, create: { motivo: "Es spam, publicidad no deseada o enlace sospechoso" } }),
+        prisma.motivoReporte.upsert({ where: { motivo: "Acoso dirigido a otro usuario en la conversación" }, update: {}, create: { motivo: "Acoso dirigido a otro usuario en la conversación" } }),
+        prisma.motivoReporte.upsert({ where: { motivo: "Revela información personal privada" }, update: {}, create: { motivo: "Revela información personal privada" } }),
+        prisma.motivoReporte.upsert({ where: { motivo: "Venta o promoción de objetos inapropiados" }, update: {}, create: { motivo: "Venta o promoción de objetos inapropiados" } }),
+        prisma.motivoReporte.upsert({ where: { motivo: "Discurso de odio o símbolos ofensivos" }, update: {}, create: { motivo: "Discurso de odio o símbolos ofensivos" } }),
+        prisma.motivoReporte.upsert({ where: { motivo: "Violencia, daño o actividades peligrosas" }, update: {}, create: { motivo: "Violencia, daño o actividades peligrosas" } }),
+        prisma.motivoReporte.upsert({ where: { motivo: "Desnudez o contenido sexual explícito" }, update: {}, create: { motivo: "Desnudez o contenido sexual explícito" } }),
+        prisma.motivoReporte.upsert({ where: { motivo: "Propiedad intelectual o derechos de autor" }, update: {}, create: { motivo: "Propiedad intelectual o derechos de autor" } }),
     ]);
     console.log("  ✅ Motivos de reporte");
 
