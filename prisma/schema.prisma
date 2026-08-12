@@ -49,12 +49,10 @@ model Usuario {
 }
 
 model Moderador {
-  id_moderador  Int     @id @default(autoincrement())
-  usuario       String  @unique @db.VarChar(100)
-  password      String  @db.VarChar(255)
-  is_superadmin Boolean @default(false)
-
-  reportes Reporte[]
+  id_moderador Int       @id @default(autoincrement())
+  usuario      String    @unique @db.VarChar(100)
+  password     String    @db.VarChar(255)
+  reportes     Reporte[]
 }
 
 model Etiqueta {
