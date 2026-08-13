@@ -49,6 +49,52 @@ export const schemaCrearReporte = z.object({
         .default(""),
 });
 
+/**
+ * ===========================================
+ * Schema para request de la paginación de reportes y tipos para formato de respuesta
+ * ===========================================
+ */
+export const reportePaginationOptions = z.object({
+    page: z.number().int().positive().optional().default(1),
+    limit: z.number().int().positive().optional().default(10),
+    sort: z.enum(["fecha", "estado"]).optional().default("fecha"),
+    order: z.enum(["asc", "desc"]).optional().default("desc"),
+    estado: z.string().optional(),
+    motivo: z.string().optional(),
+    tipo: z.enum(["publicacion", "mensaje", "todos"]).optional().default("todos"),
+    idReceptor: z.number().optional(),
+    idEmisor: z.number().optional(),
+});
+
+export type ReporteTableData = {
+    id_reporte: number;
+    tipo: 'Publicación' | 'Mensaje';
+    fecha: Date;
+    estado: string;
+    emisor: {
+        nombre: string;
+        email_institucional: string;
+        url_foto_perfil: string;
+    };
+    receptor: {
+        nombre: string;
+        email_institucional: string;
+        url_foto_perfil: string;
+    };
+};
+
+export interface ResultadoBusquedaReporte {
+    reportes: ReporteTableData[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+}
+/**
+ * ===========================================
+ */
+
+export type ReportePaginationOptions = z.infer<typeof reportePaginationOptions>;
 export type CrearReporteInput = z.infer<typeof schemaCrearReporte>;
 export type TipoObjetivoReporte = typeof tiposObjetivoReporte[number];
 export type MotivoReporteInput = typeof motivosReporte[number];

@@ -4,8 +4,53 @@ import { buscarPublicacionPorId } from "../repository/repositorioPublicacion";
 import { buscarResenaPorId } from "../repository/repositorioResena";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado";
 import { actualizarUsuario, buscarUsuarioPorId } from "../repository/repositorioUsuario";
-import { guardarReporte, obtenerOCrearMotivoReportePorNombre } from "../repository/repositorioReporte";
+import { guardarReporte, obtenerOCrearMotivoReportePorNombre, buscarReportePorId, buscarReportesPaginados } from "../repository/repositorioReporte";
 import { errorResponse, errorValidacionResponse, exitoResponse } from "../servicios/Response.js";
+
+const MAX_LIMIT = 100;
+
+export async function obtenerReportePorId(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const id = Number(req.params.id);
+        if (isNaN(id)) {
+            errorResponse(res, "El id del reporte no es válido", 400);
+            return;
+        }
+
+        const reporte = await buscarReportePorId(id);
+        if (!reporte) {
+            errorResponse(res, "Reporte no encontrado", 404);
+            return;
+        }
+
+        exitoResponse(res, reporte, "Reporte obtenido exitosamente", 200);
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function obtenerReportesPaginados(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const options = req.body;
+        
+        // Asegurar que el límite no exceda el máximo permitido
+        if (options.limit && options.limit > MAX_LIMIT) {
+            options.limit = MAX_LIMIT;
+        }
+        
+        const resultado = await buscarReportesPaginados(options);
+
+        exitoResponse(res, {
+            reportes: resultado.reportes,
+            total: resultado.total,
+            page: resultado.page,
+            limit: resultado.limit,
+            totalPages: resultado.totalPages
+        }, "Reportes obtenidos exitosamente", 200);
+    } catch (error) {
+        next(error);
+    }
+}
 
 async function resolverIdReceptor(tipoObjetivo: TipoObjetivoReporte, idObjetivo: number): Promise<number | null> {
     if (tipoObjetivo === "usuario") {

@@ -1,9 +1,33 @@
 import { Prisma, Reporte, PalabraRestringida, MotivoReporte } from "@prisma/client";
+import { ReportePaginationOptions, ReporteTableData, ResultadoBusquedaReporte, motivosReporte } from "../modelo/schemaReporte";
 import prisma from "../persistencia/prismaClient";
 
 // ─────────────────────────────────────────────
 // Reporte
 // ─────────────────────────────────────────────
+
+// Función auxiliar para transformar el reporte a formato de tabla
+function transformarReporteParaTabla(reporte: any): ReporteTableData {
+    // Determinar el tipo basado en qué ID tiene
+    const tipo = reporte.id_publicacion ? 'Publicación' : 'Mensaje';
+
+    return {
+        id_reporte: reporte.id_reporte,
+        tipo: tipo,
+        fecha: reporte.fecha,
+        estado: reporte.estadoRel?.estado || 'Desconocido',
+        emisor: {
+            nombre: reporte.emisor.nombre,
+            email_institucional: reporte.emisor.email_institucional,
+            url_foto_perfil: reporte.emisor.url_foto_perfil
+        },
+        receptor: {
+            nombre: reporte.receptor.nombre,
+            email_institucional: reporte.receptor.email_institucional,
+            url_foto_perfil: reporte.receptor.url_foto_perfil
+        }
+    };
+}
 
 export async function buscarReportePorId(id: number): Promise<Reporte | null> {
     return prisma.reporte.findUnique({
@@ -13,20 +37,168 @@ export async function buscarReportePorId(id: number): Promise<Reporte | null> {
             receptor: { select: { id_usuario: true, nombre: true, email_institucional: true } },
             motivoRel: true,
             estadoRel: true,
+            publicacion: {
+                select: {
+                    id_publicacion: true,
+                    titulo: true,
+                    estadoRel: {
+                        select: {
+                            estado: true
+                        }
+                    }
+                }
+            },
+            mensaje: {
+                select: {
+                    id_mensaje: true,
+                    mensaje: true,
+                    estadoRel: {
+                        select: {
+                            estado: true
+                        }
+                    }
+                }
+            },
+            moderador: {
+                select: {
+                    id_moderador: true,
+                    usuario: true
+                }
+            }
         },
     });
 }
 
-export async function buscarTodosLosReportes(): Promise<Reporte[]> {
-    return prisma.reporte.findMany({
-        include: {
-            emisor: { select: { id_usuario: true, nombre: true } },
-            receptor: { select: { id_usuario: true, nombre: true } },
-            motivoRel: true,
-            estadoRel: true,
-        },
-        orderBy: { fecha: "desc" },
-    });
+export async function buscarReportesPaginados(
+    options: ReportePaginationOptions
+): Promise<ResultadoBusquedaReporte> {
+    const { 
+        page = 1, 
+        limit = 10, 
+        sort = 'fecha', 
+        order = 'desc',
+        estado,
+        motivo,
+        tipo = 'todos',
+        idReceptor,
+        idEmisor
+    } = options;
+
+    const skip = (page - 1) * limit;
+
+    // Construir ordenamiento
+    const orderBy: any[] = [];
+
+    switch (sort) {
+        case 'fecha':
+            orderBy.push({ fecha: order });
+            break;
+        case 'estado':
+            orderBy.push({ estadoRel: { estado: order } });
+            break;
+        default:
+            orderBy.push({ fecha: order });
+            break;
+    }
+
+    // Construir filtros
+    const where: any = {};
+
+    // Filtro por estado (nombre)
+    if (estado) {
+        const estadoObtenido = await prisma.estado.findUnique({
+            where: { estado: estado }
+        });
+        if (estadoObtenido) {
+            where.estado = estadoObtenido.id_estado;
+        }
+    }
+
+    // Filtro por motivo (usando el índice del array)
+    if (motivo) {
+        const motivoIndex = motivosReporte.indexOf(motivo as any);
+        if (motivoIndex !== -1) {
+            // El ID del motivo es el índice + 1 (asumiendo que empiezan en 1)
+            where.motivo = motivoIndex + 1;
+        }
+    }
+
+    // Filtro por tipo (publicación o mensaje)
+    if (tipo === 'publicacion') {
+        where.id_publicacion = { not: null };
+        where.id_mensaje = null;
+    } else if (tipo === 'mensaje') {
+        where.id_mensaje = { not: null };
+        where.id_publicacion = null;
+    }
+    // Si es 'todos', no filtramos por tipo
+
+    // Filtro por receptor
+    if (idReceptor) {
+        where.id_receptor = idReceptor;
+    }
+
+    // Filtro por emisor
+    if (idEmisor) {
+        where.id_emisor = idEmisor;
+    }
+
+    // Ejecutar consultas en transacción
+    const [reportes, total] = await prisma.$transaction([
+
+        prisma.reporte.findMany({
+            where,
+            select: {
+                id_reporte: true,
+                fecha: true,
+                id_publicacion: true,
+                id_mensaje: true,
+                motivoRel: {
+                    select: {
+                        id_motivo: true,
+                        motivo: true
+                    }
+                },
+                estadoRel: {
+                    select: {
+                        id_estado: true,
+                        estado: true
+                    }
+                },
+                emisor: {
+                    select: {
+                        nombre: true,
+                        email_institucional: true,
+                        url_foto_perfil: true
+                    }
+                },
+                receptor: {
+                    select: {
+                        nombre: true,
+                        email_institucional: true,
+                        url_foto_perfil: true
+                    }
+                }
+            },
+            orderBy,
+            skip,
+            take: limit
+        }),
+
+        prisma.reporte.count({ where })
+
+    ]);
+
+    const reportesMapeados = reportes.map(transformarReporteParaTabla);
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+        reportes: reportesMapeados,
+        total,
+        page,
+        limit,
+        totalPages
+    };
 }
 
 export async function buscarReportesPorReceptor(idReceptor: number): Promise<Reporte[]> {
