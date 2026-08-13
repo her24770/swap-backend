@@ -10,7 +10,9 @@ import { errorResponse, exitoResponse } from "../servicios/Response.js";
     Login separado del de Usuario: la tabla Moderador es independiente
     (usuario + password propios, sin email_institucional). Reutiliza el
     mismo mecanismo de cookie/JWT que iniciarSesion (controlAuth.ts) para
-    que autenticar() y gestorPermisos("moderador") funcionen sin cambios.
+    que autenticar() y los middlewares de permisos (permisosModerador.ts)
+    funcionen sin cambios. El rol del JWT es dinamico segun el nivel del
+    moderador (tipoRel.tipo_moderador: "moderador" o "superadmin").
 */
 export async function iniciarSesionModerador(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -38,10 +40,12 @@ export async function iniciarSesionModerador(req: Request, res: Response, next: 
 
         await limpiarIntentos(ip);
 
+        const nivel = moderador.tipoRel.tipo_moderador;
+
         const payload: PayloadToken = {
             sub: String(moderador.id_moderador),
             email: moderador.usuario,
-            rol: "moderador",
+            rol: nivel,
         };
         const token = ServicioJWT.generarToken(payload);
 
@@ -54,7 +58,7 @@ export async function iniciarSesionModerador(req: Request, res: Response, next: 
 
         exitoResponse(
             res,
-            { rol: "moderador", moderador: { id_moderador: moderador.id_moderador, usuario: moderador.usuario } },
+            { rol: nivel, moderador: { id_moderador: moderador.id_moderador, usuario: moderador.usuario, nivel } },
             "Inicio de sesion exitoso",
             200
         );
@@ -65,8 +69,8 @@ export async function iniciarSesionModerador(req: Request, res: Response, next: 
 
 /*
     GET /api/moderador/me
-    Endpoint minimo protegido (autenticar + gestorPermisos("moderador")) para
-    que el frontend pueda verificar la sesion antes de renderizar el panel.
+    Endpoint minimo protegido (autenticar + soloModerador de permisosModerador.ts)
+    para que el frontend pueda verificar la sesion antes de renderizar el panel.
 */
 export async function obtenerSesionModeradorActual(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -83,9 +87,11 @@ export async function obtenerSesionModeradorActual(req: Request, res: Response, 
             return;
         }
 
+        const nivel = moderador.tipoRel.tipo_moderador;
+
         exitoResponse(
             res,
-            { rol: "moderador", moderador: { id_moderador: moderador.id_moderador, usuario: moderador.usuario } },
+            { rol: nivel, moderador: { id_moderador: moderador.id_moderador, usuario: moderador.usuario, nivel } },
             "Sesion obtenida exitosamente",
             200
         );
