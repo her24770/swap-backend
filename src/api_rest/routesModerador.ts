@@ -15,6 +15,7 @@ import {
     bajarPublicacionModeracion,
     eliminarPublicacionModeracion,
     obtenerPublicacionesModeracion,
+    reactivarPublicacionModeracion,
 } from "../controlador/controlPublicacion.js";
 
 const router = Router();
@@ -37,6 +38,7 @@ router.delete("/:id", autenticar, soloSuperadmin, eliminarModeradorController);
 // usando soloModerador o soloSuperadmin segun corresponda.
 router.get("/publicaciones", autenticar, soloModerador, obtenerPublicacionesModeracion);
 router.patch("/publicaciones/:id/bajar", autenticar, soloModerador, bajarPublicacionModeracion);
+router.patch("/publicaciones/:id/reactivar", autenticar, soloModerador, reactivarPublicacionModeracion);
 router.delete("/publicaciones/:id", autenticar, soloModerador, eliminarPublicacionModeracion);
 
 export default router;

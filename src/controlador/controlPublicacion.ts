@@ -6,11 +6,38 @@ import { buscarUsuarioPorId } from "../repository/repositorioUsuario.js";
 import { subirImagenR2, eliminarImagenR2 } from "../servicios/servicioR2.js";
 import { schemaCrearPublicacion, } from "../modelo/schemaPublicacion.js";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
+import { crearNotificacion } from "../repository/repositorioNotificacion.js";
 import { errorResponse, exitoResponse, errorValidacionResponse } from "../servicios/Response.js";
 import { generarYGuardarEmbedding } from "../servicios/servicioEmbedding.js";
 import { moderarImagenesEnBackground } from "../servicios/servicioModerarImagenesBackground.js";
 import {contarPublicacionesDestacadasPorTipoYUsuario,actualizarDestacado} from "../repository/repositorioPublicacion.js";
 import {registrarInteraccionPublicacion} from "../autenticacion/eventoRecomendacion.js";
+import prisma from "../persistencia/prismaClient.js";
+import { getIO } from "../sockets/ioInstance.js";
+
+function obtenerJustificanteModeracion(body: unknown): { motivo: string; detalle: string } | null {
+    if (!body || typeof body !== "object") return null;
+
+    const { motivo, detalle } = body as { motivo?: unknown; detalle?: unknown };
+    const motivoNormalizado = typeof motivo === "string" ? motivo.trim() : "";
+    const detalleNormalizado = typeof detalle === "string" ? detalle.trim() : "";
+
+    if (!motivoNormalizado) return null;
+
+    return {
+        motivo: motivoNormalizado.slice(0, 160),
+        detalle: detalleNormalizado.slice(0, 500),
+    };
+}
+
+async function notificarAccionModeracion(idUsuario: number, mensaje: string): Promise<void> {
+    const estadoEnviado = await obtenerEstadoPorNombre("enviado");
+    if (!estadoEnviado) return;
+
+    const notificacion = await crearNotificacion(idUsuario, mensaje, estadoEnviado.id_estado);
+    const io = getIO();
+    io?.to(`usuario:${idUsuario}`).emit("notificacion:nueva", notificacion);
+}
 
 export async function obtenerPublicacionesUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -462,9 +489,15 @@ export async function eliminarPublicacionConImagenes(req: Request, res: Response
 export async function eliminarPublicacionModeracion(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
         const id_publicacion = Number(req.params.id);
+        const justificante = obtenerJustificanteModeracion(req.body);
 
         if (isNaN(id_publicacion)) {
             errorResponse(res, "El ID de la publicación no es válido", 400);
+            return;
+        }
+
+        if (!justificante) {
+            errorResponse(res, "Debes indicar un motivo para eliminar la publicación", 400);
             return;
         }
 
@@ -482,13 +515,17 @@ export async function eliminarPublicacionModeracion(req: Request, res: Response,
             }
         }
 
-        const prisma = require("../persistencia/prismaClient.js").default;
-
         await prisma.imagenPublicacion.deleteMany({ where: { id_publicacion } });
         await prisma.publicacionEtiqueta.deleteMany({ where: { id_publicacion } });
         await prisma.usuarioPublicacion.deleteMany({ where: { id_publicacion } });
 
         await prisma.publicacion.delete({ where: { id_publicacion } });
+
+        const detalle = justificante.detalle ? ` Detalle: ${justificante.detalle}` : "";
+        await notificarAccionModeracion(
+            publicacion.id_usuario,
+            `Tu publicación "${publicacion.titulo}" fue eliminada por moderación. Motivo: ${justificante.motivo}.${detalle}`
+        );
 
         exitoResponse(res, {}, "Publicación eliminada por moderación exitosamente", 200);
         return;
@@ -500,9 +537,15 @@ export async function eliminarPublicacionModeracion(req: Request, res: Response,
 export async function bajarPublicacionModeracion(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
         const idPublicacion = Number(req.params.id);
+        const justificante = obtenerJustificanteModeracion(req.body);
 
         if (isNaN(idPublicacion)) {
             errorResponse(res, "El ID de la publicación no es válido", 400);
+            return;
+        }
+
+        if (!justificante) {
+            errorResponse(res, "Debes indicar un motivo para bajar la publicación", 400);
             return;
         }
 
@@ -525,12 +568,70 @@ export async function bajarPublicacionModeracion(req: Request, res: Response, ne
 
         const actualizada = await actualizarEstadoPublicacion(idPublicacion, estadoInactivo.id_estado);
 
+        const detalle = justificante.detalle ? ` Detalle: ${justificante.detalle}` : "";
+        await notificarAccionModeracion(
+            publicacion.id_usuario,
+            `Tu publicación "${publicacion.titulo}" fue bajada por moderación. Motivo: ${justificante.motivo}.${detalle}`
+        );
+
         exitoResponse(res, {
             id_publicacion: actualizada.id_publicacion,
             titulo: actualizada.titulo,
             estado: actualizada.estado,
             estado_nombre: "inactivo"
         }, "Publicación bajada exitosamente", 200);
+        return;
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function reactivarPublicacionModeracion(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const idPublicacion = Number(req.params.id);
+        const justificante = obtenerJustificanteModeracion(req.body);
+
+        if (isNaN(idPublicacion)) {
+            errorResponse(res, "El ID de la publicación no es válido", 400);
+            return;
+        }
+
+        if (!justificante) {
+            errorResponse(res, "Debes indicar un motivo para reactivar la publicación", 400);
+            return;
+        }
+
+        const publicacion = await buscarPublicacionPorId(idPublicacion);
+        if (!publicacion) {
+            errorResponse(res, "Publicación no encontrada", 404);
+            return;
+        }
+
+        const estadoActivo = await obtenerEstadoPorNombre("activo");
+        if (!estadoActivo) {
+            errorResponse(res, "Error de configuracion: Estado 'activo' no encontrado", 500);
+            return;
+        }
+
+        if (publicacion.estado === estadoActivo.id_estado) {
+            errorResponse(res, "La publicación ya está activa", 409);
+            return;
+        }
+
+        const actualizada = await actualizarEstadoPublicacion(idPublicacion, estadoActivo.id_estado);
+
+        const detalle = justificante.detalle ? ` Detalle: ${justificante.detalle}` : "";
+        await notificarAccionModeracion(
+            publicacion.id_usuario,
+            `Tu publicación "${publicacion.titulo}" fue reactivada por moderación. Motivo: ${justificante.motivo}.${detalle}`
+        );
+
+        exitoResponse(res, {
+            id_publicacion: actualizada.id_publicacion,
+            titulo: actualizada.titulo,
+            estado: actualizada.estado,
+            estado_nombre: "activo"
+        }, "Publicación reactivada exitosamente", 200);
         return;
     } catch (error) {
         next(error);
