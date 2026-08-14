@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
-import { buscarPublicacionesPorTipoYUsuario, buscarPublicacionesPaginadas, buscarPublicacionPorId, actualizarPublicacion, actualizarEstadoPublicacion, buscarPublicacionPorIdDetallado, buscarImagenesPorPublicacion, eliminarImagen, buscarPublicacionesPorFiltros, buscarPublicacionesDestacadasUsuario } from "../repository/repositorioPublicacion.js";
+import { buscarPublicacionesPorTipoYUsuario, buscarPublicacionesPaginadas, buscarPublicacionPorId, actualizarPublicacion, actualizarEstadoPublicacion, buscarPublicacionPorIdDetallado, buscarImagenesPorPublicacion, eliminarImagen, buscarPublicacionesPorFiltros, buscarPublicacionesDestacadasUsuario, buscarPublicacionesModeracion } from "../repository/repositorioPublicacion.js";
 import { obtenerTipoPerfilPorNombre } from "../repository/repositorioTipoPerfil.js";
 import { buscarUsuarioPorId } from "../repository/repositorioUsuario.js";
 import { subirImagenR2, eliminarImagenR2 } from "../servicios/servicioR2.js";
@@ -144,6 +144,50 @@ export async function obtenerPublicacionesPorFiltros(req: Request, res: Response
             page: options.page,
             limit: options.limit
         }, "Publicaciones obtenidas exitosamente", 200);
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function obtenerPublicacionesModeracion(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const page = Math.max(1, Number(req.query.page) || 1);
+        const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 10));
+        const sort = req.query.sort as string || "fecha";
+        const order = req.query.order === "asc" ? "asc" : "desc";
+        const tipo = req.query.tipo as string | undefined;
+        const estado = req.query.estado as string | undefined;
+        const q = req.query.q as string | undefined;
+
+        const sortsValidos = ["fecha", "me_gusta", "precio"];
+        if (!sortsValidos.includes(sort)) {
+            errorResponse(res, "El parámetro sort debe ser uno de los siguientes: fecha, me_gusta, precio", 400);
+            return;
+        }
+
+        const tiposValidos = ["negocio", "material", "tutoria"];
+        if (tipo && !tiposValidos.includes(tipo)) {
+            errorResponse(res, "El parámetro tipo debe ser uno de los siguientes: negocio, material, tutoria", 400);
+            return;
+        }
+
+        const resultado = await buscarPublicacionesModeracion({
+            page,
+            limit,
+            sort: sort as "fecha" | "me_gusta" | "precio",
+            order,
+            tipo,
+            estado,
+            q
+        });
+
+        exitoResponse(res, {
+            publicaciones: resultado.publicaciones,
+            total: resultado.total,
+            page,
+            limit
+        }, "Publicaciones de moderación obtenidas exitosamente", 200);
+        return;
     } catch (error) {
         next(error);
     }
@@ -409,6 +453,84 @@ export async function eliminarPublicacionConImagenes(req: Request, res: Response
         await prisma.publicacion.delete({ where: { id_publicacion } });
 
         exitoResponse(res, {}, "Publicación eliminada exitosamente", 200);
+        return;
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function eliminarPublicacionModeracion(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const id_publicacion = Number(req.params.id);
+
+        if (isNaN(id_publicacion)) {
+            errorResponse(res, "El ID de la publicación no es válido", 400);
+            return;
+        }
+
+        const publicacion = await buscarPublicacionPorIdDetallado(id_publicacion);
+        if (!publicacion) {
+            errorResponse(res, "Publicación no encontrada", 404);
+            return;
+        }
+
+        for (const img of publicacion.imagenes ?? []) {
+            try {
+                await eliminarImagenR2(img.url_imagen);
+            } catch {
+                // Si falla R2 se continúa para que la BD quede limpia.
+            }
+        }
+
+        const prisma = require("../persistencia/prismaClient.js").default;
+
+        await prisma.imagenPublicacion.deleteMany({ where: { id_publicacion } });
+        await prisma.publicacionEtiqueta.deleteMany({ where: { id_publicacion } });
+        await prisma.usuarioPublicacion.deleteMany({ where: { id_publicacion } });
+
+        await prisma.publicacion.delete({ where: { id_publicacion } });
+
+        exitoResponse(res, {}, "Publicación eliminada por moderación exitosamente", 200);
+        return;
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function bajarPublicacionModeracion(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const idPublicacion = Number(req.params.id);
+
+        if (isNaN(idPublicacion)) {
+            errorResponse(res, "El ID de la publicación no es válido", 400);
+            return;
+        }
+
+        const publicacion = await buscarPublicacionPorId(idPublicacion);
+        if (!publicacion) {
+            errorResponse(res, "Publicación no encontrada", 404);
+            return;
+        }
+
+        const estadoInactivo = await obtenerEstadoPorNombre("inactivo");
+        if (!estadoInactivo) {
+            errorResponse(res, "Error de configuracion: Estado 'inactivo' no encontrado", 500);
+            return;
+        }
+
+        if (publicacion.estado === estadoInactivo.id_estado) {
+            errorResponse(res, "La publicación ya está inactiva", 409);
+            return;
+        }
+
+        const actualizada = await actualizarEstadoPublicacion(idPublicacion, estadoInactivo.id_estado);
+
+        exitoResponse(res, {
+            id_publicacion: actualizada.id_publicacion,
+            titulo: actualizada.titulo,
+            estado: actualizada.estado,
+            estado_nombre: "inactivo"
+        }, "Publicación bajada exitosamente", 200);
         return;
     } catch (error) {
         next(error);
