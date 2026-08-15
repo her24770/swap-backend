@@ -17,6 +17,11 @@ export async function actualizarResena(idResena: number, data: EditarResenaInput
     });
 }
 
+export async function eliminarResena(idResena: number): Promise<Resena> {
+    return await prisma.resena.delete({ where: { id_resena: idResena } });
+}
+
+
 export async function buscarResenaPorId(idResena: number): Promise<Resena | null> {
     return await prisma.resena.findUnique({ where: { id_resena: idResena } });
 }
