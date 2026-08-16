@@ -6,9 +6,9 @@ import {
 import { validar } from "../autenticacion/middelwareValidacion.js";
 import {
     autenticar,
-    gestorPermisos,
     verificarPropietario,
 } from "../autenticacion/GestorPermisos.js";
+import { soloUsuario } from "../autenticacion/permisosUsuario.js";
 import { schemaActualizarHorario } from "../modelo/schemaDisponibilidad.js";
 
 const router = Router();
@@ -18,7 +18,7 @@ router.put(
     "/:usuarioId",
     autenticar,
     verificarPropietario,
-    gestorPermisos("usuario", "moderador"),
+    soloUsuario,
     validar(schemaActualizarHorario),
     actualizarHorarioUsuario
 );

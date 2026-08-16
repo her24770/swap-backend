@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { autenticar } from "../autenticacion/GestorPermisos.js";
+import { soloUsuario } from "../autenticacion/permisosUsuario.js";
 import { validar } from "../autenticacion/middelwareValidacion.js";
 import { schemaIniciarConversacion } from "../modelo/schemaMensaje.js";
 import {
@@ -10,6 +11,9 @@ import {
 } from "../controlador/controlConversacion.js";
 
 const router = Router();
+
+// El chat es exclusivo de Usuario -- el panel de moderador no lo usa.
+router.use(autenticar, soloUsuario);
 
 router.put("/:id/estado", autenticar, actualizarEstadoConversacion) //Ruta para bloquear o aceptar la solicitud de conversacion
 router.get("/conversaciones", autenticar, obtenerConversacionesDeUsuario)

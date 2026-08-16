@@ -11,6 +11,12 @@ import {
     editarModerador,
     eliminarModeradorController,
 } from "../controlador/controlModerador.js";
+import {
+    bajarPublicacionModeracion,
+    eliminarPublicacionModeracion,
+    obtenerPublicacionesModeracion,
+    reactivarPublicacionModeracion,
+} from "../controlador/controlPublicacion.js";
 
 const router = Router();
 
@@ -30,5 +36,9 @@ router.delete("/:id", autenticar, soloSuperadmin, eliminarModeradorController);
 // A partir de aca se registran las rutas propias del resto de funcionalidad
 // de moderacion (reportes, bloqueo de cuentas, advertencias, etc.),
 // usando soloModerador o soloSuperadmin segun corresponda.
+router.get("/publicaciones", autenticar, soloModerador, obtenerPublicacionesModeracion);
+router.patch("/publicaciones/:id/bajar", autenticar, soloModerador, bajarPublicacionModeracion);
+router.patch("/publicaciones/:id/reactivar", autenticar, soloModerador, reactivarPublicacionModeracion);
+router.delete("/publicaciones/:id", autenticar, soloModerador, eliminarPublicacionModeracion);
 
 export default router;
