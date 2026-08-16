@@ -12,6 +12,8 @@ import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
 import { errorResponse, exitoResponse } from "../servicios/Response.js";
 import { crearMensajeYNotificar } from "../servicios/servicioMensajeria.js";
 import { IniciarConversacionInput } from "../modelo/schemaMensaje.js";
+import { registrarContextoConversacion } from "../repository/repositorioContextoConversacion.js";
+import { buscarPublicacionPorId } from "../repository/repositorioPublicacion.js";
 
 /*
     Aceptar o bloquear la solicitud de conversacion.
@@ -132,11 +134,29 @@ export async function obtenerConversacionesDeUsuario(req: Request, res: Response
 export async function iniciarConversacion(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
         const idUsuario = Number(req.usuario?.sub);
-        const { id_usuario_2, mensaje } = req.body as IniciarConversacionInput;
+        const { id_usuario_2, mensaje, id_publicacion } = req.body as IniciarConversacionInput;
 
         if (id_usuario_2 === idUsuario) {
             errorResponse(res, "No puedes iniciar una conversación contigo mismo", 400);
             return;
+        }
+
+        if (id_publicacion) {
+            const publicacion = await buscarPublicacionPorId(id_publicacion);
+
+            if (!publicacion) {
+                errorResponse(res, "Publicación no encontrada", 404);
+                return;
+            }
+
+            if (publicacion.id_usuario !== id_usuario_2) {
+                errorResponse(
+                    res,
+                    "La publicación no pertenece al usuario con quien intentas iniciar la conversación",
+                    400
+                );
+                return;
+            }
         }
 
         let conversacion = await buscarConversacionEntreDosUsuarios(idUsuario, id_usuario_2);
@@ -155,8 +175,16 @@ export async function iniciarConversacion(req: Request, res: Response, next: Nex
             });
         }
 
+        if (id_publicacion) {
+            await registrarContextoConversacion(
+                conversacion.id_conversacion,
+                id_publicacion,
+                idUsuario
+            );
+        }
+
         const nuevoMensaje = await crearMensajeYNotificar(conversacion.id_conversacion, idUsuario, mensaje);
-        
+
         const conversacionCompleta = await buscarConversacionCompletaPorId(conversacion.id_conversacion);
         if (!conversacionCompleta) {
             errorResponse(res, "Conversacion no encontrada", 404);

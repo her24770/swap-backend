@@ -32,6 +32,31 @@ const conversacionConUltimoMensaje = Prisma.validator<Prisma.ConversacionDefault
         usuario1: { select: { id_usuario: true, nombre: true, url_foto_perfil: true } },
         usuario2: { select: { id_usuario: true, nombre: true, url_foto_perfil: true } },
         mensajes: { orderBy: { fecha_enviado: "desc" }, take: 1 },
+        contextos: {
+            orderBy: { fecha_contexto: "desc" },
+            include: {
+                publicacion: {
+                    select: {
+                        id_publicacion: true,
+                        titulo: true,
+                        precio: true,
+                        id_usuario: true,
+                        imagenes: {
+                            select: {
+                                url_imagen: true,
+                            },
+                            take: 1,
+                        },
+                    },
+                },
+                usuario: {
+                    select: {
+                        id_usuario: true,
+                        nombre: true,
+                        },
+                    },
+                },
+            },
     },
 });
 

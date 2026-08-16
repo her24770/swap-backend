@@ -34,7 +34,10 @@ export const schemaCrearConversacion = z.object({
  */
 export const schemaIniciarConversacion = z.object({
     id_usuario_2: z
-        .number({ required_error: "El ID del destinatario es obligatorio.", invalid_type_error: "El ID del destinatario debe ser un número." })
+        .number({
+            required_error: "El ID del destinatario es obligatorio.",
+            invalid_type_error: "El ID del destinatario debe ser un número."
+        })
         .int()
         .positive("El ID del destinatario debe ser un ID válido."),
 
@@ -42,6 +45,14 @@ export const schemaIniciarConversacion = z.object({
         .string({ required_error: "El mensaje es obligatorio." })
         .min(1, "El mensaje no puede estar vacío.")
         .max(2000, "El mensaje no puede superar 2000 caracteres."),
+
+    id_publicacion: z
+        .number({
+            invalid_type_error: "El ID de la publicación debe ser un número."
+        })
+        .int()
+        .positive("El ID de la publicación debe ser un ID válido.")
+        .optional(),
 });
 
 export type EnviarMensajeInput = z.infer<typeof schemaEnviarMensaje>;
