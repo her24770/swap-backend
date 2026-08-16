@@ -6,6 +6,7 @@ import { buscarConversacionPorId } from "../repository/repositorioMensaje.js";
 import { schemaEnviarMensaje } from "../modelo/schemaMensaje.js";
 import { crearMensajeYNotificar } from "../servicios/servicioMensajeria.js";
 import { setIO } from "./ioInstance.js";
+import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
 
 interface AckRespuesta {
     success: boolean;
@@ -101,6 +102,22 @@ export function initSocketServer(httpServer: HttpServer): Server {
                     }
                     if (conversacion.id_usuario_1 !== idUsuario && conversacion.id_usuario_2 !== idUsuario) {
                         callback?.({ success: false, message: "No tienes permiso para unirte a esta conversación" });
+                        return;
+                    }
+                    const estadoActivo = await obtenerEstadoPorNombre("activo");
+                    if (!estadoActivo) {
+                        callback?.({
+                            success: false,
+                            message: "Error de configuración: estado 'activo' no encontrado",
+                        });
+                        return;
+                    }
+
+                    if (conversacion.estado_conversacion !== estadoActivo.id_estado) {
+                        callback?.({
+                            success: false,
+                            message: "La conversación debe estar activa para enviar mensajes",
+                        });
                         return;
                     }
                     socket.join(`conversacion:${conversacion.id_conversacion}`);

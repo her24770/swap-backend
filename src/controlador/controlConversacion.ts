@@ -10,7 +10,7 @@ import {
 } from "../repository/repositorioMensaje.js";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
 import { errorResponse, exitoResponse } from "../servicios/Response.js";
-import { crearMensajeYNotificar } from "../servicios/servicioMensajeria.js";
+import { crearMensajeYNotificar, notificarActualizacionConversacion } from "../servicios/servicioMensajeria.js";
 import { IniciarConversacionInput } from "../modelo/schemaMensaje.js";
 import { registrarContextoConversacion } from "../repository/repositorioContextoConversacion.js";
 import { buscarPublicacionPorId } from "../repository/repositorioPublicacion.js";
@@ -80,6 +80,8 @@ export async function actualizarEstadoConversacion(req: Request, res: Response, 
         const conversacionActualizada = await actualizarConversacion(idConversacion, {
             estadoRel: { connect: { id_estado: estado_id } },
         });
+
+        await notificarActualizacionConversacion(idConversacion, idToken);
 
         const nombreEstado = estado_id === estadoActivo.id_estado ? "activo" : "inactivo";
         const mensaje = nombreEstado === "activo" ? "Solicitud de conversacion aceptada exitosamente" : "Solicitud de conversacion bloqueada exitosamente";
