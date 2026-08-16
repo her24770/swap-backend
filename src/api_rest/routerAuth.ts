@@ -19,6 +19,7 @@ import {
     restablecerPassword,
 } from "../controlador/controlAuth.js";
 import { autenticar } from "../autenticacion/GestorPermisos.js";
+import { soloUsuario } from "../autenticacion/permisosUsuario.js";
 import { moderarTexto } from "../autenticacion/middlewareModeracion.js";
 
 const router = Router();
@@ -38,7 +39,7 @@ router.post("/verify-reset-code", validar(schemaVerifyResetCode), verificarCodig
 router.post("/reset-password", validar(schemaResetPassword), restablecerPassword);
 
 //Ruta para obtener la sesión actual a partir de la cookie
-router.get("/me", autenticar, obtenerSesionActual);
+router.get("/me", autenticar, soloUsuario, obtenerSesionActual);
 
 //Ruta para cerrar sesión
 router.post("/logout", cerrarSesion);
