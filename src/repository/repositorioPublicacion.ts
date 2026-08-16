@@ -9,6 +9,16 @@ export interface ResultadoBusquedaPublicacion {
     total: number;
 }
 
+export interface FiltrosModeracionPublicaciones {
+    page?: number;
+    limit?: number;
+    sort?: "fecha" | "me_gusta" | "precio";
+    order?: "asc" | "desc";
+    tipo?: string;
+    estado?: string;
+    q?: string;
+}
+
 // ─────────────────────────────────────────────
 // Publicacion
 // ─────────────────────────────────────────────
@@ -194,6 +204,92 @@ export async function buscarPublicacionesPaginadas(options: PaginationOptionInpu
         publicaciones: publicacionesMapeadas,
         total
     };
+}
+
+export async function buscarPublicacionesModeracion(
+    options: FiltrosModeracionPublicaciones
+): Promise<ResultadoBusquedaPublicacion> {
+    const { page = 1, limit = 10, sort = "fecha", order = "desc", tipo, estado, q } = options;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.PublicacionWhereInput = {};
+
+    if (tipo) {
+        const tipoPerfil = await prisma.tipoPerfil.findUnique({
+            where: { tipo_perfil: tipo }
+        });
+        if (!tipoPerfil) {
+            return { publicaciones: [], total: 0 };
+        }
+        where.tipo_publicacion = tipoPerfil.id_tipo_perfil;
+    }
+
+    if (estado) {
+        const estadoObtenido = await prisma.estado.findUnique({
+            where: { estado }
+        });
+        if (!estadoObtenido) {
+            return { publicaciones: [], total: 0 };
+        }
+        where.estado = estadoObtenido.id_estado;
+    }
+
+    if (q?.trim()) {
+        const termino = q.trim();
+        where.OR = [
+            { titulo: { contains: termino, mode: "insensitive" } },
+            { descripcion: { contains: termino, mode: "insensitive" } },
+            { usuario: { nombre: { contains: termino, mode: "insensitive" } } },
+            { usuario: { email_institucional: { contains: termino, mode: "insensitive" } } }
+        ];
+    }
+
+    const orderBy: Prisma.PublicacionOrderByWithRelationInput[] = [];
+    switch (sort) {
+        case "me_gusta":
+            orderBy.push({ me_gusta: order });
+            break;
+        case "precio":
+            orderBy.push({ precio: order });
+            break;
+        case "fecha":
+        default:
+            orderBy.push({ fecha_publicacion: order });
+            break;
+    }
+
+    const [publicaciones, total] = await prisma.$transaction([
+        prisma.publicacion.findMany({
+            where,
+            include: {
+                imagenes: true,
+                etiquetas: {
+                    include: { etiqueta: true }
+                },
+                estadoRel: {
+                    select: { id_estado: true, estado: true }
+                },
+                tipoPerfil: {
+                    select: { id_tipo_perfil: true, tipo_perfil: true }
+                },
+                usuario: {
+                    select: {
+                        id_usuario: true,
+                        nombre: true,
+                        email_institucional: true,
+                        url_foto_perfil: true,
+                        calificacion: true
+                    }
+                }
+            },
+            orderBy,
+            skip,
+            take: limit
+        }),
+        prisma.publicacion.count({ where })
+    ]);
+
+    return { publicaciones, total };
 }
 
 export async function guardarPublicacion(

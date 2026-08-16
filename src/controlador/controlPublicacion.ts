@@ -1,16 +1,43 @@
 import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
-import { buscarPublicacionesPorTipoYUsuario, buscarPublicacionesPaginadas, buscarPublicacionPorId, actualizarPublicacion, actualizarEstadoPublicacion, buscarPublicacionPorIdDetallado, buscarImagenesPorPublicacion, eliminarImagen, buscarPublicacionesPorFiltros, buscarPublicacionesDestacadasUsuario } from "../repository/repositorioPublicacion.js";
+import { buscarPublicacionesPorTipoYUsuario, buscarPublicacionesPaginadas, buscarPublicacionPorId, actualizarPublicacion, actualizarEstadoPublicacion, buscarPublicacionPorIdDetallado, buscarImagenesPorPublicacion, eliminarImagen, buscarPublicacionesPorFiltros, buscarPublicacionesDestacadasUsuario, buscarPublicacionesModeracion } from "../repository/repositorioPublicacion.js";
 import { obtenerTipoPerfilPorNombre } from "../repository/repositorioTipoPerfil.js";
 import { buscarUsuarioPorId } from "../repository/repositorioUsuario.js";
 import { subirImagenR2, eliminarImagenR2 } from "../servicios/servicioR2.js";
 import { schemaCrearPublicacion, } from "../modelo/schemaPublicacion.js";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
+import { crearNotificacion } from "../repository/repositorioNotificacion.js";
 import { errorResponse, exitoResponse, errorValidacionResponse } from "../servicios/Response.js";
 import { generarYGuardarEmbedding } from "../servicios/servicioEmbedding.js";
 import { moderarImagenesEnBackground } from "../servicios/servicioModerarImagenesBackground.js";
 import {contarPublicacionesDestacadasPorTipoYUsuario,actualizarDestacado} from "../repository/repositorioPublicacion.js";
 import {registrarInteraccionPublicacion} from "../autenticacion/eventoRecomendacion.js";
+import prisma from "../persistencia/prismaClient.js";
+import { getIO } from "../sockets/ioInstance.js";
+
+function obtenerJustificanteModeracion(body: unknown): { motivo: string; detalle: string } | null {
+    if (!body || typeof body !== "object") return null;
+
+    const { motivo, detalle } = body as { motivo?: unknown; detalle?: unknown };
+    const motivoNormalizado = typeof motivo === "string" ? motivo.trim() : "";
+    const detalleNormalizado = typeof detalle === "string" ? detalle.trim() : "";
+
+    if (!motivoNormalizado) return null;
+
+    return {
+        motivo: motivoNormalizado.slice(0, 160),
+        detalle: detalleNormalizado.slice(0, 500),
+    };
+}
+
+async function notificarAccionModeracion(idUsuario: number, mensaje: string): Promise<void> {
+    const estadoEnviado = await obtenerEstadoPorNombre("enviado");
+    if (!estadoEnviado) return;
+
+    const notificacion = await crearNotificacion(idUsuario, mensaje, estadoEnviado.id_estado);
+    const io = getIO();
+    io?.to(`usuario:${idUsuario}`).emit("notificacion:nueva", notificacion);
+}
 
 export async function obtenerPublicacionesUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -144,6 +171,50 @@ export async function obtenerPublicacionesPorFiltros(req: Request, res: Response
             page: options.page,
             limit: options.limit
         }, "Publicaciones obtenidas exitosamente", 200);
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function obtenerPublicacionesModeracion(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const page = Math.max(1, Number(req.query.page) || 1);
+        const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 10));
+        const sort = req.query.sort as string || "fecha";
+        const order = req.query.order === "asc" ? "asc" : "desc";
+        const tipo = req.query.tipo as string | undefined;
+        const estado = req.query.estado as string | undefined;
+        const q = req.query.q as string | undefined;
+
+        const sortsValidos = ["fecha", "me_gusta", "precio"];
+        if (!sortsValidos.includes(sort)) {
+            errorResponse(res, "El parámetro sort debe ser uno de los siguientes: fecha, me_gusta, precio", 400);
+            return;
+        }
+
+        const tiposValidos = ["negocio", "material", "tutoria"];
+        if (tipo && !tiposValidos.includes(tipo)) {
+            errorResponse(res, "El parámetro tipo debe ser uno de los siguientes: negocio, material, tutoria", 400);
+            return;
+        }
+
+        const resultado = await buscarPublicacionesModeracion({
+            page,
+            limit,
+            sort: sort as "fecha" | "me_gusta" | "precio",
+            order,
+            tipo,
+            estado,
+            q
+        });
+
+        exitoResponse(res, {
+            publicaciones: resultado.publicaciones,
+            total: resultado.total,
+            page,
+            limit
+        }, "Publicaciones de moderación obtenidas exitosamente", 200);
+        return;
     } catch (error) {
         next(error);
     }
@@ -409,6 +480,158 @@ export async function eliminarPublicacionConImagenes(req: Request, res: Response
         await prisma.publicacion.delete({ where: { id_publicacion } });
 
         exitoResponse(res, {}, "Publicación eliminada exitosamente", 200);
+        return;
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function eliminarPublicacionModeracion(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const id_publicacion = Number(req.params.id);
+        const justificante = obtenerJustificanteModeracion(req.body);
+
+        if (isNaN(id_publicacion)) {
+            errorResponse(res, "El ID de la publicación no es válido", 400);
+            return;
+        }
+
+        if (!justificante) {
+            errorResponse(res, "Debes indicar un motivo para eliminar la publicación", 400);
+            return;
+        }
+
+        const publicacion = await buscarPublicacionPorIdDetallado(id_publicacion);
+        if (!publicacion) {
+            errorResponse(res, "Publicación no encontrada", 404);
+            return;
+        }
+
+        for (const img of publicacion.imagenes ?? []) {
+            try {
+                await eliminarImagenR2(img.url_imagen);
+            } catch {
+                // Si falla R2 se continúa para que la BD quede limpia.
+            }
+        }
+
+        await prisma.imagenPublicacion.deleteMany({ where: { id_publicacion } });
+        await prisma.publicacionEtiqueta.deleteMany({ where: { id_publicacion } });
+        await prisma.usuarioPublicacion.deleteMany({ where: { id_publicacion } });
+
+        await prisma.publicacion.delete({ where: { id_publicacion } });
+
+        const detalle = justificante.detalle ? ` Detalle: ${justificante.detalle}` : "";
+        await notificarAccionModeracion(
+            publicacion.id_usuario,
+            `Tu publicación "${publicacion.titulo}" fue eliminada por moderación. Motivo: ${justificante.motivo}.${detalle}`
+        );
+
+        exitoResponse(res, {}, "Publicación eliminada por moderación exitosamente", 200);
+        return;
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function bajarPublicacionModeracion(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const idPublicacion = Number(req.params.id);
+        const justificante = obtenerJustificanteModeracion(req.body);
+
+        if (isNaN(idPublicacion)) {
+            errorResponse(res, "El ID de la publicación no es válido", 400);
+            return;
+        }
+
+        if (!justificante) {
+            errorResponse(res, "Debes indicar un motivo para bajar la publicación", 400);
+            return;
+        }
+
+        const publicacion = await buscarPublicacionPorId(idPublicacion);
+        if (!publicacion) {
+            errorResponse(res, "Publicación no encontrada", 404);
+            return;
+        }
+
+        const estadoInactivo = await obtenerEstadoPorNombre("inactivo");
+        if (!estadoInactivo) {
+            errorResponse(res, "Error de configuracion: Estado 'inactivo' no encontrado", 500);
+            return;
+        }
+
+        if (publicacion.estado === estadoInactivo.id_estado) {
+            errorResponse(res, "La publicación ya está inactiva", 409);
+            return;
+        }
+
+        const actualizada = await actualizarEstadoPublicacion(idPublicacion, estadoInactivo.id_estado);
+
+        const detalle = justificante.detalle ? ` Detalle: ${justificante.detalle}` : "";
+        await notificarAccionModeracion(
+            publicacion.id_usuario,
+            `Tu publicación "${publicacion.titulo}" fue bajada por moderación. Motivo: ${justificante.motivo}.${detalle}`
+        );
+
+        exitoResponse(res, {
+            id_publicacion: actualizada.id_publicacion,
+            titulo: actualizada.titulo,
+            estado: actualizada.estado,
+            estado_nombre: "inactivo"
+        }, "Publicación bajada exitosamente", 200);
+        return;
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function reactivarPublicacionModeracion(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const idPublicacion = Number(req.params.id);
+        const justificante = obtenerJustificanteModeracion(req.body);
+
+        if (isNaN(idPublicacion)) {
+            errorResponse(res, "El ID de la publicación no es válido", 400);
+            return;
+        }
+
+        if (!justificante) {
+            errorResponse(res, "Debes indicar un motivo para reactivar la publicación", 400);
+            return;
+        }
+
+        const publicacion = await buscarPublicacionPorId(idPublicacion);
+        if (!publicacion) {
+            errorResponse(res, "Publicación no encontrada", 404);
+            return;
+        }
+
+        const estadoActivo = await obtenerEstadoPorNombre("activo");
+        if (!estadoActivo) {
+            errorResponse(res, "Error de configuracion: Estado 'activo' no encontrado", 500);
+            return;
+        }
+
+        if (publicacion.estado === estadoActivo.id_estado) {
+            errorResponse(res, "La publicación ya está activa", 409);
+            return;
+        }
+
+        const actualizada = await actualizarEstadoPublicacion(idPublicacion, estadoActivo.id_estado);
+
+        const detalle = justificante.detalle ? ` Detalle: ${justificante.detalle}` : "";
+        await notificarAccionModeracion(
+            publicacion.id_usuario,
+            `Tu publicación "${publicacion.titulo}" fue reactivada por moderación. Motivo: ${justificante.motivo}.${detalle}`
+        );
+
+        exitoResponse(res, {
+            id_publicacion: actualizada.id_publicacion,
+            titulo: actualizada.titulo,
+            estado: actualizada.estado,
+            estado_nombre: "activo"
+        }, "Publicación reactivada exitosamente", 200);
         return;
     } catch (error) {
         next(error);
