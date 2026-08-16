@@ -56,6 +56,16 @@ async function autenticarSocket(socket: Socket, next: (err?: Error) => void): Pr
         }
 
         const usuario: TokenVerificado = ServicioJWT.verificarToken(token);
+
+        // El chat/notificaciones en tiempo real son exclusivos de Usuario.
+        // Sin esto, un moderador cuyo id_moderador coincida numericamente
+        // con un id_usuario real se uniria a la sala personal de ese
+        // usuario ("usuario:<sub>") y recibiria sus notificaciones/mensajes.
+        if (usuario.rol !== "usuario") {
+            next(new Error("Los sockets son exclusivos de sesiones de usuario."));
+            return;
+        }
+
         socket.data.usuario = usuario;
         next();
     } catch (error) {

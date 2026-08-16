@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { obtenerUsuario, obtenerPerfilPublico, actualizarPerfil, agregarContacto, obtenerContactos, obtenerTutoresPorFiltros } from "../controlador/controlUsuario.js";
 import { validar } from "../autenticacion/middelwareValidacion.js";
-import { autenticar, gestorPermisos, verificarPropietario } from "../autenticacion/GestorPermisos.js";
+import { autenticar, verificarPropietario } from "../autenticacion/GestorPermisos.js";
+import { soloUsuario } from "../autenticacion/permisosUsuario.js";
 import { schemaActualizarPerfil, schemaAgregarContactos, schemaFiltrosTutor } from "../modelo/schemaUsuario.js";
 import { moderarTexto } from "../autenticacion/middlewareModeracion.js";
 
@@ -14,10 +15,10 @@ router.get("/:id/perfil-publico", obtenerPerfilPublico);
 router.get("/:id", autenticar, obtenerUsuario);
 
 //Ruta para actualizar datos del usuario
-router.patch("/:id", autenticar, verificarPropietario, gestorPermisos("usuario", "moderador"), validar(schemaActualizarPerfil), moderarTexto(['descripcion']), actualizarPerfil);
+router.patch("/:id", autenticar, verificarPropietario, soloUsuario, validar(schemaActualizarPerfil), moderarTexto(['descripcion']), actualizarPerfil);
 
 //Ruta para agregar/actualizar/eliminar los contactos del usuario
-router.put("/:id/contactos", autenticar, verificarPropietario, gestorPermisos("usuario", "moderador"), validar(schemaAgregarContactos), agregarContacto);
+router.put("/:id/contactos", autenticar, verificarPropietario, soloUsuario, validar(schemaAgregarContactos), agregarContacto);
 
 //Ruta para obtener los contactos del usuario
 router.get("/:id/contactos", autenticar, obtenerContactos);
