@@ -37,6 +37,15 @@ const conversacionConUltimoMensaje = Prisma.validator<Prisma.ConversacionDefault
 
 export type ConversacionConUltimoMensaje = Prisma.ConversacionGetPayload<typeof conversacionConUltimoMensaje>;
 
+export async function buscarConversacionCompletaPorId(
+    id: number
+): Promise<ConversacionConUltimoMensaje | null> {
+    return prisma.conversacion.findUnique({
+        where: { id_conversacion: id },
+        ...conversacionConUltimoMensaje,
+    });
+}
+
 export async function buscarConversacionesPorUsuario(idUsuario: number): Promise<ConversacionConUltimoMensaje[]> {
     return prisma.conversacion.findMany({
         where: {

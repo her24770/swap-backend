@@ -6,6 +6,7 @@ import {
     buscarConversacionEntreDosUsuarios,
     buscarMensajesPorConversacion,
     guardarConversacion,
+    buscarConversacionCompletaPorId
 } from "../repository/repositorioMensaje.js";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
 import { errorResponse, exitoResponse } from "../servicios/Response.js";
@@ -155,8 +156,14 @@ export async function iniciarConversacion(req: Request, res: Response, next: Nex
         }
 
         const nuevoMensaje = await crearMensajeYNotificar(conversacion.id_conversacion, idUsuario, mensaje);
+        
+        const conversacionCompleta = await buscarConversacionCompletaPorId(conversacion.id_conversacion);
+        if (!conversacionCompleta) {
+            errorResponse(res, "Conversacion no encontrada", 404);
+            return;
+        }
 
-        exitoResponse(res, { conversacion, mensaje: nuevoMensaje }, "Mensaje enviado exitosamente", 201);
+        exitoResponse(res, { conversacion: conversacionCompleta, mensaje: nuevoMensaje }, "Mensaje enviado exitosamente", 201);
     } catch (error) {
         next(error);
     }

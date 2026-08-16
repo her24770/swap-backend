@@ -1,5 +1,5 @@
 import { Mensaje } from "@prisma/client";
-import { buscarConversacionPorId, guardarMensaje } from "../repository/repositorioMensaje.js";
+import { buscarConversacionPorId, guardarMensaje, buscarConversacionCompletaPorId } from "../repository/repositorioMensaje.js";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
 import { crearNotificacion } from "../repository/repositorioNotificacion.js";
 import { getIO } from "../sockets/ioInstance.js";
@@ -36,12 +36,17 @@ export async function crearMensajeYNotificar(
         estadoRel: { connect: { id_estado: estadoEnviado.id_estado } },
     });
 
+    const conversacionActualizada = await buscarConversacionCompletaPorId(idConversacion);
+
     const notificacion = await crearNotificacion(idReceptor, "Tienes un nuevo mensaje", estadoEnviado.id_estado);
 
     const io = getIO();
     if (io) {
         io.to(`conversacion:${idConversacion}`).emit("mensaje:nuevo", mensaje);
         io.to(`usuario:${idReceptor}`).emit("notificacion:nueva", notificacion);
+        if (conversacionActualizada) {
+            io.to(`usuario:${idReceptor}`).emit("conversacion:actualizada", conversacionActualizada);
+        }
     }
 
     return mensaje;
