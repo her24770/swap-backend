@@ -18,6 +18,7 @@ import notificacionRoutes from "./routesNotificacion.js";
 import resenaRoutes from "./routesResena.js";
 import moderadorRoutes from "./routesModerador.js";
 import reporteRoutes from "./routesReporte.js";
+import palabraRestringidaRoutes from "./routesPalabraRestringida.js";
 
 const router = Router();
 
@@ -44,7 +45,7 @@ router.use("/busqueda", busquedaRoutes);
 router.use("/certificacion", certificacionRoutes);
 router.use("/notificacion", notificacionRoutes);
 router.use("/resenas", resenaRoutes);
-router.use("/moderador", moderadorRoutes);
+router.use("/moderador/palabras", palabraRestringidaRoutes);
 router.use("/reportes", reporteRoutes);
 
 export default router;
