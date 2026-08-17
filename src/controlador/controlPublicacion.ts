@@ -501,25 +501,24 @@ export async function eliminarPublicacionModeracion(req: Request, res: Response,
             return;
         }
 
-        const publicacion = await buscarPublicacionPorIdDetallado(id_publicacion);
+        const publicacion = await buscarPublicacionPorId(id_publicacion);
         if (!publicacion) {
             errorResponse(res, "Publicación no encontrada", 404);
             return;
         }
 
-        for (const img of publicacion.imagenes ?? []) {
-            try {
-                await eliminarImagenR2(img.url_imagen);
-            } catch {
-                // Si falla R2 se continúa para que la BD quede limpia.
-            }
+        const estadoEliminado = await obtenerEstadoPorNombre("eliminado");
+        if (!estadoEliminado) {
+            errorResponse(res, "Error de configuracion: Estado 'eliminado' no encontrado", 500);
+            return;
         }
 
-        await prisma.imagenPublicacion.deleteMany({ where: { id_publicacion } });
-        await prisma.publicacionEtiqueta.deleteMany({ where: { id_publicacion } });
-        await prisma.usuarioPublicacion.deleteMany({ where: { id_publicacion } });
+        if (publicacion.estado === estadoEliminado.id_estado) {
+            errorResponse(res, "La publicación ya fue eliminada", 409);
+            return;
+        }
 
-        await prisma.publicacion.delete({ where: { id_publicacion } });
+        const actualizada = await actualizarEstadoPublicacion(id_publicacion, estadoEliminado.id_estado);
 
         const detalle = justificante.detalle ? ` Detalle: ${justificante.detalle}` : "";
         await notificarAccionModeracion(
@@ -527,7 +526,12 @@ export async function eliminarPublicacionModeracion(req: Request, res: Response,
             `Tu publicación "${publicacion.titulo}" fue eliminada por moderación. Motivo: ${justificante.motivo}.${detalle}`
         );
 
-        exitoResponse(res, {}, "Publicación eliminada por moderación exitosamente", 200);
+        exitoResponse(res, {
+            id_publicacion: actualizada.id_publicacion,
+            titulo: actualizada.titulo,
+            estado: actualizada.estado,
+            estado_nombre: "eliminado"
+        }, "Publicación eliminada por moderación exitosamente", 200);
         return;
     } catch (error) {
         next(error);
