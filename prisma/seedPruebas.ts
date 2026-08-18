@@ -61,6 +61,30 @@ async function upsertAcuerdoPrueba(
     });
 }
 
+async function upsertReportePrueba(
+    data: Parameters<typeof prisma.reporte.create>[0]["data"]
+) {
+    const existing = await prisma.reporte.findFirst({
+        where: {
+            id_emisor: data.id_emisor as number,
+            id_receptor: data.id_receptor as number,
+            id_publicacion: (data.id_publicacion as number | undefined) ?? null,
+            id_mensaje: (data.id_mensaje as number | undefined) ?? null,
+            motivo: data.motivo as number,
+            estado: data.estado as number,
+        },
+    });
+
+    if (!existing) {
+        return prisma.reporte.create({ data });
+    }
+
+    return prisma.reporte.update({
+        where: { id_reporte: existing.id_reporte },
+        data,
+    });
+}
+
 async function main() {
     console.log("🌱 Iniciando seed de datos de prueba...");
 
@@ -366,6 +390,101 @@ async function main() {
     },
     });
 
+    // ─────────────────────────────────────────────
+    // Mensajes de prueba para reportes
+    // ─────────────────────────────────────────────
+    const mensaje1 = await prisma.mensaje.create({
+        data: {
+            id_conversacion: c1.id_conversacion,
+            id_emisor: vendedor1.id_usuario,
+            mensaje: "Hola, estoy interesado en la tutoría de Cálculo 1.",
+            estado_mensaje: eActivo.id_estado,
+        },
+    });
+
+    const mensaje2 = await prisma.mensaje.create({
+        data: {
+            id_conversacion: c1.id_conversacion,
+            id_emisor: vendedor.id_usuario,
+            mensaje: "Te puedo ayudar con eso, podemos coordinar mañana.",
+            estado_mensaje: eActivo.id_estado,
+        },
+    });
+
+    console.log("  ✅ Mensajes de prueba");
+
+        // ─────────────────────────────────────────────
+    // Reportes de prueba
+    // ─────────────────────────────────────────────
+    await Promise.all([
+        // Reporte de una publicación por parte de vendedor1
+        upsertReportePrueba({
+            id_emisor: vendedor1.id_usuario,
+            id_receptor: vendedor.id_usuario,
+            id_publicacion: materiales[0].id_publicacion,
+            id_mensaje: null,
+            motivo: 1,
+            observaciones: "La publicación contiene información inapropiada.",
+            estado: eActivo.id_estado,
+        }),
+
+        // Reporte de otra publicación por parte de vendedor
+        upsertReportePrueba({
+            id_emisor: vendedor.id_usuario,
+            id_receptor: vendedor1.id_usuario,
+            id_publicacion: tutorias[3].id_publicacion,
+            id_mensaje: null,
+            motivo: 2,
+            observaciones: "La publicación parece incumplir las normas de la plataforma.",
+            estado: eActivo.id_estado,
+        }),
+
+        // Reporte de un mensaje enviado por vendedor1
+        upsertReportePrueba({
+            id_emisor: vendedor.id_usuario,
+            id_receptor: vendedor1.id_usuario,
+            id_publicacion: null,
+            id_mensaje: mensaje1.id_mensaje,
+            motivo: 3,
+            observaciones: "El mensaje contiene contenido que debería ser revisado por moderación.",
+            estado: eActivo.id_estado,
+        }),
+
+        // Reporte de un mensaje enviado por vendedor
+        upsertReportePrueba({
+            id_emisor: vendedor1.id_usuario,
+            id_receptor: vendedor.id_usuario,
+            id_publicacion: null,
+            id_mensaje: mensaje2.id_mensaje,
+            motivo: 1,
+            observaciones: "El usuario envió un mensaje que considero inapropiado.",
+            estado: eActivo.id_estado,
+        }),
+
+        // Reporte de una publicación de negocio
+        upsertReportePrueba({
+            id_emisor: vendedor1.id_usuario,
+            id_receptor: vendedor.id_usuario,
+            id_publicacion: negocios[1].id_publicacion,
+            id_mensaje: null,
+            motivo: 4,
+            observaciones: "El servicio anunciado parece no corresponder con la descripción.",
+            estado: eActivo.id_estado,
+        }),
+
+        // Otro reporte de publicación
+        upsertReportePrueba({
+            id_emisor: vendedor.id_usuario,
+            id_receptor: vendedor1.id_usuario,
+            id_publicacion: materiales[3].id_publicacion,
+            id_mensaje: null,
+            motivo: 2,
+            observaciones: "El material publicado podría infringir las reglas de contenido.",
+            estado: eActivo.id_estado,
+        }),
+    ]);
+
+    console.log("  ✅ Reportes de prueba");
 
     // ─────────────────────────────────────────────
     // Acuerdos de ejemplo
@@ -473,8 +592,8 @@ async function main() {
             { id_usuario: vendedor1.id_usuario, titulo: "¡Servicios de diseño gráfico!", descripcion: "¿Necesitas un logo o una presentación impactante? Ofrecemos servicios de diseño gráfico para ayudarte a destacar. ¡Contáctanos!", fecha_anuncio: new Date(), imagen_url: "https://i.pravatar.cc/300?u=anuncio8"   },
         ],
     }); 
-
-
+    
+    
     console.log("  ✅ Etiquetas de usuario vinculadas");
 
     console.log("\n✅ Seed de prueba completado.");
