@@ -44,6 +44,7 @@ async function main() {
         prisma.estado.upsert({ where: { estado: "resuelto" },   update: {}, create: { estado: "resuelto" } }),
         prisma.estado.upsert({ where: { estado: "rechazado" },   update: {}, create: { estado: "rechazado" } }),
 
+        prisma.estado.upsert({ where: { estado: "eliminado" },   update: {}, create: { estado: "eliminado" } }),
     ]);
     console.log("  ✅ Estados");
 
@@ -394,3 +395,4 @@ main()
     .finally(async () => {
         await prisma.$disconnect();
     });
+    
