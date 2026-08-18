@@ -115,3 +115,4 @@ export type ReportePaginationOptions = z.infer<typeof reportePaginationOptions>;
 export type CrearReporteInput = z.infer<typeof schemaCrearReporte>;
 export type TipoObjetivoReporte = typeof tiposObjetivoReporte[number];
 export type MotivoReporteInput = typeof motivosReporte[number];
+export type EstadoReporteInput = typeof estadosReporte[number];

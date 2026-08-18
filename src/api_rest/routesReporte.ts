@@ -4,7 +4,7 @@ import { soloUsuario } from "../autenticacion/permisosUsuario.js";
 import { soloModerador } from "../autenticacion/permisosModerador.js";
 import { validar } from "../autenticacion/middelwareValidacion.js";
 import { reportePaginationOptions } from "../modelo/schemaReporte.js";
-import { obtenerReportesPaginados, registrarNuevoReporte, obtenerReportePorId } from "../controlador/controlReporte";
+import { obtenerReportesPaginados, registrarNuevoReporte, obtenerReportePorId, actualizarEstadoReporte } from "../controlador/controlReporte";
 
 const router = Router();
 
@@ -17,5 +17,8 @@ router.post("/buscar", autenticar, validar(reportePaginationOptions), soloModera
 
 // GET /reporte/:id - Obtener un reporte por ID
 router.get("/:id", autenticar, soloModerador, obtenerReportePorId);
+
+// put /reporte/:id/estado - Actualizar el estado de un reporte
+router.put("/:id", autenticar, soloModerador, actualizarEstadoReporte);
 
 export default router;

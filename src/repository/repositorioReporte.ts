@@ -202,7 +202,7 @@ export async function buscarReportesPaginados(
 }
 
 
-export async function actualizarEstadoReporte(id: number, id_estado: number): Promise<Reporte> {
+export async function repoActualizarEstadoReporte(id: number, id_estado: number): Promise<Reporte> {
     return prisma.reporte.update({
         where: { id_reporte: id },
         data: { estado: id_estado },
