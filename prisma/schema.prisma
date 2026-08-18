@@ -18,34 +18,35 @@ enum Dias {
 }
 
 model Usuario {
-  id_usuario          Int                  @id @default(autoincrement())
-  nombre              String               @db.VarChar(100)
-  carnet              Int                  @unique
-  email_institucional String               @unique @db.VarChar(100)
-  password            String               @db.VarChar(255)
-  url_foto_perfil     String               @db.VarChar(255)
+  id_usuario          Int                    @id @default(autoincrement())
+  nombre              String                 @db.VarChar(100)
+  carnet              Int                    @unique
+  email_institucional String                 @unique @db.VarChar(100)
+  password            String                 @db.VarChar(255)
+  url_foto_perfil     String                 @db.VarChar(255)
   descripcion         String?
-  calificacion        Decimal?             @db.Decimal(5, 2)
-  total_resenas       Int                  @default(0)
-  reportes_recibidos  Int                  @default(0)
-  tiempo_suspendido   Int                  @default(0)
+  calificacion        Decimal?               @db.Decimal(5, 2)
+  total_resenas       Int                    @default(0)
+  reportes_recibidos  Int                    @default(0)
+  tiempo_suspendido   Int                    @default(0)
   contactos           Contacto[]
   tiemposDisponibles  TiempoDisponible[]
   certificaciones     Certificacion[]
   anuncios            Anuncio[]
   publicaciones       Publicacion[]
-  resenasEmitidas     Resena[]             @relation("EmisorResena")
-  resenasRecibidas    Resena[]             @relation("ReceptorResena")
-  conversaciones1     Conversacion[]       @relation("Usuario1Conversacion")
-  conversaciones2     Conversacion[]       @relation("Usuario2Conversacion")
+  resenasEmitidas     Resena[]               @relation("EmisorResena")
+  resenasRecibidas    Resena[]               @relation("ReceptorResena")
+  conversaciones1     Conversacion[]         @relation("Usuario1Conversacion")
+  conversaciones2     Conversacion[]         @relation("Usuario2Conversacion")
   mensajes            Mensaje[]
-  acuerdos            Acuerdo[]            @relation("UsuarioAcuerdo")
-  ofertante           Acuerdo[]            @relation("OfertanteAcuerdo")
-  reportesEmitidos    Reporte[]            @relation("EmisorReporte")
-  reportesRecibidos2  Reporte[]            @relation("ReceptorReporte")
+  acuerdos            Acuerdo[]              @relation("UsuarioAcuerdo")
+  ofertante           Acuerdo[]              @relation("OfertanteAcuerdo")
+  reportesEmitidos    Reporte[]              @relation("EmisorReporte")
+  reportesRecibidos2  Reporte[]              @relation("ReceptorReporte")
   notificaciones      Notificacion[]
   etiquetas           UsuarioEtiqueta[]
   usuarioPublicacions UsuarioPublicacion[]
+  contextos           ContextoConversacion[]
 }
 
 model Moderador {
@@ -204,6 +205,7 @@ model Publicacion {
   etiquetas           PublicacionEtiqueta[]
   usuarioPublicacions UsuarioPublicacion[]
   reportes            Reporte[]
+  contextos           ContextoConversacion[]
 
   @@index([estado, fecha_publicacion, tipo_publicacion])
 }
@@ -245,11 +247,12 @@ model Conversacion {
   id_usuario_2        Int
   estado_conversacion Int
 
-  usuario1  Usuario   @relation("Usuario1Conversacion", fields: [id_usuario_1], references: [id_usuario])
-  usuario2  Usuario   @relation("Usuario2Conversacion", fields: [id_usuario_2], references: [id_usuario])
-  estadoRel Estado    @relation(fields: [estado_conversacion], references: [id_estado])
+  usuario1  Usuario                @relation("Usuario1Conversacion", fields: [id_usuario_1], references: [id_usuario])
+  usuario2  Usuario                @relation("Usuario2Conversacion", fields: [id_usuario_2], references: [id_usuario])
+  estadoRel Estado                 @relation(fields: [estado_conversacion], references: [id_estado])
   mensajes  Mensaje[]
   acuerdos  Acuerdo[]
+  contextos ContextoConversacion[]
 
   @@unique([id_usuario_1, id_usuario_2])
 }
@@ -266,6 +269,23 @@ model Mensaje {
   emisor       Usuario      @relation(fields: [id_emisor], references: [id_usuario])
   estadoRel    Estado       @relation(fields: [estado_mensaje], references: [id_estado])
   reportes     Reporte[]
+}
+
+model ContextoConversacion {
+  id_contexto     Int      @id @default(autoincrement())
+  id_conversacion Int
+  id_publicacion  Int
+  id_usuario      Int
+  fecha_contexto  DateTime @default(now())
+
+  conversacion Conversacion @relation(fields: [id_conversacion], references: [id_conversacion])
+  publicacion  Publicacion  @relation(fields: [id_publicacion], references: [id_publicacion])
+  usuario      Usuario      @relation(fields: [id_usuario], references: [id_usuario])
+
+  @@unique([id_conversacion, id_publicacion])
+  @@index([id_conversacion])
+  @@index([id_publicacion])
+  @@map("Contexto_Conversacion")
 }
 
 model Acuerdo {

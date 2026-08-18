@@ -1,5 +1,5 @@
 import { Mensaje } from "@prisma/client";
-import { buscarConversacionPorId, guardarMensaje } from "../repository/repositorioMensaje.js";
+import { buscarConversacionPorId, guardarMensaje, buscarConversacionCompletaPorId } from "../repository/repositorioMensaje.js";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
 import { crearNotificacion } from "../repository/repositorioNotificacion.js";
 import { getIO } from "../sockets/ioInstance.js";
@@ -36,13 +36,50 @@ export async function crearMensajeYNotificar(
         estadoRel: { connect: { id_estado: estadoEnviado.id_estado } },
     });
 
+    const conversacionActualizada = await buscarConversacionCompletaPorId(idConversacion);
+
     const notificacion = await crearNotificacion(idReceptor, "Tienes un nuevo mensaje", estadoEnviado.id_estado);
 
     const io = getIO();
     if (io) {
         io.to(`conversacion:${idConversacion}`).emit("mensaje:nuevo", mensaje);
         io.to(`usuario:${idReceptor}`).emit("notificacion:nueva", notificacion);
+        if (conversacionActualizada) {
+            io.to(`usuario:${idReceptor}`).emit("conversacion:actualizada", conversacionActualizada);
+        }
     }
 
     return mensaje;
+}
+
+export async function notificarActualizacionConversacion(
+    idConversacion: number,
+    idUsuarioActor: number
+): Promise<void> {
+    const conversacion = await buscarConversacionCompletaPorId(idConversacion);
+
+    if (!conversacion) {
+        return;
+    }
+
+    const esUsuario1 = conversacion.id_usuario_1 === idUsuarioActor;
+    const esUsuario2 = conversacion.id_usuario_2 === idUsuarioActor;
+
+    if (!esUsuario1 && !esUsuario2) {
+        return;
+    }
+
+    const idOtroUsuario = esUsuario1
+        ? conversacion.id_usuario_2
+        : conversacion.id_usuario_1;
+
+    const io = getIO();
+    if (!io) {
+        return;
+    }
+
+    io.to(`usuario:${idOtroUsuario}`).emit(
+        "conversacion:actualizada",
+        conversacion
+    );
 }

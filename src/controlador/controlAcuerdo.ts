@@ -5,6 +5,7 @@ import { buscarConversacionPorId } from "../repository/repositorioMensaje";
 import { errorResponse, exitoResponse } from "../servicios/Response.js";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado";
 import { buscarPublicacionPorId } from "../repository/repositorioPublicacion";
+import { notificarActualizacionAcuerdo } from "../servicios/servicioAcuerdo.js";
 
 // Interfaz para la agrupación de acuerdos en base a la publicacion y el usuario que la obtiene
 interface AcuerdoAgrupado {
@@ -218,6 +219,8 @@ export async function crearSolicitarAcuerdo(req: Request, res: Response, next: N
             ofertante: {connect: {id_usuario: idUsuarioSolicitante}}
         });
 
+        await notificarActualizacionAcuerdo(nuevaSolicitud.id_conversacion, idUsuarioSolicitante);
+
         exitoResponse(res, nuevaSolicitud, "Acuerdo creado exitosamente", 201);
 
     } catch (error) {
@@ -280,6 +283,8 @@ export async function actualizarEstadoAcuerdo(req: Request, res: Response, next:
         const nuevoAcuerdo = await actualizarAcuerdo(idAcuerdo, {
             estadoRel: {connect: {id_estado: estado.id_estado}}
         }); 
+
+        await notificarActualizacionAcuerdo(acuerdo.id_conversacion, idUsuario);
 
         exitoResponse(res, nuevoAcuerdo, "Acuerdo actualizado exitosamente", 200);
     } catch (error) {
@@ -345,6 +350,8 @@ export async function editarAcuerdo(
                     ofertante: {connect: {id_usuario: idUsuario}}
                 }
             );
+
+        await notificarActualizacionAcuerdo(acuerdo.id_conversacion, idUsuario);
 
         exitoResponse(res, acuerdoActualizado, "Acuerdo actualizado exitosamente", 200);
 
