@@ -4,7 +4,7 @@ import { buscarPublicacionPorId } from "../repository/repositorioPublicacion";
 import { buscarResenaPorId } from "../repository/repositorioResena";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado";
 import { actualizarUsuario, buscarUsuarioPorId } from "../repository/repositorioUsuario";
-import { guardarReporte, obtenerOCrearMotivoReportePorNombre, buscarReportePorId, buscarReportesPaginados } from "../repository/repositorioReporte";
+import { guardarReporte, obtenerOCrearMotivoReportePorNombre, buscarReportePorId, buscarReportesPaginados, actualizarEstadoReporte, buscarEstadoReportePorNombre } from "../repository/repositorioReporte";
 import { errorResponse, errorValidacionResponse, exitoResponse } from "../servicios/Response.js";
 
 const MAX_LIMIT = 100;
