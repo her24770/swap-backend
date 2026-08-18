@@ -77,7 +77,7 @@ export async function buscarReportesPaginados(
         limit = 10, 
         sort = 'fecha', 
         order = 'desc',
-        estado,
+        estado = 'todos',
         motivo,
         tipo = 'todos',
         idReceptor,
@@ -105,13 +105,8 @@ export async function buscarReportesPaginados(
     const where: any = {};
 
     // Filtro por estado (nombre)
-    if (estado) {
-        const estadoObtenido = await prisma.estado.findUnique({
-            where: { estado: estado }
-        });
-        if (estadoObtenido) {
-            where.estado = estadoObtenido.id_estado;
-        }
+    if (estado === 'pendiente' || estado === 'resuelto' || estado === 'rechazado') {
+        where.estadoRel = { estado };
     }
 
     // Filtro por motivo (usando el índice del array)
