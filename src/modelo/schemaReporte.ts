@@ -32,7 +32,7 @@ export const schemaCrearReporte = z.object({
     }),
 
     id_objetivo: z
-        .number({ required_error: "El ID del objetivo es obligatorio.", invalid_type_error: "El ID del objetivo debe ser un número." })
+        .coerce.number({ required_error: "El ID del objetivo es obligatorio.", invalid_type_error: "El ID del objetivo debe ser un número." })
         .int()
         .positive("El ID del objetivo debe ser un ID válido."),
 
@@ -61,14 +61,14 @@ export const reportePaginationOptions = z.object({
     order: z.enum(["asc", "desc"]).optional().default("desc"),
     estado: z.string().optional(),
     motivo: z.string().optional(),
-    tipo: z.enum(["publicacion", "mensaje", "todos"]).optional().default("todos"),
+    tipo: z.enum(["publicacion", "mensaje", "usuario", "todos"]).optional().default("todos"),
     idReceptor: z.number().optional(),
     idEmisor: z.number().optional(),
 });
 
 export type ReporteTableData = {
     id_reporte: number;
-    tipo: 'Publicación' | 'Mensaje';
+    tipo: 'Publicación' | 'Mensaje' | 'Usuario';
     fecha: Date;
     estado: string;
     emisor: {
