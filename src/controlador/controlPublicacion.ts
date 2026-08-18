@@ -12,7 +12,6 @@ import { generarYGuardarEmbedding } from "../servicios/servicioEmbedding.js";
 import { moderarImagenesEnBackground } from "../servicios/servicioModerarImagenesBackground.js";
 import {contarPublicacionesDestacadasPorTipoYUsuario,actualizarDestacado} from "../repository/repositorioPublicacion.js";
 import {registrarInteraccionPublicacion} from "../autenticacion/eventoRecomendacion.js";
-import prisma from "../persistencia/prismaClient.js";
 import { getIO } from "../sockets/ioInstance.js";
 
 function obtenerJustificanteModeracion(body: unknown): { motivo: string; detalle: string } | null {
