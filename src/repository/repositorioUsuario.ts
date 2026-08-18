@@ -48,6 +48,67 @@ export async function buscarTodosLosUsuarios(): Promise<Usuario[]> {
     return prisma.usuario.findMany();
 }
 
+export interface FiltrosModeracionUsuario {
+    q?: string;
+    sort?: 'nombre' | 'calificacion' | 'reportes_recibidos' | 'total_resenas';
+    order?: 'asc' | 'desc';
+    conReportes?: boolean;
+    page: number;
+    limit: number;
+}
+
+export interface ResultadoModeracionUsuario {
+    usuarios: Usuario[];
+    total: number;
+}
+
+// Listado paginado + filtrado de usuarios para el panel de moderación
+// (GET /api/moderador/usuarios). Busca por nombre, correo o carnet.
+export async function buscarUsuariosModeracion(
+    filtros: FiltrosModeracionUsuario
+): Promise<ResultadoModeracionUsuario> {
+    const { q, sort = 'nombre', order = 'asc', conReportes, page, limit } = filtros;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    if (q) {
+        const comoNumero = Number(q);
+        where.OR = [
+            { nombre: { contains: q, mode: 'insensitive' } },
+            { email_institucional: { contains: q, mode: 'insensitive' } },
+            ...(Number.isNaN(comoNumero) ? [] : [{ carnet: comoNumero }]),
+        ];
+    }
+
+    if (conReportes) {
+        where.reportes_recibidos = { gt: 0 };
+    }
+
+    const [usuarios, total] = await prisma.$transaction([
+        prisma.usuario.findMany({
+            where,
+            select: {
+                id_usuario: true,
+                nombre: true,
+                carnet: true,
+                email_institucional: true,
+                url_foto_perfil: true,
+                calificacion: true,
+                total_resenas: true,
+                reportes_recibidos: true,
+                tiempo_suspendido: true,
+            },
+            orderBy: { [sort]: order },
+            skip,
+            take: limit,
+        }),
+        prisma.usuario.count({ where }),
+    ]);
+
+    return { usuarios: usuarios as unknown as Usuario[], total };
+}
+
 export async function guardarUsuario(data: Prisma.UsuarioCreateInput): Promise<Usuario> {
     return prisma.usuario.create({ data });
 }

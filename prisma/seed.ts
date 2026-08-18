@@ -40,6 +40,7 @@ async function main() {
         prisma.estado.upsert({ where: { estado: "disponible" },  update: {}, create: { estado: "disponible" } }),
         prisma.estado.upsert({ where: { estado: "vendido" },     update: {}, create: { estado: "vendido" } }),
         prisma.estado.upsert({ where: { estado: "reservado" },   update: {}, create: { estado: "reservado" } }),
+        prisma.estado.upsert({ where: { estado: "eliminado" },   update: {}, create: { estado: "eliminado" } }),
     ]);
     console.log("  ✅ Estados");
 
@@ -390,3 +391,4 @@ main()
     .finally(async () => {
         await prisma.$disconnect();
     });
+    
