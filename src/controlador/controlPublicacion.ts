@@ -6,37 +6,12 @@ import { buscarUsuarioPorId } from "../repository/repositorioUsuario.js";
 import { subirImagenR2, eliminarImagenR2 } from "../servicios/servicioR2.js";
 import { schemaCrearPublicacion, } from "../modelo/schemaPublicacion.js";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
-import { crearNotificacion } from "../repository/repositorioNotificacion.js";
 import { errorResponse, exitoResponse, errorValidacionResponse } from "../servicios/Response.js";
 import { generarYGuardarEmbedding } from "../servicios/servicioEmbedding.js";
 import { moderarImagenesEnBackground } from "../servicios/servicioModerarImagenesBackground.js";
 import {contarPublicacionesDestacadasPorTipoYUsuario,actualizarDestacado} from "../repository/repositorioPublicacion.js";
 import {registrarInteraccionPublicacion} from "../autenticacion/eventoRecomendacion.js";
-import { getIO } from "../sockets/ioInstance.js";
-
-function obtenerJustificanteModeracion(body: unknown): { motivo: string; detalle: string } | null {
-    if (!body || typeof body !== "object") return null;
-
-    const { motivo, detalle } = body as { motivo?: unknown; detalle?: unknown };
-    const motivoNormalizado = typeof motivo === "string" ? motivo.trim() : "";
-    const detalleNormalizado = typeof detalle === "string" ? detalle.trim() : "";
-
-    if (!motivoNormalizado) return null;
-
-    return {
-        motivo: motivoNormalizado.slice(0, 160),
-        detalle: detalleNormalizado.slice(0, 500),
-    };
-}
-
-async function notificarAccionModeracion(idUsuario: number, mensaje: string): Promise<void> {
-    const estadoEnviado = await obtenerEstadoPorNombre("enviado");
-    if (!estadoEnviado) return;
-
-    const notificacion = await crearNotificacion(idUsuario, mensaje, estadoEnviado.id_estado);
-    const io = getIO();
-    io?.to(`usuario:${idUsuario}`).emit("notificacion:nueva", notificacion);
-}
+import { obtenerJustificanteModeracion, notificarAccionModeracion } from "../servicios/servicioModeracion.js";
 
 export async function obtenerPublicacionesUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {

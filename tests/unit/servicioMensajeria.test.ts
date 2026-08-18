@@ -9,6 +9,9 @@ import { getIO } from "../../src/sockets/ioInstance";
 vi.mock("../../src/repository/repositorioMensaje", () => ({
   buscarConversacionPorId: vi.fn(),
   guardarMensaje: vi.fn(),
+  // Sin resolver (undefined) es seguro: crearMensajeYNotificar solo emite
+  // el evento extra "conversacion:actualizada" si esto resuelve truthy.
+  buscarConversacionCompletaPorId: vi.fn(),
 }));
 
 vi.mock("../../src/repository/repositorioEstado", () => ({

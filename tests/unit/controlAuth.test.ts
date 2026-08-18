@@ -6,6 +6,7 @@ import {
   buscarUsuarioPorEmail,
   buscarUsuarioPorCarnet,
   guardarUsuario,
+  actualizarUsuario,
 } from "../../src/repository/repositorioUsuario";
 import {
   estaBloqueado,
@@ -20,6 +21,7 @@ vi.mock("../../src/repository/repositorioUsuario", () => ({
   buscarUsuarioPorEmail: vi.fn(),
   buscarUsuarioPorCarnet: vi.fn(),
   guardarUsuario: vi.fn(),
+  actualizarUsuario: vi.fn(),
 }));
 
 vi.mock("../../src/autenticacion/ServicioBcrypt", () => ({
@@ -64,6 +66,7 @@ describe("iniciarSesion", () => {
       email_institucional: "test@test.com",
       password: "hash",
       nombre: "Juan",
+      tiempo_suspendido: 0,
     };
 
     vi.mocked(buscarUsuarioPorEmail).mockResolvedValue(usuario as any);
@@ -151,6 +154,81 @@ describe("iniciarSesion", () => {
       "Credenciales invalidas",
       401,
     );
+  });
+
+  it("rechaza el login de una cuenta bloqueada (SWAP-422)", async () => {
+    vi.mocked(buscarUsuarioPorEmail).mockResolvedValue({
+      id_usuario: 1,
+      email_institucional: "test@test.com",
+      password: "hash",
+      tiempo_suspendido: -1,
+    } as any);
+    vi.mocked(ServicioBcrypt.compararPassword).mockResolvedValue(true);
+
+    const req: any = {
+      ip: "127.0.0.1",
+      body: { email_institucional: "test@test.com", password: "123456" },
+    };
+    const res: any = { cookie: vi.fn() };
+
+    await iniciarSesion(req, res, vi.fn());
+
+    expect(errorResponse).toHaveBeenCalledWith(
+      res,
+      "Tu cuenta ha sido bloqueada. Contacta a un moderador.",
+      403,
+    );
+    expect(res.cookie).not.toHaveBeenCalled();
+  });
+
+  it("rechaza el login de una cuenta suspendida vigente (SWAP-422)", async () => {
+    const suspendidaHasta = Math.floor(Date.now() / 1000) + 3600;
+    vi.mocked(buscarUsuarioPorEmail).mockResolvedValue({
+      id_usuario: 1,
+      email_institucional: "test@test.com",
+      password: "hash",
+      tiempo_suspendido: suspendidaHasta,
+    } as any);
+    vi.mocked(ServicioBcrypt.compararPassword).mockResolvedValue(true);
+
+    const req: any = {
+      ip: "127.0.0.1",
+      body: { email_institucional: "test@test.com", password: "123456" },
+    };
+    const res: any = { cookie: vi.fn() };
+
+    await iniciarSesion(req, res, vi.fn());
+
+    expect(errorResponse).toHaveBeenCalledWith(
+      res,
+      expect.stringContaining("suspendida hasta"),
+      403,
+    );
+    expect(res.cookie).not.toHaveBeenCalled();
+  });
+
+  it("permite el login y resetea tiempo_suspendido si la suspension ya expiro", async () => {
+    const suspendidaHastaElPasado = Math.floor(Date.now() / 1000) - 3600;
+    vi.mocked(buscarUsuarioPorEmail).mockResolvedValue({
+      id_usuario: 1,
+      email_institucional: "test@test.com",
+      password: "hash",
+      tiempo_suspendido: suspendidaHastaElPasado,
+    } as any);
+    vi.mocked(ServicioBcrypt.compararPassword).mockResolvedValue(true);
+    vi.mocked(ServicioJWT.generarToken).mockReturnValue("jwt-token");
+
+    const req: any = {
+      ip: "127.0.0.1",
+      body: { email_institucional: "test@test.com", password: "123456" },
+    };
+    const res: any = { cookie: vi.fn() };
+
+    await iniciarSesion(req, res, vi.fn());
+
+    expect(actualizarUsuario).toHaveBeenCalledWith(1, { tiempo_suspendido: 0 });
+    expect(res.cookie).toHaveBeenCalled();
+    expect(exitoResponse).toHaveBeenCalled();
   });
 });
 

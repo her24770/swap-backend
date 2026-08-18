@@ -10,6 +10,7 @@ import {
   buscarConversacionEntreDosUsuarios,
   guardarConversacion,
   buscarConversacionPorId,
+  buscarConversacionCompletaPorId,
   buscarMensajesPorConversacion,
   buscarConversacionesPorUsuario,
 } from "../../src/repository/repositorioMensaje";
@@ -21,6 +22,7 @@ vi.mock("../../src/repository/repositorioMensaje", () => ({
   buscarConversacionEntreDosUsuarios: vi.fn(),
   guardarConversacion: vi.fn(),
   buscarConversacionPorId: vi.fn(),
+  buscarConversacionCompletaPorId: vi.fn(),
   buscarMensajesPorConversacion: vi.fn(),
   buscarConversacionesPorUsuario: vi.fn(),
   actualizarConversacion: vi.fn(),
@@ -79,6 +81,12 @@ describe("iniciarConversacion", () => {
       id_conversacion: 10,
       mensaje: "hola",
     } as any);
+    vi.mocked(buscarConversacionCompletaPorId).mockResolvedValue({
+      id_conversacion: 10,
+      id_usuario_1: 1,
+      id_usuario_2: 2,
+      estado_conversacion: 3,
+    } as any);
 
     const req: any = {
       usuario: { sub: "1" },
@@ -108,6 +116,12 @@ describe("iniciarConversacion", () => {
     } as any);
     vi.mocked(crearMensajeYNotificar).mockResolvedValue({
       id_mensaje: 101,
+    } as any);
+    vi.mocked(buscarConversacionCompletaPorId).mockResolvedValue({
+      id_conversacion: 5,
+      id_usuario_1: 2,
+      id_usuario_2: 1,
+      estado_conversacion: 1,
     } as any);
 
     const req: any = {

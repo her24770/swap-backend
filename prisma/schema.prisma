@@ -54,6 +54,7 @@ model Moderador {
   usuario           String @unique @db.VarChar(100)
   password          String @db.VarChar(255)
   id_tipo_moderador Int
+  tiempo_suspendido Int    @default(0)
 
   tipoRel  TipoModerador @relation(fields: [id_tipo_moderador], references: [id_tipo_moderador])
   reportes Reporte[]
