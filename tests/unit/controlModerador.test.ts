@@ -5,6 +5,7 @@ import { iniciarSesionModerador, obtenerSesionModeradorActual } from "../../src/
 import {
   buscarModeradorPorUsuario,
   buscarModeradorPorId,
+  actualizarModerador,
 } from "../../src/repository/repositorioModerador";
 import {
   estaBloqueado,
@@ -18,6 +19,7 @@ import { errorResponse, exitoResponse } from "../../src/servicios/Response";
 vi.mock("../../src/repository/repositorioModerador", () => ({
   buscarModeradorPorUsuario: vi.fn(),
   buscarModeradorPorId: vi.fn(),
+  actualizarModerador: vi.fn(),
 }));
 
 vi.mock("../../src/autenticacion/rateLimiter", () => ({
@@ -43,13 +45,14 @@ vi.mock("../../src/servicios/Response", () => ({
   exitoResponse: vi.fn(),
 }));
 
-function moderadorMock(nivel: "moderador" | "superadmin") {
+function moderadorMock(nivel: "moderador" | "superadmin", tiempoSuspendido = 0) {
   return {
     id_moderador: 1,
     usuario: nivel === "superadmin" ? "superadmin1" : "moderador1",
     password: "hash",
     id_tipo_moderador: nivel === "superadmin" ? 2 : 1,
     tipoRel: { id_tipo_moderador: nivel === "superadmin" ? 2 : 1, tipo_moderador: nivel },
+    tiempo_suspendido: tiempoSuspendido,
   };
 }
 
@@ -154,6 +157,52 @@ describe("iniciarSesionModerador", () => {
       429
     );
     expect(buscarModeradorPorUsuario).not.toHaveBeenCalled();
+  });
+
+  it("rechaza el login de una cuenta de moderador bloqueada (SWAP-422)", async () => {
+    vi.mocked(estaBloqueado).mockResolvedValue(false);
+    vi.mocked(buscarModeradorPorUsuario).mockResolvedValue(moderadorMock("moderador", -1) as any);
+    vi.mocked(ServicioBcrypt.compararPassword).mockResolvedValue(true);
+
+    const req: any = { ip: "127.0.0.1", body: { usuario: "moderador1", password: "Moderador123!" } };
+    const res: any = { cookie: vi.fn() };
+
+    await iniciarSesionModerador(req, res, vi.fn());
+
+    expect(errorResponse).toHaveBeenCalledWith(res, "Tu cuenta de moderador ha sido bloqueada.", 403);
+    expect(res.cookie).not.toHaveBeenCalled();
+  });
+
+  it("rechaza el login de una cuenta de moderador suspendida vigente (SWAP-422)", async () => {
+    const suspendidaHasta = Math.floor(Date.now() / 1000) + 3600;
+    vi.mocked(estaBloqueado).mockResolvedValue(false);
+    vi.mocked(buscarModeradorPorUsuario).mockResolvedValue(moderadorMock("moderador", suspendidaHasta) as any);
+    vi.mocked(ServicioBcrypt.compararPassword).mockResolvedValue(true);
+
+    const req: any = { ip: "127.0.0.1", body: { usuario: "moderador1", password: "Moderador123!" } };
+    const res: any = { cookie: vi.fn() };
+
+    await iniciarSesionModerador(req, res, vi.fn());
+
+    expect(errorResponse).toHaveBeenCalledWith(res, expect.stringContaining("suspendida hasta"), 403);
+    expect(res.cookie).not.toHaveBeenCalled();
+  });
+
+  it("permite el login y resetea tiempo_suspendido si la suspension de moderador ya expiro", async () => {
+    const suspendidaHastaElPasado = Math.floor(Date.now() / 1000) - 3600;
+    vi.mocked(estaBloqueado).mockResolvedValue(false);
+    vi.mocked(buscarModeradorPorUsuario).mockResolvedValue(moderadorMock("moderador", suspendidaHastaElPasado) as any);
+    vi.mocked(ServicioBcrypt.compararPassword).mockResolvedValue(true);
+    vi.mocked(ServicioJWT.generarToken).mockReturnValue("jwt-token");
+
+    const req: any = { ip: "127.0.0.1", body: { usuario: "moderador1", password: "Moderador123!" } };
+    const res: any = { cookie: vi.fn() };
+
+    await iniciarSesionModerador(req, res, vi.fn());
+
+    expect(actualizarModerador).toHaveBeenCalledWith(1, { tiempo_suspendido: 0 });
+    expect(res.cookie).toHaveBeenCalled();
+    expect(exitoResponse).toHaveBeenCalled();
   });
 });
 
