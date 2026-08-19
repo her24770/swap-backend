@@ -21,6 +21,7 @@ import {
     TIEMPO_EXPIRACION_CODIGO_SEGUNDOS,
 } from "../servicios/servicioCodigos.js";
 import { enviarCodigoRecuperacion, enviarCodigoVerificacionRegistro } from "../servicios/servicioEmail.js";
+import { interpretarEstadoCuenta } from "../servicios/servicioEstadoCuenta.js";
 
 const MENSAJE_RECUPERACION = "Si el correo existe, recibirás un código.";
 
@@ -165,6 +166,24 @@ export async function iniciarSesion(req: Request, res: Response, next: NextFunct
             }
 
             await limpiarIntentos(ip);
+
+            // Verificar estado de la cuenta (SWAP-422)
+            const estadoCuenta = interpretarEstadoCuenta(usuario.tiempo_suspendido);
+            if (estadoCuenta.bloqueada) {
+                errorResponse(res, "Tu cuenta ha sido bloqueada. Contacta a un moderador.", 403);
+                return;
+            }
+            if (estadoCuenta.suspendidaHasta) {
+                errorResponse(
+                    res,
+                    `Tu cuenta está suspendida hasta ${estadoCuenta.suspendidaHasta.toLocaleString("es-GT")}.`,
+                    403
+                );
+                return;
+            }
+            if (estadoCuenta.expirada) {
+                await actualizarUsuario(usuario.id_usuario, { tiempo_suspendido: 0 });
+            }
 
             // Generar token
             const payload: PayloadToken = {

@@ -6,6 +6,7 @@ import { obtenerEstadoPorNombre } from "../repository/repositorioEstado";
 import { actualizarUsuario, buscarUsuarioPorId } from "../repository/repositorioUsuario";
 import { guardarReporte, obtenerOCrearMotivoReportePorNombre, buscarReportePorId, buscarReportesPaginados, repoActualizarEstadoReporte, buscarEstadoReportePorNombre } from "../repository/repositorioReporte";
 import { errorResponse, errorValidacionResponse, exitoResponse } from "../servicios/Response.js";
+import { subirImagenR2 } from "../servicios/servicioR2.js";
 
 const MAX_LIMIT = 100;
 
@@ -121,6 +122,18 @@ export async function registrarNuevoReporte(req: Request, res: Response, next: N
         }
 
         const { tipo_objetivo: tipoObjetivo, id_objetivo: idObjetivo, motivo, detalle } = validacion.data;
+        const evidencias = Array.isArray(req.files) ? req.files as Express.Multer.File[] : [];
+
+        if (evidencias.length > 0 && tipoObjetivo !== "usuario") {
+            errorResponse(res, "Las evidencias con imagen solo están permitidas al reportar usuarios.", 400);
+            return;
+        }
+
+        if (evidencias.length > 3) {
+            errorResponse(res, "Solo puedes adjuntar hasta 3 imágenes como evidencia.", 400);
+            return;
+        }
+
         const idReceptor = await resolverIdReceptor(tipoObjetivo, idObjetivo);
 
         if (!idReceptor) {
@@ -140,14 +153,19 @@ export async function registrarNuevoReporte(req: Request, res: Response, next: N
         }
 
         const motivoReporte = await obtenerOCrearMotivoReportePorNombre(motivo);
+        const urlsEvidencia = await Promise.all(
+            evidencias.map((archivo) => subirImagenR2(archivo.buffer, archivo.mimetype, "reportes"))
+        );
+
         const nuevoReporte = await guardarReporte({
             emisor: { connect: { id_usuario: idEmisor } },
             receptor: { connect: { id_usuario: idReceptor } },
             motivoRel: { connect: { id_motivo: motivoReporte.id_motivo } },
             estadoRel: { connect: { id_estado: estadoPendiente.id_estado } },
             observaciones: construirObservaciones(tipoObjetivo, idObjetivo, motivo, detalle),
+            link_imagen: urlsEvidencia.length > 0 ? JSON.stringify(urlsEvidencia) : "",
             fecha: new Date(),
-        });
+        } as any);
 
         await actualizarUsuario(idReceptor, {
             reportes_recibidos: { increment: 1 },

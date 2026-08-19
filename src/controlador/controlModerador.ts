@@ -14,6 +14,7 @@ import {
 } from "../repository/repositorioModerador.js";
 import { obtenerTipoModeradorPorNombre } from "../repository/repositorioTipoModerador.js";
 import { errorResponse, exitoResponse } from "../servicios/Response.js";
+import { interpretarEstadoCuenta } from "../servicios/servicioEstadoCuenta.js";
 
 function moderadorPublico(moderador: { id_moderador: number; usuario: string; tipoRel: { tipo_moderador: string } }) {
     return {
@@ -57,6 +58,24 @@ export async function iniciarSesionModerador(req: Request, res: Response, next: 
         }
 
         await limpiarIntentos(ip);
+
+        // Verificar estado de la cuenta (SWAP-422, generalizado a Moderador)
+        const estadoCuenta = interpretarEstadoCuenta(moderador.tiempo_suspendido);
+        if (estadoCuenta.bloqueada) {
+            errorResponse(res, "Tu cuenta de moderador ha sido bloqueada.", 403);
+            return;
+        }
+        if (estadoCuenta.suspendidaHasta) {
+            errorResponse(
+                res,
+                `Tu cuenta de moderador está suspendida hasta ${estadoCuenta.suspendidaHasta.toLocaleString("es-GT")}.`,
+                403
+            );
+            return;
+        }
+        if (estadoCuenta.expirada) {
+            await actualizarModerador(moderador.id_moderador, { tiempo_suspendido: 0 });
+        }
 
         const nivel = moderador.tipoRel.tipo_moderador;
 

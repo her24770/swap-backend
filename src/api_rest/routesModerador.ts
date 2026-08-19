@@ -17,6 +17,11 @@ import {
     obtenerPublicacionesModeracion,
     reactivarPublicacionModeracion,
 } from "../controlador/controlPublicacion.js";
+import {
+    cambiarEstadoUsuario,
+    cambiarEstadoModerador,
+    crearAdvertenciaUsuario,
+} from "../controlador/controlGestionCuentas.js";
 
 const router = Router();
 
@@ -32,6 +37,12 @@ router.post("/", autenticar, soloSuperadmin, validar(schemaCrearModerador), crea
 router.get("/", autenticar, soloSuperadmin, listarModeradores);
 router.patch("/:id", autenticar, soloSuperadmin, validar(schemaEditarModerador), editarModerador);
 router.delete("/:id", autenticar, soloSuperadmin, eliminarModeradorController);
+
+// Bloqueo/suspension de cuentas (SWAP-421/422) y advertencias (SWAP-416).
+// Usuario: cualquier moderador. Moderador (otro): exclusivo de superadmin.
+router.patch("/usuarios/:id/estado", autenticar, soloModerador, cambiarEstadoUsuario);
+router.post("/usuarios/:id/advertencia", autenticar, soloModerador, crearAdvertenciaUsuario);
+router.patch("/:id/estado", autenticar, soloSuperadmin, cambiarEstadoModerador);
 
 // A partir de aca se registran las rutas propias del resto de funcionalidad
 // de moderacion (reportes, bloqueo de cuentas, advertencias, etc.),

@@ -9,7 +9,7 @@ import prisma from "../persistencia/prismaClient";
 // Función auxiliar para transformar el reporte a formato de tabla
 function transformarReporteParaTabla(reporte: any): ReporteTableData {
     // Determinar el tipo basado en qué ID tiene
-    const tipo = reporte.id_publicacion ? 'Publicación' : 'Mensaje';
+    const tipo = reporte.id_publicacion ? 'Publicación' : reporte.id_mensaje ? 'Mensaje' : 'Usuario';
 
     return {
         id_reporte: reporte.id_reporte,
@@ -125,6 +125,9 @@ export async function buscarReportesPaginados(
     } else if (tipo === 'mensaje') {
         where.id_mensaje = { not: null };
         where.id_publicacion = null;
+    } else if (tipo === 'usuario') {
+        where.id_publicacion = null;
+        where.id_mensaje = null;
     }
     // Si es 'todos', no filtramos por tipo
 
