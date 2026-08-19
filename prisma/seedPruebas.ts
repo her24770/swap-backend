@@ -486,6 +486,19 @@ async function main() {
             observaciones: "El material publicado podría infringir las reglas de contenido.",
             estado: reportePendiente.id_estado,
         }),
+
+        // Reporte de un mensaje de tutoría
+        upsertReportePrueba({
+            id_emisor: vendedor1.id_usuario,
+            id_receptor: vendedor.id_usuario,
+            id_publicacion: null,           
+            id_mensaje: mensaje1.id_mensaje,    
+            motivo: 3,
+            observaciones: "El mensaje enviado durante la tutoría contiene lenguaje inapropiado.",
+            estado: reportePendiente.id_estado,
+    }),
+
+        
     ]);
 
     console.log("  ✅ Reportes de prueba");
