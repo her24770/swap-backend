@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const tiposObjetivoReporte = ["usuario", "publicacion", "comentario"] as const;
+export const estadosReporte = ["pendiente", "resuelto", "rechazado"] as const;
 
 export const motivosReporte = [
     "No cumplió con fechas",
@@ -94,7 +95,24 @@ export interface ResultadoBusquedaReporte {
  * ===========================================
  */
 
+// Schema para actualizar el estado de un reporte
+// Los estados pueden ser: "pendiente", "resuelto" o "rechazado".
+// También se requiere el ID del reporte que se desea actualizar.
+
+export const schemaActualizarEstadoReporte = z.object({
+    estado: z.enum(estadosReporte, {
+        required_error: "El estado del reporte es obligatorio.",
+        invalid_type_error: "El estado del reporte no es válido.",
+    }),
+    id_reporte: z
+        .number({ required_error: "El ID del reporte es obligatorio.", invalid_type_error: "El ID del reporte debe ser un número." })
+        .int()
+        .positive("El ID del reporte debe ser un ID válido."),
+});
+
+
 export type ReportePaginationOptions = z.infer<typeof reportePaginationOptions>;
 export type CrearReporteInput = z.infer<typeof schemaCrearReporte>;
 export type TipoObjetivoReporte = typeof tiposObjetivoReporte[number];
 export type MotivoReporteInput = typeof motivosReporte[number];
+export type EstadoReporteInput = typeof estadosReporte[number];

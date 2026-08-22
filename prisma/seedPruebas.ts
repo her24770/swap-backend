@@ -107,6 +107,10 @@ async function main() {
     const ePendiente  = await prisma.estado.findUniqueOrThrow({ where: { estado: "pendiente" } });
     const eCompletado = await prisma.estado.findUniqueOrThrow({ where: { estado: "completado" } });
 
+    const reportePendiente = await prisma.estado.findUniqueOrThrow({ where: { estado: "pendiente" } });
+    const reporteResuelto   = await prisma.estado.findUniqueOrThrow({ where: { estado: "resuelto" } });
+    const reporteRechazado  = await prisma.estado.findUniqueOrThrow({ where: { estado: "rechazado" } });
+
     const tMaterial = await prisma.tipoPerfil.findUniqueOrThrow({ where: { tipo_perfil: "material" } });
     const tTutoria  = await prisma.tipoPerfil.findUniqueOrThrow({ where: { tipo_perfil: "tutoria" } });
     const tNegocio  = await prisma.tipoPerfil.findUniqueOrThrow({ where: { tipo_perfil: "negocio" } });
@@ -425,7 +429,7 @@ async function main() {
             id_mensaje: null,
             motivo: 1,
             observaciones: "La publicación contiene información inapropiada.",
-            estado: eActivo.id_estado,
+            estado: reportePendiente.id_estado,
         }),
 
         // Reporte de otra publicación por parte de vendedor
@@ -436,7 +440,7 @@ async function main() {
             id_mensaje: null,
             motivo: 2,
             observaciones: "La publicación parece incumplir las normas de la plataforma.",
-            estado: eActivo.id_estado,
+            estado: reportePendiente.id_estado,
         }),
 
         // Reporte de un mensaje enviado por vendedor1
@@ -447,7 +451,7 @@ async function main() {
             id_mensaje: mensaje1.id_mensaje,
             motivo: 3,
             observaciones: "El mensaje contiene contenido que debería ser revisado por moderación.",
-            estado: eActivo.id_estado,
+            estado: reportePendiente.id_estado,
         }),
 
         // Reporte de un mensaje enviado por vendedor
@@ -458,7 +462,7 @@ async function main() {
             id_mensaje: mensaje2.id_mensaje,
             motivo: 1,
             observaciones: "El usuario envió un mensaje que considero inapropiado.",
-            estado: eActivo.id_estado,
+            estado: reportePendiente.id_estado,
         }),
 
         // Reporte de una publicación de negocio
@@ -469,7 +473,7 @@ async function main() {
             id_mensaje: null,
             motivo: 4,
             observaciones: "El servicio anunciado parece no corresponder con la descripción.",
-            estado: eActivo.id_estado,
+            estado: reportePendiente.id_estado,
         }),
 
         // Otro reporte de publicación
@@ -480,8 +484,21 @@ async function main() {
             id_mensaje: null,
             motivo: 2,
             observaciones: "El material publicado podría infringir las reglas de contenido.",
-            estado: eActivo.id_estado,
+            estado: reportePendiente.id_estado,
         }),
+
+        // Reporte de un mensaje de tutoría
+        upsertReportePrueba({
+            id_emisor: vendedor1.id_usuario,
+            id_receptor: vendedor.id_usuario,
+            id_publicacion: null,           
+            id_mensaje: mensaje1.id_mensaje,    
+            motivo: 3,
+            observaciones: "El mensaje enviado durante la tutoría contiene lenguaje inapropiado.",
+            estado: reportePendiente.id_estado,
+    }),
+
+        
     ]);
 
     console.log("  ✅ Reportes de prueba");

@@ -1,4 +1,4 @@
-import { Prisma, Reporte, PalabraRestringida, MotivoReporte } from "@prisma/client";
+import { Prisma, Reporte, PalabraRestringida, MotivoReporte, Estado } from "@prisma/client";
 import { ReportePaginationOptions, ReporteTableData, ResultadoBusquedaReporte, motivosReporte } from "../modelo/schemaReporte";
 import prisma from "../persistencia/prismaClient";
 
@@ -77,7 +77,7 @@ export async function buscarReportesPaginados(
         limit = 10, 
         sort = 'fecha', 
         order = 'desc',
-        estado,
+        estado = 'todos',
         motivo,
         tipo = 'todos',
         idReceptor,
@@ -105,13 +105,8 @@ export async function buscarReportesPaginados(
     const where: any = {};
 
     // Filtro por estado (nombre)
-    if (estado) {
-        const estadoObtenido = await prisma.estado.findUnique({
-            where: { estado: estado }
-        });
-        if (estadoObtenido) {
-            where.estado = estadoObtenido.id_estado;
-        }
+    if (estado === 'pendiente' || estado === 'resuelto' || estado === 'rechazado') {
+        where.estadoRel = { estado };
     }
 
     // Filtro por motivo (usando el índice del array)
@@ -203,6 +198,20 @@ export async function buscarReportesPaginados(
         totalPages
     };
 }
+
+
+export async function repoActualizarEstadoReporte(id: number, id_estado: number): Promise<Reporte> {
+    return prisma.reporte.update({
+        where: { id_reporte: id },
+        data: { estado: id_estado },
+    });
+}   
+
+export async function buscarEstadoReportePorNombre(estado: string): Promise<Estado | null> {
+    return prisma.estado.findUnique({
+        where: { estado },
+    });
+}   
 
 export async function buscarReportesPorReceptor(idReceptor: number): Promise<Reporte[]> {
     return prisma.reporte.findMany({

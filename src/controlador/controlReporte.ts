@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from "express";
-import { schemaCrearReporte, TipoObjetivoReporte } from "../modelo/schemaReporte";
+import { schemaCrearReporte, TipoObjetivoReporte, schemaActualizarEstadoReporte } from "../modelo/schemaReporte";
 import { buscarPublicacionPorId } from "../repository/repositorioPublicacion";
 import { buscarResenaPorId } from "../repository/repositorioResena";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado";
 import { actualizarUsuario, buscarUsuarioPorId } from "../repository/repositorioUsuario";
-import { guardarReporte, obtenerOCrearMotivoReportePorNombre, buscarReportePorId, buscarReportesPaginados } from "../repository/repositorioReporte";
+import { guardarReporte, obtenerOCrearMotivoReportePorNombre, buscarReportePorId, buscarReportesPaginados, repoActualizarEstadoReporte, buscarEstadoReportePorNombre } from "../repository/repositorioReporte";
 import { errorResponse, errorValidacionResponse, exitoResponse } from "../servicios/Response.js";
 import { subirImagenR2 } from "../servicios/servicioR2.js";
 
@@ -48,6 +48,36 @@ export async function obtenerReportesPaginados(req: Request, res: Response, next
             limit: resultado.limit,
             totalPages: resultado.totalPages
         }, "Reportes obtenidos exitosamente", 200);
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function actualizarEstadoReporte(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const validacion = schemaActualizarEstadoReporte.safeParse(req.body);
+        if (!validacion.success) {
+            errorValidacionResponse(res, validacion.error.errors);
+            return;
+        }
+
+        const { estado, id_reporte } = validacion.data;
+
+        const reporteExistente = await buscarReportePorId(id_reporte);
+        if (!reporteExistente) {
+            errorResponse(res, "Reporte no encontrado", 404);
+            return;
+        }
+
+        const estadoEncontrado = await buscarEstadoReportePorNombre(estado);
+        if (!estadoEncontrado) {
+            errorResponse(res, "Estado no válido", 400);
+            return;
+        }
+
+        const reporteActualizado = await repoActualizarEstadoReporte(id_reporte, estadoEncontrado.id_estado);
+
+        exitoResponse(res, reporteActualizado, "Estado del reporte actualizado exitosamente", 200);
     } catch (error) {
         next(error);
     }

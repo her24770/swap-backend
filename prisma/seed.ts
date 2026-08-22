@@ -40,6 +40,10 @@ async function main() {
         prisma.estado.upsert({ where: { estado: "disponible" },  update: {}, create: { estado: "disponible" } }),
         prisma.estado.upsert({ where: { estado: "vendido" },     update: {}, create: { estado: "vendido" } }),
         prisma.estado.upsert({ where: { estado: "reservado" },   update: {}, create: { estado: "reservado" } }),
+        // estados de moderación
+        prisma.estado.upsert({ where: { estado: "resuelto" },   update: {}, create: { estado: "resuelto" } }),
+        prisma.estado.upsert({ where: { estado: "rechazado" },   update: {}, create: { estado: "rechazado" } }),
+
         prisma.estado.upsert({ where: { estado: "eliminado" },   update: {}, create: { estado: "eliminado" } }),
     ]);
     console.log("  ✅ Estados");
