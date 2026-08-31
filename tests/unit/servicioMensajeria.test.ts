@@ -45,8 +45,12 @@ describe("crearMensajeYNotificar", () => {
       id_conversacion: 1,
       id_usuario_1: 1,
       id_usuario_2: 2,
+      estado_conversacion: 1,
+      mensajes: [],
     } as any);
-    vi.mocked(obtenerEstadoPorNombre).mockResolvedValue(null);
+    vi.mocked(obtenerEstadoPorNombre).mockImplementation(async (nombre) =>
+      nombre === "activo" ? { id_estado: 1, estado: "activo" } as any : null
+    );
 
     await expect(crearMensajeYNotificar(1, 1, "hola")).rejects.toThrow(
       "Error de configuración: estado 'enviado' no encontrado"
@@ -58,8 +62,11 @@ describe("crearMensajeYNotificar", () => {
       id_conversacion: 1,
       id_usuario_1: 1,
       id_usuario_2: 2,
+      estado_conversacion: 1,
     } as any);
-    vi.mocked(obtenerEstadoPorNombre).mockResolvedValue({ id_estado: 7, estado: "enviado" } as any);
+    vi.mocked(obtenerEstadoPorNombre).mockImplementation(async (nombre) =>
+      nombre === "activo" ? { id_estado: 1, estado: "activo" } as any : { id_estado: 7, estado: "enviado" } as any
+    );
     const mensajeGuardado = { id_mensaje: 50, id_conversacion: 1, mensaje: "hola" };
     vi.mocked(guardarMensaje).mockResolvedValue(mensajeGuardado as any);
     const notificacionCreada = { id_notificacion: 20, id_usuario: 2 };
@@ -91,12 +98,37 @@ describe("crearMensajeYNotificar", () => {
       id_conversacion: 1,
       id_usuario_1: 1,
       id_usuario_2: 2,
+      estado_conversacion: 1,
     } as any);
-    vi.mocked(obtenerEstadoPorNombre).mockResolvedValue({ id_estado: 7, estado: "enviado" } as any);
+    vi.mocked(obtenerEstadoPorNombre).mockImplementation(async (nombre) =>
+      nombre === "activo" ? { id_estado: 1, estado: "activo" } as any : { id_estado: 7, estado: "enviado" } as any
+    );
     vi.mocked(guardarMensaje).mockResolvedValue({ id_mensaje: 50 } as any);
     vi.mocked(crearNotificacion).mockResolvedValue({ id_notificacion: 20 } as any);
     vi.mocked(getIO).mockReturnValue(null);
 
     await expect(crearMensajeYNotificar(1, 1, "hola")).resolves.toBeTruthy();
+  });
+
+  it("rechaza persistir mensajes en una conversación inactiva", async () => {
+    vi.mocked(buscarConversacionPorId).mockResolvedValue({
+      id_conversacion: 1, id_usuario_1: 1, id_usuario_2: 2, estado_conversacion: 3,
+      mensajes: [],
+    } as any);
+    vi.mocked(obtenerEstadoPorNombre).mockImplementation(async (nombre) =>
+      nombre === "activo" ? { id_estado: 1, estado: "activo" } as any : { id_estado: 7, estado: "enviado" } as any
+    );
+
+    await expect(crearMensajeYNotificar(1, 1, "hola")).rejects.toThrow("debe estar activa");
+    expect(guardarMensaje).not.toHaveBeenCalled();
+  });
+
+  it("rechaza a un emisor que no participa en la conversación", async () => {
+    vi.mocked(buscarConversacionPorId).mockResolvedValue({
+      id_conversacion: 1, id_usuario_1: 1, id_usuario_2: 2, estado_conversacion: 1, mensajes: [],
+    } as any);
+
+    await expect(crearMensajeYNotificar(1, 99, "hola")).rejects.toThrow("No tienes permiso");
+    expect(guardarMensaje).not.toHaveBeenCalled();
   });
 });
