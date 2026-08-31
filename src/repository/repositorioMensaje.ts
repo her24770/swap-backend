@@ -5,7 +5,7 @@ import prisma from "../persistencia/prismaClient";
 // Conversacion
 // ─────────────────────────────────────────────
 
-export async function buscarConversacionPorId(id: number): Promise<Conversacion | null> {
+export async function buscarConversacionPorId(id: number): Promise<(Conversacion & { mensajes: Mensaje[] }) | null> {
     return prisma.conversacion.findUnique({
         where: { id_conversacion: id },
         include: { mensajes: { orderBy: { fecha_enviado: "asc" } } },

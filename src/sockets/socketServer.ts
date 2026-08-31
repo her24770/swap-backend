@@ -7,6 +7,7 @@ import { schemaEnviarMensaje } from "../modelo/schemaMensaje.js";
 import { crearMensajeYNotificar } from "../servicios/servicioMensajeria.js";
 import { setIO } from "./ioInstance.js";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
+import { permitirEventoSocket } from "../autenticacion/rateLimiter.js";
 
 interface AckRespuesta {
     success: boolean;
@@ -95,6 +96,10 @@ export function initSocketServer(httpServer: HttpServer): Server {
             "conversacion:unirse",
             async (idConversacion: number, callback?: (respuesta: AckRespuesta) => void) => {
                 try {
+                    if (!permitirEventoSocket(idUsuario, "conversacion:unirse")) {
+                        callback?.({ success: false, message: "Demasiadas solicitudes. Intenta nuevamente más tarde." });
+                        return;
+                    }
                     const conversacion = await buscarConversacionPorId(Number(idConversacion));
                     if (!conversacion) {
                         callback?.({ success: false, message: "Conversación no encontrada" });
@@ -130,6 +135,10 @@ export function initSocketServer(httpServer: HttpServer): Server {
 
         socket.on("mensaje:enviar", async (payload: unknown, callback?: (respuesta: AckRespuesta) => void) => {
             try {
+                if (!permitirEventoSocket(idUsuario, "mensaje:enviar")) {
+                    callback?.({ success: false, message: "Demasiados mensajes. Intenta nuevamente más tarde." });
+                    return;
+                }
                 const datos = schemaEnviarMensaje.parse(payload);
                 const conversacion = await buscarConversacionPorId(datos.id_conversacion);
 
@@ -142,6 +151,16 @@ export function initSocketServer(httpServer: HttpServer): Server {
                         success: false,
                         message: "No tienes permiso para enviar mensajes en esta conversación",
                     });
+                    return;
+                }
+
+                const estadoActivo = await obtenerEstadoPorNombre("activo");
+                if (!estadoActivo) {
+                    callback?.({ success: false, message: "Error de configuración: estado 'activo' no encontrado" });
+                    return;
+                }
+                if (conversacion.estado_conversacion !== estadoActivo.id_estado) {
+                    callback?.({ success: false, message: "La conversación debe estar activa para enviar mensajes" });
                     return;
                 }
 
