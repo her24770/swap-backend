@@ -162,6 +162,7 @@ export async function iniciarConversacion(req: Request, res: Response, next: Nex
         }
 
         let conversacion = await buscarConversacionEntreDosUsuarios(idUsuario, id_usuario_2);
+        let conversacionNueva = false;
 
         if (!conversacion) {
             const estadoPendiente = await obtenerEstadoPorNombre("pendiente");
@@ -175,6 +176,7 @@ export async function iniciarConversacion(req: Request, res: Response, next: Nex
                 usuario2: { connect: { id_usuario: id_usuario_2 } },
                 estadoRel: { connect: { id_estado: estadoPendiente.id_estado } },
             });
+            conversacionNueva = true;
         }
 
         if (id_publicacion) {
@@ -185,7 +187,11 @@ export async function iniciarConversacion(req: Request, res: Response, next: Nex
             );
         }
 
-        const nuevoMensaje = await crearMensajeYNotificar(conversacion.id_conversacion, idUsuario, mensaje);
+        const nuevoMensaje = conversacionNueva
+            ? await crearMensajeYNotificar(conversacion.id_conversacion, idUsuario, mensaje, {
+                permitirMensajeInicialPendiente: true,
+            })
+            : await crearMensajeYNotificar(conversacion.id_conversacion, idUsuario, mensaje);
 
         const conversacionCompleta = await buscarConversacionCompletaPorId(conversacion.id_conversacion);
         if (!conversacionCompleta) {
@@ -231,5 +237,3 @@ export async function obtenerMensajesDeConversacion(req: Request, res: Response,
         next(error);
     }
 }
-
-
