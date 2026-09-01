@@ -69,6 +69,24 @@ export async function buscarReportePorId(id: number): Promise<Reporte | null> {
     });
 }
 
+/*
+* Busca reportes por publicacion, filtra por estados posibles del reporte
+*/
+export async function buscarReportesPorPublicacion(idPublicacion: number, estado: string[]): Promise<Reporte[]> {
+    return prisma.reporte.findMany({
+        where: {
+            id_publicacion: idPublicacion,
+            estadoRel: {
+                estado: {
+                    in: estado
+                }
+            }
+        },
+        include: { motivoRel: true, estadoRel: true },
+        orderBy: { fecha: "desc" },
+    });
+}
+
 export async function buscarReportesPaginados(
     options: ReportePaginationOptions
 ): Promise<ResultadoBusquedaReporte> {
