@@ -114,6 +114,10 @@ describe("iniciarConversacion", () => {
       id_usuario_2: 1,
       estado_conversacion: 1,
     } as any);
+    vi.mocked(obtenerEstadoPorNombre).mockResolvedValue({
+      id_estado: 1,
+      estado: "activo",
+    } as any);
     vi.mocked(crearMensajeYNotificar).mockResolvedValue({
       id_mensaje: 101,
     } as any);
