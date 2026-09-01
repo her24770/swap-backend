@@ -187,6 +187,22 @@ export async function iniciarConversacion(req: Request, res: Response, next: Nex
             );
         }
 
+        // Una conversación ya existente nunca puede volver a recibir el
+        // "mensaje inicial". Solo la recién creada puede guardar ese único
+        // mensaje mientras está pendiente; las pendientes y bloqueadas deben
+        // aceptarse primero antes de admitir mensajes posteriores.
+        if (!conversacionNueva) {
+            const estadoActivo = await obtenerEstadoPorNombre("activo");
+            if (!estadoActivo) {
+                errorResponse(res, "Error de configuracion: estado 'activo' no encontrado", 500);
+                return;
+            }
+            if (conversacion.estado_conversacion !== estadoActivo.id_estado) {
+                errorResponse(res, "La conversación debe estar activa para enviar mensajes", 400);
+                return;
+            }
+        }
+
         const nuevoMensaje = conversacionNueva
             ? await crearMensajeYNotificar(conversacion.id_conversacion, idUsuario, mensaje, {
                 permitirMensajeInicialPendiente: true,

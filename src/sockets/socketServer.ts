@@ -76,17 +76,12 @@ async function autenticarSocket(socket: Socket, next: (err?: Error) => void): Pr
     }
 }
 
-export function initSocketServer(httpServer: HttpServer): Server {
-    const io = new Server(httpServer, {
-        cors: {
-            origin: process.env.FRONTEND_URL || "http://localhost:3000",
-            credentials: true,
-        },
-    });
-
-    io.use(autenticarSocket);
-
-    io.on("connection", (socket: Socket) => {
+/**
+ * Registra los eventos de una conexión ya autenticada.
+ * Se exporta para poder probar el mismo flujo que usa Socket.IO sin arrancar
+ * un servidor HTTP adicional en la suite de integración.
+ */
+export function registrarEventosConexion(socket: Socket): void {
         const idUsuario = Number(socket.data.usuario?.sub);
 
         // Sala personal: recibe notificaciones y avisos aunque no tenga ningún chat abierto.
@@ -171,7 +166,18 @@ export function initSocketServer(httpServer: HttpServer): Server {
                 callback?.({ success: false, message: mensaje });
             }
         });
+}
+
+export function initSocketServer(httpServer: HttpServer): Server {
+    const io = new Server(httpServer, {
+        cors: {
+            origin: process.env.FRONTEND_URL || "http://localhost:3000",
+            credentials: true,
+        },
     });
+
+    io.use(autenticarSocket);
+    io.on("connection", registrarEventosConexion);
 
     setIO(io);
     return io;
