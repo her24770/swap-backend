@@ -20,6 +20,68 @@ export interface FiltrosModeracionPublicaciones {
 }
 
 // ─────────────────────────────────────────────
+// Proyecciones/selectores reutilizables — evita repetir el mismo `select`
+// en cada consulta que necesita el mismo resumen de una relación.
+// ─────────────────────────────────────────────
+
+const SELECT_ESTADO_RESUMEN = {
+    select: { id_estado: true, estado: true },
+} as const;
+
+const SELECT_TIPO_PERFIL_RESUMEN = {
+    select: { id_tipo_perfil: true, tipo_perfil: true },
+} as const;
+
+const SELECT_USUARIO_RESUMEN = {
+    select: {
+        id_usuario: true,
+        nombre: true,
+        email_institucional: true,
+        url_foto_perfil: true,
+        calificacion: true,
+    },
+} as const;
+
+const SELECT_IMAGENES_RESUMEN = {
+    select: { id_imagen: true, url_imagen: true },
+} as const;
+
+const INCLUDE_ETIQUETAS_DETALLADAS = {
+    include: {
+        etiqueta: {
+            select: {
+                id_etiqueta: true,
+                nombre: true,
+                descripcion: true,
+                id_etiqueta_padre: true,
+            },
+        },
+    },
+} as const;
+
+// Mapa de campo de ordenamiento — evita repetir el mismo switch en cada consulta.
+const CAMPO_ORDEN: Record<"fecha" | "me_gusta" | "precio", "fecha_publicacion" | "me_gusta" | "precio"> = {
+    fecha: "fecha_publicacion",
+    me_gusta: "me_gusta",
+    precio: "precio",
+};
+
+// Resuelve el nombre de un tipo de perfil a su ID. Cada llamador decide qué
+// hacer si no existe (algunos ignoran el filtro, otros devuelven vacío).
+async function resolverIdTipoPerfilPorNombre(tipo?: string): Promise<number | undefined> {
+    if (!tipo) return undefined;
+    const tipoPerfil = await prisma.tipoPerfil.findUnique({ where: { tipo_perfil: tipo } });
+    return tipoPerfil?.id_tipo_perfil;
+}
+
+// Resuelve el nombre de un estado a su ID. Mismo criterio que arriba.
+async function resolverIdEstadoPorNombre(estado?: string): Promise<number | undefined> {
+    if (!estado) return undefined;
+    const estadoObtenido = await prisma.estado.findUnique({ where: { estado } });
+    return estadoObtenido?.id_estado;
+}
+
+// ─────────────────────────────────────────────
 // Publicacion
 // ─────────────────────────────────────────────
 
@@ -36,45 +98,11 @@ export async function buscarPublicacionPorIdDetallado(id: number, idUsuario?: nu
     const publicacion = await prisma.publicacion.findUnique({
         where: { id_publicacion: id },
         include: {
-            imagenes: {
-                select: {
-                    id_imagen: true,
-                    url_imagen: true
-                }
-            },
-            etiquetas: {
-                include: {
-                    etiqueta: {
-                        select: {
-                            id_etiqueta: true,
-                            nombre: true,
-                            descripcion: true,
-                            id_etiqueta_padre: true
-                        }
-                    }
-                }
-            },
-            estadoRel: {
-                select: {
-                    id_estado: true,
-                    estado: true
-                }
-            },
-            tipoPerfil: {
-                select: {
-                    id_tipo_perfil: true,
-                    tipo_perfil: true
-                }
-            },
-            usuario: {
-                select: {
-                    id_usuario: true,
-                    nombre: true,
-                    email_institucional: true,
-                    url_foto_perfil: true,
-                    calificacion: true
-                }
-            },
+            imagenes: SELECT_IMAGENES_RESUMEN,
+            etiquetas: INCLUDE_ETIQUETAS_DETALLADAS,
+            estadoRel: SELECT_ESTADO_RESUMEN,
+            tipoPerfil: SELECT_TIPO_PERFIL_RESUMEN,
+            usuario: SELECT_USUARIO_RESUMEN,
             usuarioPublicacions: idUsuario
                 ? { where: { id_usuario: idUsuario }, select: { is_save: true, is_like: true } }
                 : false
@@ -119,39 +147,14 @@ export async function buscarPublicacionesPaginadas(options: PaginationOptionInpu
 
     // Destacadas primero siempre
     orderBy.push({ is_pinned: 'desc' });
-
-    switch (sort) {
-        case 'fecha':
-            orderBy.push({ fecha_publicacion: order });
-            break;
-        case 'me_gusta':
-            orderBy.push({ me_gusta: order });
-            break;
-        case 'precio':
-            orderBy.push({ precio: order });
-            break;
-        default:
-            orderBy.push({ fecha_publicacion: order });
-            break;
-    }
+    orderBy.push({ [CAMPO_ORDEN[sort] ?? CAMPO_ORDEN.fecha]: order });
 
     const where: any = {};
-    if (tipo) {
-        const tipoPerfil = await prisma.tipoPerfil.findUnique({
-            where: { tipo_perfil: tipo }
-        })
-        if (tipoPerfil) {
-            where.tipo_publicacion = tipoPerfil.id_tipo_perfil;
-        }
-    }
-    if (estado) {
-        const estadoObtenido = await prisma.estado.findUnique({
-            where: { estado: estado }
-        })
-        if (estadoObtenido) {
-            where.estado = estadoObtenido.id_estado;
-        }
-    }
+    const idTipo = await resolverIdTipoPerfilPorNombre(tipo);
+    if (idTipo !== undefined) where.tipo_publicacion = idTipo;
+
+    const idEstado = await resolverIdEstadoPorNombre(estado);
+    if (idEstado !== undefined) where.estado = idEstado;
 
     const [publicaciones, total] = await prisma.$transaction([
 
@@ -160,7 +163,7 @@ export async function buscarPublicacionesPaginadas(options: PaginationOptionInpu
             include: {
                 imagenes: true,
                 etiquetas: { include: { etiqueta: true } },
-                estadoRel: { select: { id_estado: true, estado: true } },
+                estadoRel: SELECT_ESTADO_RESUMEN,
 
                 // Solo traer la relación del usuario autenticado
                 usuarioPublicacions: idUsuario
@@ -215,23 +218,15 @@ export async function buscarPublicacionesModeracion(
     const where: Prisma.PublicacionWhereInput = {};
 
     if (tipo) {
-        const tipoPerfil = await prisma.tipoPerfil.findUnique({
-            where: { tipo_perfil: tipo }
-        });
-        if (!tipoPerfil) {
-            return { publicaciones: [], total: 0 };
-        }
-        where.tipo_publicacion = tipoPerfil.id_tipo_perfil;
+        const idTipo = await resolverIdTipoPerfilPorNombre(tipo);
+        if (idTipo === undefined) return { publicaciones: [], total: 0 };
+        where.tipo_publicacion = idTipo;
     }
 
     if (estado) {
-        const estadoObtenido = await prisma.estado.findUnique({
-            where: { estado }
-        });
-        if (!estadoObtenido) {
-            return { publicaciones: [], total: 0 };
-        }
-        where.estado = estadoObtenido.id_estado;
+        const idEstado = await resolverIdEstadoPorNombre(estado);
+        if (idEstado === undefined) return { publicaciones: [], total: 0 };
+        where.estado = idEstado;
     }
 
     if (q?.trim()) {
@@ -244,19 +239,9 @@ export async function buscarPublicacionesModeracion(
         ];
     }
 
-    const orderBy: Prisma.PublicacionOrderByWithRelationInput[] = [];
-    switch (sort) {
-        case "me_gusta":
-            orderBy.push({ me_gusta: order });
-            break;
-        case "precio":
-            orderBy.push({ precio: order });
-            break;
-        case "fecha":
-        default:
-            orderBy.push({ fecha_publicacion: order });
-            break;
-    }
+    const orderBy: Prisma.PublicacionOrderByWithRelationInput[] = [
+        { [CAMPO_ORDEN[sort] ?? CAMPO_ORDEN.fecha]: order },
+    ];
 
     const [publicaciones, total] = await prisma.$transaction([
         prisma.publicacion.findMany({
@@ -266,21 +251,9 @@ export async function buscarPublicacionesModeracion(
                 etiquetas: {
                     include: { etiqueta: true }
                 },
-                estadoRel: {
-                    select: { id_estado: true, estado: true }
-                },
-                tipoPerfil: {
-                    select: { id_tipo_perfil: true, tipo_perfil: true }
-                },
-                usuario: {
-                    select: {
-                        id_usuario: true,
-                        nombre: true,
-                        email_institucional: true,
-                        url_foto_perfil: true,
-                        calificacion: true
-                    }
-                }
+                estadoRel: SELECT_ESTADO_RESUMEN,
+                tipoPerfil: SELECT_TIPO_PERFIL_RESUMEN,
+                usuario: SELECT_USUARIO_RESUMEN
             },
             orderBy,
             skip,
@@ -320,21 +293,15 @@ export async function buscarPublicacionesPorTipoYUsuario(tipoPerfil: string, idU
             tipo_perfil: tipoPerfil
         }
     }
-    if (estado) {
-        const estadoObtenido = await prisma.estado.findUnique({
-            where: { estado: estado }
-        })
-        if (estadoObtenido) {
-            where.estado = estadoObtenido.id_estado;
-        }
-    }
+    const idEstado = await resolverIdEstadoPorNombre(estado);
+    if (idEstado !== undefined) where.estado = idEstado;
 
     return prisma.publicacion.findMany({
         where,
         include: {
             imagenes: true,
             etiquetas: { include: { etiqueta: true } },
-            estadoRel: { select: { id_estado: true, estado: true } },
+            estadoRel: SELECT_ESTADO_RESUMEN,
         },
         orderBy: { fecha_publicacion: "desc" },
     });
@@ -349,8 +316,8 @@ export async function buscarPublicacionesDestacadasUsuario(idUsuario: number): P
         include: {
             imagenes: true,
             etiquetas: { include: { etiqueta: true } },
-            estadoRel: { select: { id_estado: true, estado: true } },
-            tipoPerfil: { select: { id_tipo_perfil: true, tipo_perfil: true } }
+            estadoRel: SELECT_ESTADO_RESUMEN,
+            tipoPerfil: SELECT_TIPO_PERFIL_RESUMEN
         },
         orderBy: { fecha_publicacion: "desc" },
     });
@@ -485,50 +452,11 @@ export async function buscarPublicacionesPorIdsDetallado(
         },
 
         include: {
-
-            imagenes: {
-                select: {
-                    id_imagen: true,
-                    url_imagen: true
-                }
-            },
-
-            etiquetas: {
-                include: {
-                    etiqueta: {
-                        select: {
-                            id_etiqueta: true,
-                            nombre: true,
-                            descripcion: true,
-                            id_etiqueta_padre: true
-                        }
-                    }
-                }
-            },
-
-            estadoRel: {
-                select: {
-                    id_estado: true,
-                    estado: true
-                }
-            },
-
-            tipoPerfil: {
-                select: {
-                    id_tipo_perfil: true,
-                    tipo_perfil: true
-                }
-            },
-
-            usuario: {
-                select: {
-                    id_usuario: true,
-                    nombre: true,
-                    email_institucional: true,
-                    url_foto_perfil: true,
-                    calificacion: true
-                }
-            }
+            imagenes: SELECT_IMAGENES_RESUMEN,
+            etiquetas: INCLUDE_ETIQUETAS_DETALLADAS,
+            estadoRel: SELECT_ESTADO_RESUMEN,
+            tipoPerfil: SELECT_TIPO_PERFIL_RESUMEN,
+            usuario: SELECT_USUARIO_RESUMEN
         }
     });
 
@@ -657,24 +585,13 @@ export async function buscarPublicacionesPorFiltros(
     }
     // 4. Filtro por tipo de publicación
     if (options.tipo) {
-        const tipoPerfil = await prisma.tipoPerfil.findUnique({
-            where: { tipo_perfil: options.tipo }
-        });
-        if (tipoPerfil) {
-            where.tipo_publicacion = tipoPerfil.id_tipo_perfil;
-        } else {
-            return []; // Tipo no existe, devolver vacío
-        }
+        const idTipo = await resolverIdTipoPerfilPorNombre(options.tipo);
+        if (idTipo === undefined) return []; // Tipo no existe, devolver vacío
+        where.tipo_publicacion = idTipo;
     }
     // 5. Filtro por estado
-    if (options.estado) {
-        const estadoObtenido = await prisma.estado.findUnique({
-            where: { estado: options.estado }
-        });
-        if (estadoObtenido) {
-            where.estado = estadoObtenido.id_estado;
-        }
-    }
+    const idEstado = await resolverIdEstadoPorNombre(options.estado);
+    if (idEstado !== undefined) where.estado = idEstado;
     // 6. Ordenamiento
     const orderBy: any = {};
     switch (options.sort) {
