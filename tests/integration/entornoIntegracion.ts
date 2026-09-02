@@ -1,5 +1,6 @@
 import prisma from "../../src/persistencia/prismaClient";
 import redis from "../../src/persistencia/redisClient";
+import { reiniciarRateLimiters } from "../../src/autenticacion/rateLimiter";
 
 export function verificarEntornoIntegracion(): void {
     if (process.env.NODE_ENV !== "test" || process.env.RUN_INTEGRATION !== "true") {
@@ -11,10 +12,27 @@ export function verificarEntornoIntegracion(): void {
     if (!nombreBase.endsWith("_test")) {
         throw new Error(`Base de integración insegura: "${nombreBase}" debe terminar en _test.`);
     }
+    if (nombreBase !== "swap_integration_test") {
+        throw new Error(`Base de integración inesperada: "${nombreBase}".`);
+    }
+
+    const hostsLocales = new Set(["localhost", "127.0.0.1"]);
+    const puertosPostgresLocales = new Set(["55432", process.env.INTEGRATION_POSTGRES_PORT].filter(Boolean));
+    const postgresCompose = databaseUrl.hostname === "postgres-integration" && databaseUrl.port === "5432";
+    const postgresLocal = hostsLocales.has(databaseUrl.hostname) && puertosPostgresLocales.has(databaseUrl.port);
+    if (!postgresCompose && !postgresLocal) {
+        throw new Error("PostgreSQL de integración debe usar el servicio o puerto aislado documentado.");
+    }
 
     const redisUrl = new URL(process.env.REDIS_URL ?? "");
     if (redisUrl.pathname !== "/15") {
         throw new Error("Redis de integración debe usar exclusivamente la base lógica 15.");
+    }
+    const puertosRedisLocales = new Set(["56379", process.env.INTEGRATION_REDIS_PORT].filter(Boolean));
+    const redisCompose = redisUrl.hostname === "redis-integration" && redisUrl.port === "6379";
+    const redisLocal = hostsLocales.has(redisUrl.hostname) && puertosRedisLocales.has(redisUrl.port);
+    if (!redisCompose && !redisLocal) {
+        throw new Error("Redis de integración debe usar el servicio o puerto aislado documentado.");
     }
 }
 
@@ -36,10 +54,10 @@ export async function limpiarEntornoIntegracion(): Promise<void> {
 
     if (!redis.isOpen) await redis.connect();
     await redis.flushDb();
+    reiniciarRateLimiters();
 }
 
 export async function cerrarEntornoIntegracion(): Promise<void> {
     await prisma.$disconnect();
     if (redis.isOpen) await redis.quit();
 }
-

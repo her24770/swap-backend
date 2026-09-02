@@ -34,6 +34,15 @@ export function permitirEventoSocket(idUsuario: number, evento: string): boolean
     return permitir(socketVentanas, `${idUsuario}:${evento}`, LIMITE_SOCKET_EVENTOS, VENTANA_SOCKET_MS);
 }
 
+/**
+ * Vacía el estado en memoria de los limitadores. El entorno de integración
+ * la usa entre casos para que una prueba no consuma la cuota de la siguiente.
+ */
+export function reiniciarRateLimiters(): void {
+    apiVentanas.clear();
+    socketVentanas.clear();
+}
+
 // ─── Rate limiting por identificador (login y códigos de verificación) — Redis ──
 
 type Bucket =

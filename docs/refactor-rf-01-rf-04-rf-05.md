@@ -44,10 +44,20 @@ esos pendientes permanecen visibles para priorizarlos por módulo.
 - PostgreSQL 16 + pgvector en una base `swap_integration_test` sobre `tmpfs`.
 - Redis efímero, sin persistencia, usando exclusivamente DB 15.
 - Un contenedor runner con variables no productivas, creación del esquema y pruebas.
-- Limpieza antes y después de la suite real, protegida por validaciones de entorno.
+- Limpieza antes y después de cada caso real, protegida por validaciones de entorno.
+- Reinicio de identidades PostgreSQL, `FLUSHDB` de Redis y reinicio de los rate
+  limiters en memoria; cada caso vuelve a crear sus fixtures.
+- Ejecución secuencial de archivos cuando `RUN_INTEGRATION=true`, para evitar
+  que la limpieza de una suite interfiera con otra.
+- Destrucción automática de contenedores, red y volúmenes al terminar, incluso
+  cuando una prueba falla.
+- Guardas que sólo permiten `swap_integration_test` y los hosts/puertos aislados
+  documentados; no basta con que una URL accidental termine en `_test` o `/15`.
 
 `infraestructura-real.test.ts` comprueba un endpoint que atraviesa Express,
 repositorio y PostgreSQL, además de una escritura/lectura real en Redis.
+`mensajeria-coordinacion-real.test.ts` ejecuta IT-19 a IT-23 contra repositorios
+reales; IT-21 se completa con la prueba de mapeo de vistas del frontend.
 
 ## Alcance pendiente recomendado
 

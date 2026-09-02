@@ -262,13 +262,16 @@ volúmenes ni nombres del entorno de desarrollo:
 
 ```bash
 npm run test:integration:docker
-npm run test:integration:down
 ```
 
-El primer comando crea el esquema y ejecuta las suites. La limpieza valida antes
-que `NODE_ENV=test`, que PostgreSQL termine en `_test` y que Redis use DB 15; así
-evita truncar por error una base de desarrollo o producción. Para ejecutar desde
-el host, se puede copiar `.env.integration.example`, levantar solo
+El comando elimina una ejecución aislada anterior, crea el esquema, ejecuta las
+suites y destruye contenedores, red y volúmenes al finalizar. Además, cada caso
+real trunca PostgreSQL reiniciando identidades, vacía Redis DB 15, reinicia los
+rate limiters y vuelve a crear sus fixtures. La limpieza valida antes que
+`NODE_ENV=test`, que PostgreSQL termine en `_test` y que Redis use DB 15; así
+evita truncar por error una base de desarrollo o producción. El comando
+`npm run test:integration:down` queda disponible como limpieza manual. Para
+ejecutar desde el host, se puede copiar `.env.integration.example`, levantar solo
 `postgres-integration` y `redis-integration`, y correr `npm run test:integration`.
 
 ---
