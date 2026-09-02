@@ -172,6 +172,10 @@ export async function eliminarAnuncioUsuario(req: Request, res: Response, next: 
 export async function editarAnuncioUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {    
     try {
         const idAnuncio = Number(req.params.id_anuncio);        
+        if (req.body.titulo === undefined && req.body.descripcion === undefined && !req.file) {
+            errorResponse(res, "Debe enviar al menos un campo o una imagen para actualizar", 400);
+            return;
+        }
         const bodyData = {
             titulo: req.body.titulo,
             descripcion: req.body.descripcion,

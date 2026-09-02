@@ -221,11 +221,16 @@ export async function editarPublicacion(req: Request, res: Response, next: NextF
             errorResponse(res, "El ID de la publicacion no es valido", 400);
             return;
         }
+        const archivos = (req.files as Express.Multer.File[]) ?? [];
+        if (Object.keys(req.body).length === 0 && archivos.length === 0) {
+            errorResponse(res, "Debe enviar al menos un campo o una imagen para actualizar", 400);
+            return;
+        }
         const resultado = await editarPublicacionServicio({
             idPublicacion,
             idUsuario: Number(req.usuario?.sub),
             datos: req.body,
-            archivos: (req.files as Express.Multer.File[]) ?? [],
+            archivos,
         });
         exitoResponse(res, resultado, "Publicacion actualizada exitosamente", 200);
     } catch (error) {

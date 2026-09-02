@@ -76,8 +76,9 @@ curl http://localhost:3001/api/health
 
 Con el backend en ejecución, la documentación interactiva está disponible en:
 
-- Swagger UI: `http://localhost:3001/api/docs`
-- Especificación OpenAPI 3.2: `http://localhost:3001/api/openapi.json`
+- Swagger UI canónico: `http://localhost:3001/api/v1/docs`
+- Especificación OpenAPI 3.2: `http://localhost:3001/api/v1/openapi.json`
+- Alias compatible durante v1: `http://localhost:3001/api/docs`
 
 Swagger UI permite ejecutar cada operación desde el navegador. Las rutas protegidas
 aceptan la cookie `swap-token` creada por el inicio de sesión o un JWT configurado
@@ -248,6 +249,11 @@ El resultado queda en `docs/matriz-endpoints.md`. CI debe ejecutar
 `test:contract`: falla si una ruta no está documentada o si la seguridad de
 OpenAPI no coincide con sus middlewares. La matriz diferencia documentación,
 pruebas de autorización y casos funcionales pendientes.
+
+Las decisiones de versionado, idempotencia y compatibilidad de verbos están en
+`docs/contrato-rest-v1.md`. La URL canónica es `/api/v1`; `/api` permanece como
+alias compatible. Los `PUT` parciales heredados responden con headers de
+deprecación y tienen reemplazos `PATCH` documentados.
 
 ### Integración aislada
 

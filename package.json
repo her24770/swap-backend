@@ -17,7 +17,7 @@
     "test:watch": "vitest watch",
     "test:coverage": "vitest run --coverage",
     "test:unit": "vitest run tests/unit",
-    "test:contract": "vitest run tests/integration/openapi.test.ts tests/integration/endpoint-inventory.test.ts tests/integration/autorizacion-endpoints.test.ts",
+    "test:contract": "vitest run tests/integration/openapi.test.ts tests/integration/endpoint-inventory.test.ts tests/integration/autorizacion-endpoints.test.ts tests/integration/contrato-rest.test.ts",
     "test:integration": "vitest run tests/integration",
     "test:integration:docker": "docker compose -f docker-compose.integration.yml up --build --abort-on-container-exit --exit-code-from integration-tests",
     "test:integration:down": "docker compose -f docker-compose.integration.yml down --volumes --remove-orphans",

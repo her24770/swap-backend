@@ -61,9 +61,18 @@ export async function actualizarEstadoReporte(req: Request, res: Response, next:
             return;
         }
 
-        const { estado, id_reporte } = validacion.data;
+        const idReporteRuta = Number(req.params.id);
+        const { estado, id_reporte: idReporteBody } = validacion.data;
+        if (!Number.isInteger(idReporteRuta) || idReporteRuta <= 0) {
+            errorResponse(res, "El ID del reporte no es válido", 400);
+            return;
+        }
+        if (idReporteBody !== undefined && idReporteBody !== idReporteRuta) {
+            errorResponse(res, "El ID del body no coincide con el ID de la ruta", 400);
+            return;
+        }
 
-        const reporteExistente = await buscarReportePorId(id_reporte);
+        const reporteExistente = await buscarReportePorId(idReporteRuta);
         if (!reporteExistente) {
             errorResponse(res, "Reporte no encontrado", 404);
             return;
@@ -75,7 +84,7 @@ export async function actualizarEstadoReporte(req: Request, res: Response, next:
             return;
         }
 
-        const reporteActualizado = await repoActualizarEstadoReporte(id_reporte, estadoEncontrado.id_estado);
+        const reporteActualizado = await repoActualizarEstadoReporte(idReporteRuta, estadoEncontrado.id_estado);
 
         exitoResponse(res, reporteActualizado, "Estado del reporte actualizado exitosamente", 200);
     } catch (error) {

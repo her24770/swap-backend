@@ -5,15 +5,14 @@ import {
     buscarConversacionesPorUsuario,
     buscarConversacionEntreDosUsuarios,
     buscarMensajesPorConversacion,
-    guardarConversacion,
     buscarConversacionCompletaPorId
 } from "../repository/repositorioMensaje.js";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
 import { errorResponse, exitoResponse } from "../servicios/Response.js";
-import { crearMensajeYNotificar, notificarActualizacionConversacion } from "../servicios/servicioMensajeria.js";
+import { crearConversacionConPrimerMensaje, crearMensajeYNotificar, notificarActualizacionConversacion } from "../servicios/servicioMensajeria.js";
 import { IniciarConversacionInput } from "../modelo/schemaMensaje.js";
-import { registrarContextoConversacion } from "../repository/repositorioContextoConversacion.js";
 import { buscarPublicacionPorId } from "../repository/repositorioPublicacion.js";
+import { ErrorServicio } from "../servicios/ErrorServicio.js";
 
 /*
     Aceptar o bloquear la solicitud de conversacion.
@@ -161,53 +160,43 @@ export async function iniciarConversacion(req: Request, res: Response, next: Nex
             }
         }
 
-        let conversacion = await buscarConversacionEntreDosUsuarios(idUsuario, id_usuario_2);
-        let conversacionNueva = false;
+        const conversacion = await buscarConversacionEntreDosUsuarios(idUsuario, id_usuario_2);
 
         if (!conversacion) {
-            const estadoPendiente = await obtenerEstadoPorNombre("pendiente");
-            if (!estadoPendiente) {
-                errorResponse(res, "Error de configuracion: estado 'pendiente' no encontrado", 500);
-                return;
-            }
-
-            conversacion = await guardarConversacion({
-                usuario1: { connect: { id_usuario: idUsuario } },
-                usuario2: { connect: { id_usuario: id_usuario_2 } },
-                estadoRel: { connect: { id_estado: estadoPendiente.id_estado } },
-            });
-            conversacionNueva = true;
-        }
-
-        if (id_publicacion) {
-            await registrarContextoConversacion(
-                conversacion.id_conversacion,
+            const resultado = await crearConversacionConPrimerMensaje(
+                idUsuario,
+                id_usuario_2,
+                mensaje,
                 id_publicacion,
-                idUsuario
             );
+            exitoResponse(res, resultado, "Conversación creada y mensaje enviado exitosamente", 201);
+            return;
         }
 
-        // Una conversación ya existente nunca puede volver a recibir el
-        // "mensaje inicial". Solo la recién creada puede guardar ese único
-        // mensaje mientras está pendiente; las pendientes y bloqueadas deben
-        // aceptarse primero antes de admitir mensajes posteriores.
-        if (!conversacionNueva) {
-            const estadoActivo = await obtenerEstadoPorNombre("activo");
-            if (!estadoActivo) {
-                errorResponse(res, "Error de configuracion: estado 'activo' no encontrado", 500);
+        const estadoPendiente = await obtenerEstadoPorNombre("pendiente");
+        const esReintentoInicial = estadoPendiente !== null
+            && conversacion.estado_conversacion === estadoPendiente.id_estado
+            && conversacion.id_usuario_1 === idUsuario
+            && (conversacion.mensajes?.length ?? 0) === 0;
+
+        if (estadoPendiente !== null
+            && conversacion.estado_conversacion === estadoPendiente.id_estado
+            && conversacion.id_usuario_1 === idUsuario
+            && conversacion.mensajes.length > 0) {
+            const primerMensaje = conversacion.mensajes[0];
+            if (primerMensaje.mensaje !== mensaje) {
+                errorResponse(res, "Ya existe una solicitud pendiente con un primer mensaje diferente", 409);
                 return;
             }
-            if (conversacion.estado_conversacion !== estadoActivo.id_estado) {
-                errorResponse(res, "La conversación debe estar activa para enviar mensajes", 400);
-                return;
-            }
+            const completa = await buscarConversacionCompletaPorId(conversacion.id_conversacion);
+            exitoResponse(res, { conversacion: completa, mensaje: primerMensaje }, "La solicitud ya había sido creada", 200);
+            return;
         }
 
-        const nuevoMensaje = conversacionNueva
-            ? await crearMensajeYNotificar(conversacion.id_conversacion, idUsuario, mensaje, {
-                permitirMensajeInicialPendiente: true,
-            })
-            : await crearMensajeYNotificar(conversacion.id_conversacion, idUsuario, mensaje);
+        const nuevoMensaje = await crearMensajeYNotificar(conversacion.id_conversacion, idUsuario, mensaje, {
+            permitirMensajeInicialPendiente: esReintentoInicial,
+            idPublicacion: id_publicacion,
+        });
 
         const conversacionCompleta = await buscarConversacionCompletaPorId(conversacion.id_conversacion);
         if (!conversacionCompleta) {
@@ -217,6 +206,10 @@ export async function iniciarConversacion(req: Request, res: Response, next: Nex
 
         exitoResponse(res, { conversacion: conversacionCompleta, mensaje: nuevoMensaje }, "Mensaje enviado exitosamente", 201);
     } catch (error) {
+        if (error instanceof ErrorServicio) {
+            errorResponse(res, error.message, error.status);
+            return;
+        }
         next(error);
     }
 }

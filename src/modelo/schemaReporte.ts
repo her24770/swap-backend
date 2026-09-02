@@ -105,9 +105,10 @@ export const schemaActualizarEstadoReporte = z.object({
         invalid_type_error: "El estado del reporte no es válido.",
     }),
     id_reporte: z
-        .number({ required_error: "El ID del reporte es obligatorio.", invalid_type_error: "El ID del reporte debe ser un número." })
+        .number({ invalid_type_error: "El ID del reporte debe ser un número." })
         .int()
-        .positive("El ID del reporte debe ser un ID válido."),
+        .positive("El ID del reporte debe ser un ID válido.")
+        .optional(),
 });
 
 
