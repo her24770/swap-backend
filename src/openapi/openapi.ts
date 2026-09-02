@@ -1415,6 +1415,188 @@ const paths: Record<string, Record<string, unknown>> = {
     },
 };
 
+const moderationReasonBody = jsonBody({
+    type: "object",
+    required: ["motivo"],
+    properties: {
+        motivo: { type: "string", minLength: 1 },
+        detalle: { type: "string", maxLength: 500 },
+    },
+});
+
+// Las rutas administrativas se mantienen junto al contrato principal, pero se
+// agregan en un bloque separado para que el inventario ruta ↔ OpenAPI sea auditable.
+// En ramas que ya definieron una ruta, se conserva la definición más completa
+// del contrato principal y sólo se agregan entradas realmente ausentes.
+const rutasRF04: Record<string, Record<string, unknown>> = {
+    "/conversacion": {
+        post: operation("Conversaciones", "startConversation", "Iniciar una conversación", {
+            body: jsonBody({ type: "object" }),
+            status: 201,
+            responseSchema: ref("Conversacion"),
+        }),
+    },
+    "/conversacion/conversaciones": {
+        get: operation("Conversaciones", "listMyConversations", "Listar conversaciones del usuario", {
+            responseSchema: arrayOf(ref("Conversacion")),
+        }),
+    },
+    "/conversacion/{id}/mensajes": {
+        get: operation("Conversaciones", "getConversationMessages", "Obtener mensajes de una conversación", {
+            parameters: [pathId("id", "ID de la conversación.")],
+            responseSchema: arrayOf({ type: "object" }),
+        }),
+    },
+    "/moderador/login": {
+        post: operation("Moderación", "moderatorLogin", "Iniciar sesión de moderador", {
+            secured: false,
+            body: jsonBody({
+                type: "object",
+                required: ["usuario", "password"],
+                properties: {
+                    usuario: { type: "string" },
+                    password: { type: "string", format: "password" },
+                },
+            }),
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/moderador/me": {
+        get: operation("Moderación", "getModeratorSession", "Obtener sesión de moderador", {
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/moderador": {
+        get: operation("Moderación", "listModerators", "Listar moderadores", {
+            responseSchema: arrayOf({ type: "object" }),
+        }),
+        post: operation("Moderación", "createModerator", "Crear moderador", {
+            status: 201,
+            body: jsonBody({ type: "object" }),
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/moderador/{id}": {
+        patch: operation("Moderación", "updateModerator", "Editar moderador", {
+            parameters: [pathId("id", "ID del moderador.")],
+            body: jsonBody({ type: "object" }),
+            responseSchema: { type: "object" },
+        }),
+        delete: operation("Moderación", "deleteModerator", "Eliminar moderador", {
+            parameters: [pathId("id", "ID del moderador.")],
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/moderador/{id}/estado": {
+        patch: operation("Moderación", "updateModeratorStatus", "Cambiar estado de moderador", {
+            parameters: [pathId("id", "ID del moderador.")],
+            body: moderationReasonBody,
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/moderador/usuarios": {
+        get: operation("Moderación", "listUsersForModeration", "Listar usuarios para moderación", {
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/moderador/usuarios/{id}/estado": {
+        patch: operation("Moderación", "updateUserModerationStatus", "Cambiar estado de usuario", {
+            parameters: [pathId("id", "ID del usuario.")],
+            body: moderationReasonBody,
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/moderador/usuarios/{id}/advertencia": {
+        post: operation("Moderación", "warnUser", "Enviar advertencia a usuario", {
+            parameters: [pathId("id", "ID del usuario.")],
+            body: moderationReasonBody,
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/moderador/publicaciones": {
+        get: operation("Moderación", "listPublicationsForModeration", "Listar publicaciones para moderación", {
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/moderador/publicaciones/{id}/bajar": {
+        patch: operation("Moderación", "deactivatePublicationByModerator", "Bajar una publicación", {
+            parameters: [pathId("id", "ID de la publicación.")],
+            body: moderationReasonBody,
+            responseSchema: ref("Publicacion"),
+        }),
+    },
+    "/moderador/publicaciones/{id}/reactivar": {
+        patch: operation("Moderación", "reactivatePublicationByModerator", "Reactivar una publicación", {
+            parameters: [pathId("id", "ID de la publicación.")],
+            body: moderationReasonBody,
+            responseSchema: ref("Publicacion"),
+        }),
+    },
+    "/moderador/publicaciones/{id}": {
+        delete: operation("Moderación", "deletePublicationByModerator", "Eliminar una publicación", {
+            parameters: [pathId("id", "ID de la publicación.")],
+            body: moderationReasonBody,
+            responseSchema: ref("Publicacion"),
+        }),
+    },
+    "/moderador/palabras": {
+        get: operation("Moderación", "listRestrictedWords", "Listar palabras restringidas", {
+            responseSchema: arrayOf({ type: "object" }),
+        }),
+        post: operation("Moderación", "createRestrictedWord", "Crear palabra restringida", {
+            status: 201,
+            body: jsonBody({
+                type: "object",
+                required: ["palabra"],
+                properties: { palabra: { type: "string", minLength: 2, maxLength: 100 } },
+            }),
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/moderador/palabras/{id}": {
+        patch: operation("Moderación", "updateRestrictedWord", "Editar palabra restringida", {
+            parameters: [pathId("id", "ID de la palabra restringida.")],
+            body: jsonBody({
+                type: "object",
+                required: ["palabra"],
+                properties: { palabra: { type: "string", minLength: 2, maxLength: 100 } },
+            }),
+            responseSchema: { type: "object" },
+        }),
+        delete: operation("Moderación", "deleteRestrictedWord", "Eliminar palabra restringida", {
+            parameters: [pathId("id", "ID de la palabra restringida.")],
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/reportes/buscar": {
+        post: operation("Reportes", "searchReports", "Buscar reportes para moderación", {
+            body: jsonBody({ type: "object" }),
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/reportes/{id}": {
+        get: operation("Reportes", "getReport", "Obtener un reporte", {
+            parameters: [pathId("id", "ID del reporte.")],
+            responseSchema: ref("Reporte"),
+        }),
+        put: operation("Reportes", "updateReportStatus", "Actualizar estado de un reporte", {
+            parameters: [pathId("id", "ID del reporte.")],
+            body: jsonBody({ type: "object" }),
+            responseSchema: ref("Reporte"),
+        }),
+    },
+};
+
+for (const [ruta, definicion] of Object.entries(rutasRF04)) {
+    if (!(ruta in paths)) paths[ruta] = definicion;
+}
+
+// DELETE comparte el mismo path item ya declarado para PUT.
+paths["/resenas/{id_resena}"].delete = operation("Reseñas", "deleteReview", "Eliminar una reseña propia", {
+    parameters: [pathId("id_resena", "ID de la reseña.")],
+    responseSchema: { type: "object" },
+});
+
 const tags = [
     ["Sistema", "Disponibilidad y diagnóstico del servicio."],
     ["Autenticación", "Registro, sesión y recuperación de contraseña."],
@@ -1435,7 +1617,7 @@ const tags = [
     ["Notificaciones", "Notificaciones del usuario."],
     ["Reportes", "Reportes de contenido y usuarios."],
     ["Reseñas", "Calificaciones y reputación de perfiles."],
-    ["Moderación", "Panel de moderadores: cuentas, publicaciones y palabras restringidas."],
+    ["Moderación", "Administración de moderadores, cuentas, publicaciones y palabras restringidas."],
 ].map(([name, description]) => ({ name, description }));
 
 export const openApiDocument = {
