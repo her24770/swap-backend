@@ -59,6 +59,10 @@ repositorio y PostgreSQL, además de una escritura/lectura real en Redis.
 `mensajeria-coordinacion-real.test.ts` ejecuta IT-19 a IT-23 contra repositorios
 reales; IT-21 se completa con la prueba de mapeo de vistas del frontend.
 
+El procedimiento para el equipo, incluyendo ejecución automática, depuración
+desde el host y plantilla para nuevas IT, está en
+[`docs/guia-pruebas-integracion.md`](guia-pruebas-integracion.md).
+
 ## Alcance pendiente recomendado
 
 RF-01 queda mitigado en el controlador de mayor tamaño, pero el mismo patrón se

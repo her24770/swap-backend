@@ -271,8 +271,9 @@ rate limiters y vuelve a crear sus fixtures. La limpieza valida antes que
 `NODE_ENV=test`, que PostgreSQL termine en `_test` y que Redis use DB 15; así
 evita truncar por error una base de desarrollo o producción. El comando
 `npm run test:integration:down` queda disponible como limpieza manual. Para
-ejecutar desde el host, se puede copiar `.env.integration.example`, levantar solo
-`postgres-integration` y `redis-integration`, y correr `npm run test:integration`.
+la guía completa para el resto del equipo (incluyendo ejecución desde el host y
+cómo agregar nuevas IT), consultar
+[`docs/guia-pruebas-integracion.md`](docs/guia-pruebas-integracion.md).
 
 ---
 
