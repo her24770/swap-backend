@@ -194,8 +194,9 @@ export async function editarAnuncioUsuario(req: Request, res: Response, next: Ne
         }
 
         // Si no se sube una nueva imagen, mantenemos la que ya tiene el anuncio existente
-        let urlImagen = anuncioExistente.imagen_url; 
-        
+        let urlImagen = anuncioExistente.imagen_url;
+        let urlAnteriorParaBorrar: string | null = null;
+
         if (req.file) {
             try {
                 const resultadoR2 = await subirImagenR2(
@@ -210,21 +211,35 @@ export async function editarAnuncioUsuario(req: Request, res: Response, next: Ne
                 return;
             }
 
-            // Eliminar imagen anterior de R2 si existía una válida
+            // La anterior se borra solo después de confirmar la nueva en BD (más abajo).
             if (anuncioExistente.imagen_url && anuncioExistente.imagen_url !== "") {
-                try {
-                    await eliminarImagenR2(anuncioExistente.imagen_url);
-                } catch (error) {
-                    console.error("Error eliminando imagen anterior de R2:", error);
-                }
+                urlAnteriorParaBorrar = anuncioExistente.imagen_url;
             }
         }
 
-        const anuncioActualizado = await actualizarAnuncio(idAnuncio, {
-            titulo: validacion.data.titulo,
-            descripcion: validacion.data.descripcion,
-            imagen_url: urlImagen,
-        });
+        let anuncioActualizado;
+        try {
+            anuncioActualizado = await actualizarAnuncio(idAnuncio, {
+                titulo: validacion.data.titulo,
+                descripcion: validacion.data.descripcion,
+                imagen_url: urlImagen,
+            });
+        } catch (dbError) {
+            // La BD no confirmó: compensar borrando la imagen recién subida para no dejar un huérfano en R2.
+            if (req.file) {
+                try { await eliminarImagenR2(urlImagen); } catch { /* best-effort */ }
+            }
+            throw dbError;
+        }
+
+        // Solo ahora que la BD ya apunta a la imagen nueva, se borra la anterior.
+        if (urlAnteriorParaBorrar) {
+            try {
+                await eliminarImagenR2(urlAnteriorParaBorrar);
+            } catch (error) {
+                console.error("Error eliminando imagen anterior de R2:", error);
+            }
+        }
 
         exitoResponse(res, anuncioActualizado, "Anuncio actualizado exitosamente", 200);
         return;

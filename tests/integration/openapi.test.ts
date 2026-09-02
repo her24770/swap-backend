@@ -18,7 +18,7 @@ describe("Documentación OpenAPI", () => {
 
         // El parámetro opcional `:tipo?` de Express se representa como dos rutas
         // válidas en OpenAPI, porque los parámetros de ruta no pueden ser opcionales.
-        expect(operations).toHaveLength(70);
+        expect(operations).toHaveLength(95);
         expect(operations.every((operation) => {
             const value = operation as Record<string, unknown>;
             return Boolean(value.operationId && value.tags && value.responses);

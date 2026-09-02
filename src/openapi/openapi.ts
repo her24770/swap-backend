@@ -351,6 +351,22 @@ const schemas: Record<string, OpenApiSchema> = {
             id_moderador: { type: ["integer", "null"], minimum: 1 },
         },
     },
+    Moderador: {
+        type: "object",
+        properties: {
+            id_moderador: id,
+            usuario: { type: "string" },
+            nivel: { type: "string", enum: ["moderador", "superadmin"] },
+            tiempo_suspendido: { type: "integer" },
+        },
+    },
+    PalabraRestringida: {
+        type: "object",
+        properties: {
+            id_palabra: id,
+            palabra: { type: "string" },
+        },
+    },
 };
 
 const email = { type: "string", format: "email" };
@@ -880,6 +896,28 @@ const paths: Record<string, Record<string, unknown>> = {
             },
         }),
     },
+    "/conversacion/conversaciones": {
+        get: operation("Conversaciones", "listConversations", "Listar las conversaciones del usuario autenticado", {
+            responseSchema: arrayOf({ type: "object" }),
+        }),
+    },
+    "/conversacion": {
+        post: operation("Conversaciones", "startConversation", "Iniciar una conversación y enviar el primer mensaje", {
+            status: 201,
+            body: jsonBody({
+                type: "object",
+                required: ["id_usuario_2", "mensaje"],
+                properties: { id_usuario_2: id, mensaje: { type: "string" } },
+            }),
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/conversacion/{id}/mensajes": {
+        get: operation("Conversaciones", "getConversationMessages", "Historial de mensajes de una conversación", {
+            parameters: [pathId("id", "ID de la conversación.")],
+            responseSchema: arrayOf({ type: "object" }),
+        }),
+    },
     "/imagen/upload": {
         post: operation("Imágenes", "uploadImage", "Subir una imagen", {
             parameters: [query("carpeta", "Carpeta lógica de destino.", { type: "string", default: "general" })],
@@ -1145,6 +1183,38 @@ const paths: Record<string, Record<string, unknown>> = {
             responseSchema: ref("Reporte"),
         }),
     },
+    "/reportes/buscar": {
+        post: operation("Reportes", "searchReports", "Buscar reportes paginados con filtros (solo moderador)", {
+            body: jsonBody({
+                type: "object",
+                properties: {
+                    page: { type: "integer", minimum: 1, default: 1 },
+                    limit: { type: "integer", minimum: 1, default: 10 },
+                    sort: { type: "string", enum: ["fecha", "estado"], default: "fecha" },
+                    order: { type: "string", enum: ["asc", "desc"], default: "desc" },
+                    estado: { type: "string" },
+                    motivo: { type: "string" },
+                    tipo: { type: "string", enum: ["publicacion", "mensaje", "usuario", "todos"], default: "todos" },
+                },
+            }, false),
+            responseSchema: arrayOf(ref("Reporte")),
+        }),
+    },
+    "/reportes/{id}": {
+        get: operation("Reportes", "getReportById", "Obtener un reporte por ID (solo moderador)", {
+            parameters: [pathId("id", "ID del reporte.")],
+            responseSchema: ref("Reporte"),
+        }),
+        put: operation("Reportes", "updateReportStatus", "Actualizar el estado de un reporte (solo moderador)", {
+            parameters: [pathId("id", "ID del reporte.")],
+            body: jsonBody({
+                type: "object",
+                required: ["estado"],
+                properties: { estado: id },
+            }),
+            responseSchema: ref("Reporte"),
+        }),
+    },
     "/resenas": {
         post: operation("Reseñas", "createReview", "Crear una reseña", {
             status: 201,
@@ -1165,6 +1235,10 @@ const paths: Record<string, Record<string, unknown>> = {
             }),
             responseSchema: ref("Resena"),
         }),
+        delete: operation("Reseñas", "deleteReview", "Eliminar una reseña propia", {
+            parameters: [pathId("id_resena", "ID de la reseña.")],
+            responseSchema: { type: "null" },
+        }),
     },
     "/resenas/usuario/{id_usuario}": {
         get: operation("Reseñas", "getUserReviews", "Obtener reseñas de un perfil", {
@@ -1174,6 +1248,169 @@ const paths: Record<string, Record<string, unknown>> = {
                 query("tipo", "Tipo de reseña.", { type: "string" }, true),
             ],
             responseSchema: arrayOf(ref("Resena")),
+        }),
+    },
+    "/moderador/login": {
+        post: operation("Moderación", "loginModerator", "Iniciar sesión como moderador", {
+            secured: false,
+            body: jsonBody({
+                type: "object",
+                required: ["usuario", "password"],
+                properties: { usuario: { type: "string" }, password: { type: "string" } },
+            }),
+            responseSchema: {
+                type: "object",
+                properties: { rol: { type: "string" }, moderador: ref("Moderador") },
+            },
+        }),
+    },
+    "/moderador/me": {
+        get: operation("Moderación", "getCurrentModerator", "Obtener la sesión actual del moderador", {
+            responseSchema: {
+                type: "object",
+                properties: { rol: { type: "string" }, moderador: ref("Moderador") },
+            },
+        }),
+    },
+    "/moderador": {
+        post: operation("Moderación", "createModerator", "Crear un moderador (solo superadmin)", {
+            status: 201,
+            body: jsonBody({
+                type: "object",
+                required: ["usuario", "password", "nivel"],
+                properties: {
+                    usuario: { type: "string", minLength: 3, maxLength: 100 },
+                    password: { type: "string", format: "password", minLength: 8 },
+                    nivel: { type: "string", enum: ["moderador", "superadmin"] },
+                },
+            }),
+            responseSchema: ref("Moderador"),
+        }),
+        get: operation("Moderación", "listModerators", "Listar todos los moderadores (solo superadmin)", {
+            responseSchema: arrayOf(ref("Moderador")),
+        }),
+    },
+    "/moderador/{id}": {
+        patch: operation("Moderación", "updateModerator", "Editar nivel o contraseña de un moderador (solo superadmin)", {
+            parameters: [pathId("id", "ID del moderador.")],
+            body: jsonBody({
+                type: "object",
+                properties: {
+                    nivel: { type: "string", enum: ["moderador", "superadmin"] },
+                    password: { type: "string", format: "password", minLength: 8 },
+                },
+            }),
+            responseSchema: ref("Moderador"),
+        }),
+        delete: operation("Moderación", "deleteModerator", "Eliminar un moderador (solo superadmin)", {
+            parameters: [pathId("id", "ID del moderador.")],
+            responseSchema: { type: "object", properties: { id_moderador: id } },
+        }),
+    },
+    "/moderador/{id}/estado": {
+        patch: operation("Moderación", "updateModeratorStatus", "Bloquear, suspender o reactivar la cuenta de otro moderador (solo superadmin)", {
+            parameters: [pathId("id", "ID del moderador.")],
+            body: jsonBody({
+                type: "object",
+                required: ["accion", "motivo"],
+                properties: {
+                    accion: { type: "string", enum: ["bloquear", "suspender", "reactivar"] },
+                    motivo: { type: "string" },
+                    detalle: { type: "string" },
+                    dias: { type: "integer", minimum: 1 },
+                },
+            }),
+            responseSchema: {
+                type: "object",
+                properties: { id_moderador: id, accion: { type: "string" }, tiempo_suspendido: { type: "integer" } },
+            },
+        }),
+    },
+    "/moderador/usuarios": {
+        get: operation("Moderación", "listUsersForModeration", "Listar usuarios para el panel de moderación", {
+            responseSchema: arrayOf(ref("Usuario")),
+        }),
+    },
+    "/moderador/usuarios/{id}/estado": {
+        patch: operation("Moderación", "updateUserStatus", "Bloquear, suspender o reactivar la cuenta de un usuario", {
+            parameters: [pathId("id", "ID del usuario.")],
+            body: jsonBody({
+                type: "object",
+                required: ["accion", "motivo"],
+                properties: {
+                    accion: { type: "string", enum: ["bloquear", "suspender", "reactivar"] },
+                    motivo: { type: "string" },
+                    detalle: { type: "string" },
+                    dias: { type: "integer", minimum: 1 },
+                },
+            }),
+            responseSchema: {
+                type: "object",
+                properties: { id_usuario: id, accion: { type: "string" }, tiempo_suspendido: { type: "integer" } },
+            },
+        }),
+    },
+    "/moderador/usuarios/{id}/advertencia": {
+        post: operation("Moderación", "warnUser", "Enviar una advertencia a un usuario", {
+            parameters: [pathId("id", "ID del usuario.")],
+            body: jsonBody({
+                type: "object",
+                required: ["motivo"],
+                properties: { motivo: { type: "string" }, detalle: { type: "string" } },
+            }),
+            responseSchema: { type: "object", properties: { id_usuario: id } },
+        }),
+    },
+    "/moderador/palabras": {
+        get: operation("Moderación", "listRestrictedWords", "Listar palabras restringidas", {
+            responseSchema: arrayOf(ref("PalabraRestringida")),
+        }),
+        post: operation("Moderación", "createRestrictedWord", "Agregar una palabra restringida", {
+            status: 201,
+            body: jsonBody({
+                type: "object",
+                required: ["palabra"],
+                properties: { palabra: { type: "string", minLength: 2, maxLength: 100 } },
+            }),
+            responseSchema: ref("PalabraRestringida"),
+        }),
+    },
+    "/moderador/palabras/{id}": {
+        patch: operation("Moderación", "updateRestrictedWord", "Editar una palabra restringida", {
+            parameters: [pathId("id", "ID de la palabra.")],
+            body: jsonBody({
+                type: "object",
+                required: ["palabra"],
+                properties: { palabra: { type: "string", minLength: 2, maxLength: 100 } },
+            }),
+            responseSchema: ref("PalabraRestringida"),
+        }),
+        delete: operation("Moderación", "deleteRestrictedWord", "Eliminar una palabra restringida", {
+            parameters: [pathId("id", "ID de la palabra.")],
+            responseSchema: { type: "null" },
+        }),
+    },
+    "/moderador/publicaciones": {
+        get: operation("Moderación", "listPublicationsForModeration", "Listar publicaciones para el panel de moderación", {
+            responseSchema: arrayOf(ref("Publicacion")),
+        }),
+    },
+    "/moderador/publicaciones/{id}/bajar": {
+        patch: operation("Moderación", "takeDownPublication", "Bajar (desactivar) una publicación reportada", {
+            parameters: [pathId("id", "ID de la publicación.")],
+            responseSchema: ref("Publicacion"),
+        }),
+    },
+    "/moderador/publicaciones/{id}/reactivar": {
+        patch: operation("Moderación", "reactivatePublication", "Reactivar una publicación previamente bajada", {
+            parameters: [pathId("id", "ID de la publicación.")],
+            responseSchema: ref("Publicacion"),
+        }),
+    },
+    "/moderador/publicaciones/{id}": {
+        delete: operation("Moderación", "deletePublicationModeration", "Eliminar una publicación desde el panel de moderación", {
+            parameters: [pathId("id", "ID de la publicación.")],
+            responseSchema: { type: "object" },
         }),
     },
 };
@@ -1198,6 +1435,7 @@ const tags = [
     ["Notificaciones", "Notificaciones del usuario."],
     ["Reportes", "Reportes de contenido y usuarios."],
     ["Reseñas", "Calificaciones y reputación de perfiles."],
+    ["Moderación", "Panel de moderadores: cuentas, publicaciones y palabras restringidas."],
 ].map(([name, description]) => ({ name, description }));
 
 export const openApiDocument = {
