@@ -12,6 +12,7 @@ import { moderarImagenesEnBackground } from "../servicios/servicioModerarImagene
 import {contarPublicacionesDestacadasPorTipoYUsuario,actualizarDestacado} from "../repository/repositorioPublicacion.js";
 import {registrarInteraccionPublicacion} from "../autenticacion/eventoRecomendacion.js";
 import { obtenerJustificanteModeracion, notificarAccionModeracion } from "../servicios/servicioModeracion.js";
+import { buscarReportesPorPublicacion } from "../repository/repositorioReporte.js";
 
 export async function obtenerPublicacionesUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -647,6 +648,13 @@ export async function cambiarEstadoPublicacion(
         const idToken = Number(req.usuario?.sub);
         if (publicacion.id_usuario !== idToken) {
             errorResponse(res, "No tienes permiso para modificar esta publicacion. Solo el propietario puede cambiar su estado", 403);
+            return;
+        }
+
+        //Verificar si existen reportes de la publicación
+        const reportes = await buscarReportesPorPublicacion(idPublicacion, ["pendiente", "resuelto"]);
+        if (reportes.length > 0) {
+            errorResponse(res, "No se puede cambiar el estado de la publicación porque tiene reportes pendientes", 409);
             return;
         }
 
