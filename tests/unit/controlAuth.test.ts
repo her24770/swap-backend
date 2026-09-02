@@ -10,7 +10,7 @@ import {
 } from "../../src/repository/repositorioUsuario";
 import {
   estaBloqueado,
-  registrarIntentoFallido,
+  registrarIntento,
 } from "../../src/autenticacion/rateLimiter";
 import { ServicioBcrypt } from "../../src/autenticacion/ServicioBcrypt";
 import { ServicioJWT } from "../../src/autenticacion/ServicioJWT";
@@ -51,7 +51,7 @@ vi.mock("../../src/persistencia/redisClient", () => ({
 
 vi.mock("../../src/autenticacion/rateLimiter", () => ({
   estaBloqueado: vi.fn(),
-  registrarIntentoFallido: vi.fn(),
+  registrarIntento: vi.fn(),
   limpiarIntentos: vi.fn(),
 }));
 
@@ -113,7 +113,7 @@ describe("iniciarSesion", () => {
 
     vi.mocked(estaBloqueado).mockResolvedValue(false);
 
-    vi.mocked(registrarIntentoFallido).mockResolvedValue(undefined);
+    vi.mocked(registrarIntento).mockResolvedValue(undefined);
 
     const req: any = {
       ip: "127.0.0.1",
