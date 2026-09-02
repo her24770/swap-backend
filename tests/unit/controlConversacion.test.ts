@@ -8,19 +8,18 @@ import {
 
 import {
   buscarConversacionEntreDosUsuarios,
-  guardarConversacion,
   buscarConversacionPorId,
   buscarConversacionCompletaPorId,
   buscarMensajesPorConversacion,
   buscarConversacionesPorUsuario,
 } from "../../src/repository/repositorioMensaje";
 import { obtenerEstadoPorNombre } from "../../src/repository/repositorioEstado";
-import { crearMensajeYNotificar } from "../../src/servicios/servicioMensajeria";
+import { crearConversacionConPrimerMensaje, crearMensajeYNotificar } from "../../src/servicios/servicioMensajeria";
 import { errorResponse, exitoResponse } from "../../src/servicios/Response";
+import { ErrorServicio } from "../../src/servicios/ErrorServicio";
 
 vi.mock("../../src/repository/repositorioMensaje", () => ({
   buscarConversacionEntreDosUsuarios: vi.fn(),
-  guardarConversacion: vi.fn(),
   buscarConversacionPorId: vi.fn(),
   buscarConversacionCompletaPorId: vi.fn(),
   buscarMensajesPorConversacion: vi.fn(),
@@ -33,6 +32,7 @@ vi.mock("../../src/repository/repositorioEstado", () => ({
 }));
 
 vi.mock("../../src/servicios/servicioMensajeria", () => ({
+  crearConversacionConPrimerMensaje: vi.fn(),
   crearMensajeYNotificar: vi.fn(),
 }));
 
@@ -61,31 +61,14 @@ describe("iniciarConversacion", () => {
       "No puedes iniciar una conversación contigo mismo",
       400
     );
-    expect(guardarConversacion).not.toHaveBeenCalled();
+    expect(crearConversacionConPrimerMensaje).not.toHaveBeenCalled();
   });
 
   it("crea una conversacion nueva en estado pendiente si no existe y envia el mensaje", async () => {
     vi.mocked(buscarConversacionEntreDosUsuarios).mockResolvedValue(null);
-    vi.mocked(obtenerEstadoPorNombre).mockResolvedValue({
-      id_estado: 3,
-      estado: "pendiente",
-    } as any);
-    vi.mocked(guardarConversacion).mockResolvedValue({
-      id_conversacion: 10,
-      id_usuario_1: 1,
-      id_usuario_2: 2,
-      estado_conversacion: 3,
-    } as any);
-    vi.mocked(crearMensajeYNotificar).mockResolvedValue({
-      id_mensaje: 100,
-      id_conversacion: 10,
-      mensaje: "hola",
-    } as any);
-    vi.mocked(buscarConversacionCompletaPorId).mockResolvedValue({
-      id_conversacion: 10,
-      id_usuario_1: 1,
-      id_usuario_2: 2,
-      estado_conversacion: 3,
+    vi.mocked(crearConversacionConPrimerMensaje).mockResolvedValue({
+      conversacion: { id_conversacion: 10, estado_conversacion: 3 },
+      mensaje: { id_mensaje: 100, mensaje: "hola" },
     } as any);
 
     const req: any = {
@@ -97,13 +80,13 @@ describe("iniciarConversacion", () => {
 
     await iniciarConversacion(req, res, next);
 
-    expect(guardarConversacion).toHaveBeenCalledWith({
-      usuario1: { connect: { id_usuario: 1 } },
-      usuario2: { connect: { id_usuario: 2 } },
-      estadoRel: { connect: { id_estado: 3 } },
-    });
-    expect(crearMensajeYNotificar).toHaveBeenCalledWith(10, 1, "hola", { permitirMensajeInicialPendiente: true });
-    expect(exitoResponse).toHaveBeenCalled();
+    expect(crearConversacionConPrimerMensaje).toHaveBeenCalledWith(1, 2, "hola", undefined);
+    expect(exitoResponse).toHaveBeenCalledWith(
+      res,
+      expect.objectContaining({ mensaje: expect.objectContaining({ mensaje: "hola" }) }),
+      "Conversación creada y mensaje enviado exitosamente",
+      201,
+    );
     expect(next).not.toHaveBeenCalled();
   });
 
@@ -137,14 +120,19 @@ describe("iniciarConversacion", () => {
 
     await iniciarConversacion(req, res, next);
 
-    expect(guardarConversacion).not.toHaveBeenCalled();
-    expect(crearMensajeYNotificar).toHaveBeenCalledWith(5, 1, "otra vez");
+    expect(crearConversacionConPrimerMensaje).not.toHaveBeenCalled();
+    expect(crearMensajeYNotificar).toHaveBeenCalledWith(5, 1, "otra vez", {
+      permitirMensajeInicialPendiente: false,
+      idPublicacion: undefined,
+    });
     expect(exitoResponse).toHaveBeenCalled();
   });
 
   it("responde 500 si el estado 'pendiente' no esta configurado", async () => {
     vi.mocked(buscarConversacionEntreDosUsuarios).mockResolvedValue(null);
-    vi.mocked(obtenerEstadoPorNombre).mockResolvedValue(null);
+    vi.mocked(crearConversacionConPrimerMensaje).mockRejectedValue(
+      new ErrorServicio("Error de configuración: estado 'pendiente' no encontrado", 500),
+    );
 
     const req: any = {
       usuario: { sub: "1" },
@@ -157,10 +145,10 @@ describe("iniciarConversacion", () => {
 
     expect(errorResponse).toHaveBeenCalledWith(
       res,
-      "Error de configuracion: estado 'pendiente' no encontrado",
-      500
+      "Error de configuración: estado 'pendiente' no encontrado",
+      500,
     );
-    expect(guardarConversacion).not.toHaveBeenCalled();
+    expect(next).not.toHaveBeenCalled();
   });
 });
 
