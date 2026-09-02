@@ -9,7 +9,7 @@ import {
 } from "../../src/repository/repositorioModerador";
 import {
   estaBloqueado,
-  registrarIntentoFallido,
+  registrarIntento,
   limpiarIntentos,
 } from "../../src/autenticacion/rateLimiter";
 import { ServicioBcrypt } from "../../src/autenticacion/ServicioBcrypt";
@@ -24,7 +24,7 @@ vi.mock("../../src/repository/repositorioModerador", () => ({
 
 vi.mock("../../src/autenticacion/rateLimiter", () => ({
   estaBloqueado: vi.fn(),
-  registrarIntentoFallido: vi.fn(),
+  registrarIntento: vi.fn(),
   limpiarIntentos: vi.fn(),
 }));
 
@@ -80,7 +80,7 @@ describe("iniciarSesionModerador", () => {
       expect.objectContaining({ sub: "1", rol: "moderador" })
     );
     expect(res.cookie).toHaveBeenCalledWith("swap-token", "jwt-token", expect.any(Object));
-    expect(limpiarIntentos).toHaveBeenCalledWith("127.0.0.1");
+    expect(limpiarIntentos).toHaveBeenCalledWith("login", "127.0.0.1");
     expect(exitoResponse).toHaveBeenCalled();
     expect(next).not.toHaveBeenCalled();
   });
@@ -139,7 +139,7 @@ describe("iniciarSesionModerador", () => {
 
     await iniciarSesionModerador(req, res, vi.fn());
 
-    expect(registrarIntentoFallido).toHaveBeenCalledWith("127.0.0.1");
+    expect(registrarIntento).toHaveBeenCalledWith("login", "127.0.0.1");
     expect(errorResponse).toHaveBeenCalledWith(res, "Credenciales invalidas", 401);
   });
 
