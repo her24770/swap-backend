@@ -22,7 +22,8 @@ Backend service for **Swap** — a platform for student tutoring, academic mater
 | Carpeta          | Qué va ahí                                                                                                       |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `api_rest/`      | Routers de Express — solo enrutan, sin lógica. Ej: `routerAuth.ts`, `routerPublicacion.ts`                       |
-| `controlador/`   | Lógica de negocio. Recibe la request, llama al repositorio, devuelve respuesta. Ej: `controlUsuario.ts`          |
+| `controlador/`   | Adaptadores HTTP: leen request, llaman servicios y construyen la respuesta. Ej: `controlPublicacion.ts`           |
+| `servicios/`     | Casos de uso y coordinación de reglas, repositorios y proveedores externos. Ej: `servicioPublicacion.ts`          |
 | `modelo/`        | Interfaces y tipos TypeScript del dominio. Ej: `Usuario.ts`, `Publicacion.ts`                                    |
 | `repository/`    | Queries a Prisma. Solo acceso a datos, sin lógica de negocio. Ej: `repositorioUsuario.ts`                        |
 | `persistencia/`  | Singleton de `PrismaClient` — un único cliente para toda la app. Solo `prismaClient.ts`                          |
@@ -232,6 +233,37 @@ Generar reporte de cobertura:
 ```bash
 npm run test:coverage
 ```
+
+### Contrato e inventario de endpoints
+
+La matriz trazable se genera desde los routers de Express y se cruza con OpenAPI
+y las invocaciones HTTP existentes:
+
+```bash
+npm run endpoints:inventory
+npm run test:contract
+```
+
+El resultado queda en `docs/matriz-endpoints.md`. CI debe ejecutar
+`test:contract`: falla si una ruta no está documentada o si la seguridad de
+OpenAPI no coincide con sus middlewares. La matriz diferencia documentación,
+pruebas de autorización y casos funcionales pendientes.
+
+### Integración aislada
+
+El entorno de integración usa PostgreSQL/pgvector y Redis efímeros, sin reutilizar
+volúmenes ni nombres del entorno de desarrollo:
+
+```bash
+npm run test:integration:docker
+npm run test:integration:down
+```
+
+El primer comando crea el esquema y ejecuta las suites. La limpieza valida antes
+que `NODE_ENV=test`, que PostgreSQL termine en `_test` y que Redis use DB 15; así
+evita truncar por error una base de desarrollo o producción. Para ejecutar desde
+el host, se puede copiar `.env.integration.example`, levantar solo
+`postgres-integration` y `redis-integration`, y correr `npm run test:integration`.
 
 ---
 
