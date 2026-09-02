@@ -136,7 +136,7 @@ beforeEach(() => {
   estado.crearAcuerdo.mockClear();
 });
 
-describe("TEST-04 — Mensajería y coordinación", () => {
+describe("TEST-04 rápido — Mensajería y coordinación con dobles", () => {
   it("IT-19: crea el contacto y recupera el historial completo en orden", async () => {
     const creado = await request(app)
       .post("/api/conversacion")

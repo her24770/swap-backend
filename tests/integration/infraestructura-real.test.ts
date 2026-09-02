@@ -1,5 +1,5 @@
 import request from "supertest";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import app from "../../src/app";
 import prisma from "../../src/persistencia/prismaClient";
 import redis from "../../src/persistencia/redisClient";
@@ -9,7 +9,7 @@ import {
 } from "./entornoIntegracion";
 
 describe.runIf(process.env.RUN_INTEGRATION === "true")("infraestructura de integración aislada", () => {
-    beforeAll(async () => {
+    beforeEach(async () => {
         await limpiarEntornoIntegracion();
         await prisma.estado.createMany({
             data: [
@@ -19,8 +19,11 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")("infraestructura de integ
         });
     });
 
-    afterAll(async () => {
+    afterEach(async () => {
         await limpiarEntornoIntegracion();
+    });
+
+    afterAll(async () => {
         await cerrarEntornoIntegracion();
     });
 
@@ -33,8 +36,8 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")("infraestructura de integ
     });
 
     it("lee y escribe solamente en Redis DB 15", async () => {
+        expect(new URL(process.env.REDIS_URL!).pathname).toBe("/15");
         await redis.set("integration:health", "ok");
         expect(await redis.get("integration:health")).toBe("ok");
     });
 });
-

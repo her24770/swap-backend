@@ -27,9 +27,23 @@ describe("protecciones del entorno de integración", () => {
 
     it("rechaza usar el namespace Redis predeterminado", () => {
         process.env.RUN_INTEGRATION = "true";
-        process.env.DATABASE_URL = "postgresql://user:pass@localhost:5432/swap_integration_test";
+        process.env.DATABASE_URL = "postgresql://user:pass@localhost:55432/swap_integration_test";
         process.env.REDIS_URL = "redis://localhost:6379/0";
         expect(() => verificarEntornoIntegracion()).toThrow(/base lógica 15/i);
+    });
+
+    it("rechaza PostgreSQL en el puerto habitual aunque la base termine en _test", () => {
+        process.env.RUN_INTEGRATION = "true";
+        process.env.DATABASE_URL = "postgresql://user:pass@localhost:5432/swap_integration_test";
+        process.env.REDIS_URL = "redis://localhost:56379/15";
+        expect(() => verificarEntornoIntegracion()).toThrow(/puerto aislado/i);
+    });
+
+    it("rechaza Redis en el puerto habitual aunque seleccione DB 15", () => {
+        process.env.RUN_INTEGRATION = "true";
+        process.env.DATABASE_URL = "postgresql://user:pass@localhost:55432/swap_integration_test";
+        process.env.REDIS_URL = "redis://localhost:6379/15";
+        expect(() => verificarEntornoIntegracion()).toThrow(/puerto aislado/i);
     });
 
     it("acepta las variables aisladas documentadas", () => {
