@@ -8,12 +8,14 @@ import {
 import { autenticar } from "../autenticacion/GestorPermisos.js";
 import { soloUsuario } from "../autenticacion/permisosUsuario.js";
 import { uploadPdf } from "../servicios/middlewareMulter.js";
+import { validar } from "../autenticacion/middelwareValidacion.js";
+import { schemaCrearCertificacion } from "../modelo/schemaCertificacion.js";
 
 const router = Router();
 
 router.get("/user/:id_usuario", autenticar, obtenerCertificacionesDeUsuario);
 router.get("/:id", autenticar, obtenerCertificacionPorId);
-router.post("/", autenticar, soloUsuario, uploadPdf.single("pdf"), crearCertificacionUsuario);
+router.post("/", autenticar, soloUsuario, uploadPdf.single("pdf"), validar(schemaCrearCertificacion), crearCertificacionUsuario);
 router.delete("/:id", autenticar, soloUsuario, eliminarCertificacionUsuario);
 
 export default router;

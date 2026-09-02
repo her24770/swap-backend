@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+const arrayMultipart = <T extends z.ZodTypeAny>(item: T) => z.preprocess(
+    (value) => typeof value === "string" ? JSON.parse(value) : value,
+    z.array(item).optional()
+);
+
 /**
  * Schema para POST /api/publicaciones
  * Basado en el modelo Publicacion del schema.prisma
@@ -16,7 +21,7 @@ export const schemaCrearPublicacion = z.object({
         .max(255, "La descripción no puede superar 255 caracteres."),
 
     precio: z
-        .number({ invalid_type_error: "El precio debe ser un número." })
+        .coerce.number({ invalid_type_error: "El precio debe ser un número." })
         .min(0, "El precio no puede ser negativo.")
         .default(0),
 
@@ -33,9 +38,9 @@ export const schemaCrearPublicacion = z.object({
         .optional(),
 
     destacar: z
-        .boolean({
+        .preprocess((value) => value === "true" ? true : value === "false" ? false : value, z.boolean({
             invalid_type_error: "El campo destacar debe ser un booleano."
-        })
+        }))
         .optional()
         .default(false),
 
@@ -46,12 +51,7 @@ export const schemaCrearPublicacion = z.object({
         .optional()
         .default([]),
 
-    etiquetas: z
-        .array(
-            z.number().int().positive("Cada etiqueta debe ser un ID válido.")
-        )
-        .optional()
-        .default([]),
+    etiquetas: arrayMultipart(z.coerce.number().int().positive("Cada etiqueta debe ser un ID válido.")).default([]),
 });
 
 /**
@@ -72,7 +72,7 @@ export const schemaEditarPublicacion = z.object({
         .optional(),
 
     precio: z
-        .number({ invalid_type_error: "El precio debe ser un número." })
+        .coerce.number({ invalid_type_error: "El precio debe ser un número." })
         .min(0, "El precio no puede ser negativo.")
         .max(999.99, "El precio no puede superar Q999.99.")
         .optional(),
@@ -89,9 +89,8 @@ export const schemaEditarPublicacion = z.object({
         })
         .optional(),
 
-    etiquetas: z
-        .array(z.number().int().positive("Cada etiqueta debe ser un ID válido."))
-        .optional(),
+    etiquetas: arrayMultipart(z.coerce.number().int().positive("Cada etiqueta debe ser un ID válido.")),
+    imagenesEliminar: arrayMultipart(z.string().url("Cada imagen debe ser una URL válida.")),
 })
 .refine(
     (data) => Object.keys(data).some((k) => data[k as keyof typeof data] !== undefined),

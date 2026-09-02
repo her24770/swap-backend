@@ -102,7 +102,7 @@ describe("iniciarConversacion", () => {
       usuario2: { connect: { id_usuario: 2 } },
       estadoRel: { connect: { id_estado: 3 } },
     });
-    expect(crearMensajeYNotificar).toHaveBeenCalledWith(10, 1, "hola");
+    expect(crearMensajeYNotificar).toHaveBeenCalledWith(10, 1, "hola", { permitirMensajeInicialPendiente: true });
     expect(exitoResponse).toHaveBeenCalled();
     expect(next).not.toHaveBeenCalled();
   });
@@ -113,6 +113,10 @@ describe("iniciarConversacion", () => {
       id_usuario_1: 2,
       id_usuario_2: 1,
       estado_conversacion: 1,
+    } as any);
+    vi.mocked(obtenerEstadoPorNombre).mockResolvedValue({
+      id_estado: 1,
+      estado: "activo",
     } as any);
     vi.mocked(crearMensajeYNotificar).mockResolvedValue({
       id_mensaje: 101,
