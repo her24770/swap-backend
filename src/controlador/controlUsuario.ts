@@ -21,15 +21,18 @@ export async function obtenerUsuario(
 ): Promise<void> {
     try {
         const id = Number(req.params.id);
-        const usuario = await buscarUsuarioPorId(id);
+        // Fix BG-17: antes regresaba la fila completa de Usuario (carnet,
+        // email_institucional, reportes_recibidos, etc.) a cualquier usuario
+        // autenticado que consultara el id de otro. Usa el mismo DTO seguro
+        // que perfil-publico.
+        const usuario = await buscarPerfilPublicoPorId(id);
 
         if (!usuario) {
             errorResponse(res, "Usuario no encontrado", 404);
             return;
         }
 
-        const { password: _, ...usuarioPublico } = usuario;
-        exitoResponse(res, usuarioPublico, "Usuario obtenido exitosamente", 200);
+        exitoResponse(res, usuario, "Usuario obtenido exitosamente", 200);
     } catch (error) {
         next(error);
     }

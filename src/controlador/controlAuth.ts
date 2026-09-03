@@ -82,6 +82,7 @@ export async function registro(req: Request, res: Response, next: NextFunction):
             sub: String(nuevoUsuario.id_usuario),
             email: nuevoUsuario.email_institucional,
             rol: "usuario",
+            ver: nuevoUsuario.sesion_version,
         };
         const token = ServicioJWT.generarToken(payload);
         const { password: _, ...usuarioPublico } = nuevoUsuario;
@@ -190,6 +191,7 @@ export async function iniciarSesion(req: Request, res: Response, next: NextFunct
                 sub: String(usuario.id_usuario),
                 email: usuario.email_institucional,
                 rol: "usuario",
+                ver: usuario.sesion_version,
             };
             const token = ServicioJWT.generarToken(payload);
             const { password: _, ...usuarioPublico } = usuario;
@@ -290,7 +292,12 @@ export async function restablecerPassword(req: Request, res: Response, next: Nex
         }
 
         const password = await ServicioBcrypt.hashearPassword(newPassword);
-        await actualizarUsuario(usuario.id_usuario, { password });
+        // Password y versión cambian en la misma operación: nunca puede
+        // quedar aplicada la contraseña nueva con sesiones antiguas válidas.
+        await actualizarUsuario(usuario.id_usuario, {
+            password,
+            sesion_version: { increment: 1 },
+        });
         await redis.del(claveCodigo);
 
         exitoResponse(res, [], "Contraseña actualizada correctamente.", 200);

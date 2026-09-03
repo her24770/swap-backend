@@ -5,6 +5,30 @@ import prisma from "../persistencia/prismaClient";
 // Usuario
 // ─────────────────────────────────────────────
 
+// Fix BG-17: proyección segura para exponer un perfil de Usuario a otros
+// usuarios (autenticados o no). NUNCA debe incluir carnet, email_institucional,
+// reportes_recibidos, tiempo_suspendido, sesion_version ni password — son datos
+// internos/PII, no del perfil público. `contactos` sí se incluye a propósito:
+// es información que el propio usuario decidió publicar para que lo contacten.
+const SELECT_PERFIL_PUBLICO = {
+    id_usuario: true,
+    nombre: true,
+    url_foto_perfil: true,
+    descripcion: true,
+    calificacion: true,
+    total_resenas: true,
+    contactos: {
+        include: {
+            tipoContacto: true,
+        },
+    },
+    etiquetas: {
+        include: {
+            etiqueta: true,
+        },
+    },
+} satisfies Prisma.UsuarioSelect;
+
 export async function buscarUsuarioPorId(id: number): Promise<Usuario | null> {
     return prisma.usuario.findUnique({ where: { id_usuario: id } });
 }
@@ -12,27 +36,7 @@ export async function buscarUsuarioPorId(id: number): Promise<Usuario | null> {
 export async function buscarPerfilPublicoPorId(id: number) {
     return prisma.usuario.findUnique({
         where: { id_usuario: id },
-        select: {
-            id_usuario: true,
-            nombre: true,
-            carnet: true,
-            email_institucional: true,
-            url_foto_perfil: true,
-            descripcion: true,
-            calificacion: true,
-            reportes_recibidos: true,
-            total_resenas: true,
-            contactos: {
-                include: {
-                    tipoContacto: true,
-                },
-            },
-            etiquetas: {
-                include: {
-                    etiqueta: true,
-                },
-            },
-        },
+        select: SELECT_PERFIL_PUBLICO,
     });
 }
 

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { ServicioJWT, TokenVerificado } from "./ServicioJWT.js";
 import { estaRevocado } from "./blacklist.js";
+import { obtenerVersionActual, TipoCuenta } from "./servicioSesionVersion.js";
 import { errorResponse } from "../servicios/Response.js";
 
 // ─── Extensión del tipo Request ───────────────────────────────────────────────
@@ -33,7 +34,29 @@ export async function autenticar(req: Request, res: Response, next: NextFunction
       errorResponse(res, "Sesión cerrada. Por favor inicia sesión nuevamente.", 401);
       return;
     }
-    req.usuario = ServicioJWT.verificarToken(token);
+
+    const usuarioToken = ServicioJWT.verificarToken(token);
+
+    // Fix BG-04: la firma/expiración del JWT ya no son suficientes — hay que
+    // confirmar que nada crítico cambió en la cuenta desde que se emitió.
+    const tipo: TipoCuenta = usuarioToken.rol === "usuario" ? "usuario" : "moderador";
+    const idCuenta = Number(usuarioToken.sub);
+    const versionActual = await obtenerVersionActual(tipo, idCuenta);
+
+    if (versionActual === null) {
+      // La cuenta ya no existe (eliminada).
+      errorResponse(res, "Sesión inválida. Por favor inicia sesión nuevamente.", 401);
+      return;
+    }
+
+    if (usuarioToken.ver !== versionActual) {
+      // Password reset, bloqueo/suspensión/reactivación, o cambio de nivel
+      // desde que se emitió este token.
+      errorResponse(res, "Sesión inválida. Por favor inicia sesión nuevamente.", 401);
+      return;
+    }
+
+    req.usuario = usuarioToken;
     next();
   } catch (error) {
     const mensaje = error instanceof Error ? error.message : "Token inválido.";
