@@ -44,6 +44,19 @@ export async function subirFotoPerfil(
         const usuario = await buscarUsuarioPorId(idUsuario);
         const urlAnterior = usuario?.url_foto_perfil ?? null;
 
+        // 1. Subir la imagen nueva primero: nunca se borra la anterior hasta confirmar la nueva.
+        const url = await subirImagenR2(req.file.buffer, req.file.mimetype, carpeta, `user_${idUsuario}`);
+
+        // 2. Persistir la referencia en BD antes de responder éxito o borrar la anterior.
+        try {
+            await actualizarUsuario(idUsuario, { url_foto_perfil: url });
+        } catch (dbError) {
+            // La BD no confirmó: compensar borrando la imagen recién subida para no dejar un huérfano en R2.
+            try { await eliminarImagenR2(url); } catch { /* best-effort */ }
+            throw dbError;
+        }
+
+        // 3. Solo ahora que la BD ya apunta a la imagen nueva, se borra la anterior.
         if (urlAnterior) {
             try {
                 await eliminarImagenR2(urlAnterior);
@@ -51,8 +64,6 @@ export async function subirFotoPerfil(
                 // Si falla la eliminación en R2 se continúa de todas formas
             }
         }
-
-        const url = await subirImagenR2(req.file.buffer, req.file.mimetype, carpeta, `user_${idUsuario}`);
 
         exitoResponse(res, url, urlAnterior ? "Foto de perfil actualizada" : "Foto de perfil agregada", 201);
 

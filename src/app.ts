@@ -5,6 +5,7 @@ import routes from "./api_rest/routes";
 import swaggerRoutes from "./openapi/swagger";
 import cookieParser from "cookie-parser";
 import express, { NextFunction, Request, Response } from "express";
+import { rateLimitGlobal } from "./autenticacion/rateLimiter.js";
 
 const app = express();
 
@@ -41,6 +42,7 @@ app.use("/api", (req: Request, res: Response, next: NextFunction) => {
     })(req, res, next);
 });
 
+app.use("/api", rateLimitGlobal);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

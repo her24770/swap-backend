@@ -14,11 +14,28 @@ import { getIO } from "../sockets/ioInstance.js";
 export async function crearMensajeYNotificar(
     idConversacion: number,
     idEmisor: number,
-    texto: string
+    texto: string,
+    opciones: { permitirMensajeInicialPendiente?: boolean } = {}
 ): Promise<Mensaje> {
     const conversacion = await buscarConversacionPorId(idConversacion);
     if (!conversacion) {
         throw new Error("Conversación no encontrada");
+    }
+
+    const esParticipante = conversacion.id_usuario_1 === idEmisor || conversacion.id_usuario_2 === idEmisor;
+    if (!esParticipante) {
+        throw new Error("No tienes permiso para enviar mensajes en esta conversación");
+    }
+
+    const estadoActivo = await obtenerEstadoPorNombre("activo");
+    if (!estadoActivo) {
+        throw new Error("Error de configuración: estado 'activo' no encontrado");
+    }
+
+    const esMensajeInicialPendiente = opciones.permitirMensajeInicialPendiente === true
+        && (conversacion.mensajes?.length ?? 0) === 0;
+    if (conversacion.estado_conversacion !== estadoActivo.id_estado && !esMensajeInicialPendiente) {
+        throw new Error("La conversación debe estar activa para enviar mensajes");
     }
 
     const idReceptor =

@@ -162,6 +162,7 @@ export async function iniciarConversacion(req: Request, res: Response, next: Nex
         }
 
         let conversacion = await buscarConversacionEntreDosUsuarios(idUsuario, id_usuario_2);
+        let conversacionNueva = false;
 
         if (!conversacion) {
             const estadoPendiente = await obtenerEstadoPorNombre("pendiente");
@@ -175,6 +176,7 @@ export async function iniciarConversacion(req: Request, res: Response, next: Nex
                 usuario2: { connect: { id_usuario: id_usuario_2 } },
                 estadoRel: { connect: { id_estado: estadoPendiente.id_estado } },
             });
+            conversacionNueva = true;
         }
 
         if (id_publicacion) {
@@ -185,7 +187,27 @@ export async function iniciarConversacion(req: Request, res: Response, next: Nex
             );
         }
 
-        const nuevoMensaje = await crearMensajeYNotificar(conversacion.id_conversacion, idUsuario, mensaje);
+        // Una conversación ya existente nunca puede volver a recibir el
+        // "mensaje inicial". Solo la recién creada puede guardar ese único
+        // mensaje mientras está pendiente; las pendientes y bloqueadas deben
+        // aceptarse primero antes de admitir mensajes posteriores.
+        if (!conversacionNueva) {
+            const estadoActivo = await obtenerEstadoPorNombre("activo");
+            if (!estadoActivo) {
+                errorResponse(res, "Error de configuracion: estado 'activo' no encontrado", 500);
+                return;
+            }
+            if (conversacion.estado_conversacion !== estadoActivo.id_estado) {
+                errorResponse(res, "La conversación debe estar activa para enviar mensajes", 400);
+                return;
+            }
+        }
+
+        const nuevoMensaje = conversacionNueva
+            ? await crearMensajeYNotificar(conversacion.id_conversacion, idUsuario, mensaje, {
+                permitirMensajeInicialPendiente: true,
+            })
+            : await crearMensajeYNotificar(conversacion.id_conversacion, idUsuario, mensaje);
 
         const conversacionCompleta = await buscarConversacionCompletaPorId(conversacion.id_conversacion);
         if (!conversacionCompleta) {
@@ -231,5 +253,3 @@ export async function obtenerMensajesDeConversacion(req: Request, res: Response,
         next(error);
     }
 }
-
-

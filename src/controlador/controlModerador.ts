@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { Prisma } from "@prisma/client";
 import { ServicioJWT, PayloadToken } from "../autenticacion/ServicioJWT.js";
 import { ServicioBcrypt } from "../autenticacion/ServicioBcrypt.js";
-import { registrarIntentoFallido, estaBloqueado, limpiarIntentos } from "../autenticacion/rateLimiter.js";
+import { registrarIntento, estaBloqueado, limpiarIntentos } from "../autenticacion/rateLimiter.js";
 import {
     buscarModeradorPorUsuario,
     buscarModeradorPorId,
@@ -37,7 +37,7 @@ export async function iniciarSesionModerador(req: Request, res: Response, next: 
     try {
         const ip = req.ip ?? "unknown";
 
-        if (await estaBloqueado(ip)) {
+        if (await estaBloqueado("login", ip)) {
             errorResponse(res, "Demasiados intentos fallidos. Intenta de nuevo en 15 minutos.", 429);
             return;
         }
@@ -52,12 +52,12 @@ export async function iniciarSesionModerador(req: Request, res: Response, next: 
 
         const esPasswordCorrecta = await ServicioBcrypt.compararPassword(password, moderador.password);
         if (!esPasswordCorrecta) {
-            await registrarIntentoFallido(ip);
+            await registrarIntento("login", ip);
             errorResponse(res, "Credenciales invalidas", 401);
             return;
         }
 
-        await limpiarIntentos(ip);
+        await limpiarIntentos("login", ip);
 
         // Verificar estado de la cuenta (SWAP-422, generalizado a Moderador)
         const estadoCuenta = interpretarEstadoCuenta(moderador.tiempo_suspendido);

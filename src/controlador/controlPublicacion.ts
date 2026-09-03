@@ -12,6 +12,7 @@ import { moderarImagenesEnBackground } from "../servicios/servicioModerarImagene
 import {contarPublicacionesDestacadasPorTipoYUsuario,actualizarDestacado} from "../repository/repositorioPublicacion.js";
 import {registrarInteraccionPublicacion} from "../autenticacion/eventoRecomendacion.js";
 import { obtenerJustificanteModeracion, notificarAccionModeracion } from "../servicios/servicioModeracion.js";
+import { buscarReportesPorPublicacion } from "../repository/repositorioReporte.js";
 
 export async function obtenerPublicacionesUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -349,7 +350,9 @@ export async function editarPublicacion(req: Request, res: Response, next: NextF
         }
 
         // Actualizar etiquetas
-        const etiquetasIds: number[] | undefined = body.etiquetas ? JSON.parse(body.etiquetas) : undefined;
+        const etiquetasIds: number[] | undefined = body.etiquetas
+            ? (Array.isArray(body.etiquetas) ? body.etiquetas : JSON.parse(body.etiquetas))
+            : undefined;
         if (etiquetasIds !== undefined) {
             const prismaClient = require("../persistencia/prismaClient.js").default;
             await prismaClient.publicacionEtiqueta.deleteMany({ where: { id_publicacion } });
@@ -362,7 +365,9 @@ export async function editarPublicacion(req: Request, res: Response, next: NextF
         }
 
         // Eliminar imágenes indicadas
-        const urlsEliminar: string[] = body.imagenesEliminar ? JSON.parse(body.imagenesEliminar) : [];
+        const urlsEliminar: string[] = body.imagenesEliminar
+            ? (Array.isArray(body.imagenesEliminar) ? body.imagenesEliminar : JSON.parse(body.imagenesEliminar))
+            : [];
         const imagenesActuales = await buscarImagenesPorPublicacion(id_publicacion);
 
         for (const url of urlsEliminar) {
@@ -647,6 +652,13 @@ export async function cambiarEstadoPublicacion(
         const idToken = Number(req.usuario?.sub);
         if (publicacion.id_usuario !== idToken) {
             errorResponse(res, "No tienes permiso para modificar esta publicacion. Solo el propietario puede cambiar su estado", 403);
+            return;
+        }
+
+        //Verificar si existen reportes de la publicación
+        const reportes = await buscarReportesPorPublicacion(idPublicacion, ["pendiente", "resuelto"]);
+        if (reportes.length > 0) {
+            errorResponse(res, "No se puede cambiar el estado de la publicación porque tiene reportes pendientes", 409);
             return;
         }
 

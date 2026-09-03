@@ -12,7 +12,7 @@ export const schemaCrearCertificacion = z.object({
         .max(100, "El lugar de emisión no puede superar 100 caracteres."),
 
     id_etiqueta: z
-        .number({ required_error: "La etiqueta es obligatoria.", invalid_type_error: "El ID de etiqueta debe ser un número." })
+        .coerce.number({ required_error: "La etiqueta es obligatoria.", invalid_type_error: "El ID de etiqueta debe ser un número." })
         .int("El ID de etiqueta debe ser un entero.")
         .positive("El ID de etiqueta debe ser un número positivo."),
 });

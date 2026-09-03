@@ -55,6 +55,10 @@ export const schemaIniciarConversacion = z.object({
         .optional(),
 });
 
+export const schemaActualizarEstadoConversacion = z.object({
+    estado_id: z.coerce.number().int().positive("El ID del estado debe ser válido."),
+});
+
 export type EnviarMensajeInput = z.infer<typeof schemaEnviarMensaje>;
 export type CrearConversacionInput = z.infer<typeof schemaCrearConversacion>;
 export type IniciarConversacionInput = z.infer<typeof schemaIniciarConversacion>;

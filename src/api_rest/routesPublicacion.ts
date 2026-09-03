@@ -15,7 +15,7 @@ import {
 import { autenticar } from "../autenticacion/GestorPermisos.js";
 import { soloUsuario } from "../autenticacion/permisosUsuario.js";
 import { uploadImagen } from "../servicios/middlewareMulter.js";
-import { schemaDestacarPublicacion, schemaFiltrosPublicacion } from "../modelo/schemaPublicacion.js";
+import { schemaCrearPublicacion, schemaEditarPublicacion, schemaDestacarPublicacion, schemaFiltrosPublicacion } from "../modelo/schemaPublicacion.js";
 import { validar } from "../autenticacion/middelwareValidacion.js";
 import { moderarTexto } from "../autenticacion/middlewareModeracion.js";
 
@@ -25,8 +25,8 @@ router.post("/buscar", autenticar, validar(schemaFiltrosPublicacion), obtenerPub
 router.get("/user/:id", autenticar, obtenerPublicacionesUsuario);
 router.get("/", autenticar, obtenerTodasLasPublicaciones);
 router.get("/:id", autenticar, obtenerPublicacionPorId);
-router.post("/", autenticar, soloUsuario, uploadImagen.any(), moderarTexto(['titulo', 'descripcion']), crearPublicacionConImagen);
-router.put("/:id", autenticar, soloUsuario, uploadImagen.any(), moderarTexto(['titulo', 'descripcion']), editarPublicacion);
+router.post("/", autenticar, soloUsuario, uploadImagen.any(), validar(schemaCrearPublicacion), moderarTexto(['titulo', 'descripcion']), crearPublicacionConImagen);
+router.put("/:id", autenticar, soloUsuario, uploadImagen.any(), validar(schemaEditarPublicacion), moderarTexto(['titulo', 'descripcion']), editarPublicacion);
 router.patch("/:id/estado", autenticar, soloUsuario, cambiarEstadoPublicacion);
 router.delete("/:id", autenticar, soloUsuario, eliminarPublicacionConImagenes);
 router.patch("/:id/destacar", autenticar, soloUsuario, validar(schemaDestacarPublicacion), destacarPublicacion);
