@@ -338,14 +338,23 @@ export async function editarPublicacion(req: Request, res: Response, next: NextF
             updateData.tipo_publicacion = tipoPerfil.id_tipo_perfil;
         }
 
+        const urlsEliminar: string[] = body.imagenesEliminar ?? [];
+        const imagenesActuales = await buscarImagenesPorPublicacion(id_publicacion);
+        const archivos = ((req.files as Express.Multer.File[]) ?? []).filter(f => f.fieldname === 'imagenes');
+        const imagenesRestantes = imagenesActuales.filter((img) => !urlsEliminar.includes(img.url_imagen));
+        const disponibles = 5 - imagenesRestantes.length;
+
+        if (archivos.length > disponibles) {
+            errorResponse(res, `Solo puedes agregar ${disponibles} imagen(es) más. La publicación ya tiene ${imagenesRestantes.length} y el máximo es 5.`, 400);
+            return;
+        }
+
         if (Object.keys(updateData).length > 0) {
             await actualizarPublicacion(id_publicacion, updateData);
         }
 
         // Actualizar etiquetas
-        const etiquetasIds: number[] | undefined = body.etiquetas
-            ? (Array.isArray(body.etiquetas) ? body.etiquetas : JSON.parse(body.etiquetas))
-            : undefined;
+        const etiquetasIds: number[] | undefined = body.etiquetas;
         if (etiquetasIds !== undefined) {
             const prismaClient = require("../persistencia/prismaClient.js").default;
             await prismaClient.publicacionEtiqueta.deleteMany({ where: { id_publicacion } });
@@ -358,11 +367,6 @@ export async function editarPublicacion(req: Request, res: Response, next: NextF
         }
 
         // Eliminar imágenes indicadas
-        const urlsEliminar: string[] = body.imagenesEliminar
-            ? (Array.isArray(body.imagenesEliminar) ? body.imagenesEliminar : JSON.parse(body.imagenesEliminar))
-            : [];
-        const imagenesActuales = await buscarImagenesPorPublicacion(id_publicacion);
-
         for (const url of urlsEliminar) {
             const imagen = imagenesActuales.find((img) => img.url_imagen === url);
             if (imagen) {
@@ -372,16 +376,6 @@ export async function editarPublicacion(req: Request, res: Response, next: NextF
         }
 
         // Subir nuevas imágenes
-        const MAX_IMAGENES = 5;
-        const imagenesRestantes = imagenesActuales.filter((img) => !urlsEliminar.includes(img.url_imagen));
-        const archivos = ((req.files as Express.Multer.File[]) ?? []).filter(f => f.fieldname === 'imagenes');
-        const disponibles = MAX_IMAGENES - imagenesRestantes.length;
-
-        if (archivos.length > disponibles) {
-            errorResponse(res, `Solo puedes agregar ${disponibles} imagen(es) más. La publicación ya tiene ${imagenesRestantes.length} y el máximo es ${MAX_IMAGENES}.`, 400);
-            return;
-        }
-
         const prisma = require("../persistencia/prismaClient.js").default;
         const urlsNuevas: string[] = [];
         for (const archivo of archivos) {
