@@ -1,10 +1,7 @@
 import { Request, Response, NextFunction } from "express";
-import { subirImagenR2, eliminarImagenR2, construirUrlR2 } from "../servicios/servicioR2.js";
+import { subirImagenR2, eliminarImagenR2 } from "../servicios/servicioR2.js";
 import { buscarUsuarioPorId, actualizarUsuario } from "../repository/repositorioUsuario.js";
 import { errorResponse, exitoResponse } from "../servicios/Response.js";
-import { analizarImagen } from "../servicios/servicioModeracionImagen.js";
-import { crearNotificacion } from "../repository/repositorioNotificacion.js";
-import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
 
 export async function subirImagen(
     req: Request,
@@ -66,35 +63,7 @@ export async function subirFotoPerfil(
         }
 
         exitoResponse(res, url, urlAnterior ? "Foto de perfil actualizada" : "Foto de perfil agregada", 201);
-
-        // Moderación en background
-        const buffer = req.file.buffer;
-        moderarFotoPerfilEnBackground(idUsuario, url, buffer).catch(() => {});
     } catch (error) {
         next(error);
     }
 }
-
-async function moderarFotoPerfilEnBackground(
-    idUsuario: number,
-    url: string,
-    buffer: Buffer
-): Promise<void> {
-    const resultado = await analizarImagen(buffer).catch(() => null);
-    if (!resultado?.flagged) return;
-
-    try { await eliminarImagenR2(url); } catch { /* continúa si falla R2 */ }
-
-    const urlDefault = construirUrlR2('perfil', 'default', 'png');
-    await actualizarUsuario(idUsuario, { url_foto_perfil: urlDefault });
-
-    const estadoEnviado = await obtenerEstadoPorNombre('enviado');
-    if (estadoEnviado) {
-        await crearNotificacion(
-            idUsuario,
-            'Tu foto de perfil fue eliminada por no cumplir con las normas de la comunidad.',
-            estadoEnviado.id_estado
-        );
-    }
-}
-
