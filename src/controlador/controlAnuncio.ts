@@ -193,6 +193,10 @@ export async function editarAnuncioUsuario(req: Request, res: Response, next: Ne
             return;
         }
 
+        if (anuncioExistente.id_usuario !== Number(req.usuario?.sub)) {
+            errorResponse(res, "No tienes permiso para editar este anuncio", 403);
+            return;
+        }
         // Si no se sube una nueva imagen, mantenemos la que ya tiene el anuncio existente
         let urlImagen = anuncioExistente.imagen_url;
         let urlAnteriorParaBorrar: string | null = null;
