@@ -151,6 +151,12 @@ export async function eliminarAnuncioUsuario(req: Request, res: Response, next: 
             return;
         }
 
+
+        if (anuncio.id_usuario !== idUsuario) {
+            errorResponse(res, "No tienes permiso para eliminar este anuncio", 403);
+            return;
+        }
+
         // Eliminar imagen de R2 si existe y no está vacía
         if (anuncio.imagen_url && anuncio.imagen_url !== "") {
             try {
