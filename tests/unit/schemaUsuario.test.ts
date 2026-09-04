@@ -190,6 +190,11 @@ describe("schemaFiltrosTutor", () => {
     expect(result.success).toBe(true);
   });
 
+  it("rechaza límites mayores a 100", () => {
+    expect(schemaFiltrosTutor.safeParse({ limit: 100 }).success).toBe(true);
+    expect(schemaFiltrosTutor.safeParse({ limit: 101 }).success).toBe(false);
+  });
+
   it("rechaza precio mínimo negativo", () => {
     const result = schemaFiltrosTutor.safeParse({
       precio_min: -1,
