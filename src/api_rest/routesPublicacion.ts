@@ -25,8 +25,8 @@ router.post("/buscar", autenticar, validar(schemaFiltrosPublicacion), obtenerPub
 router.get("/user/:id", autenticar, obtenerPublicacionesUsuario);
 router.get("/", autenticar, obtenerTodasLasPublicaciones);
 router.get("/:id", autenticar, obtenerPublicacionPorId);
-router.post("/", autenticar, soloUsuario, uploadImagen.any(), validar(schemaCrearPublicacion), moderarTexto(['titulo', 'descripcion']), crearPublicacionConImagen);
-router.put("/:id", autenticar, soloUsuario, uploadImagen.any(), validar(schemaEditarPublicacion), moderarTexto(['titulo', 'descripcion']), editarPublicacion);
+router.post("/", autenticar, soloUsuario, uploadImagen.array("imagenes", 5), validar(schemaCrearPublicacion), moderarTexto(['titulo', 'descripcion']), crearPublicacionConImagen);
+router.put("/:id", autenticar, soloUsuario, uploadImagen.array("imagenes", 5), validar(schemaEditarPublicacion), moderarTexto(['titulo', 'descripcion']), editarPublicacion);
 router.patch("/:id/estado", autenticar, soloUsuario, cambiarEstadoPublicacion);
 router.delete("/:id", autenticar, soloUsuario, eliminarPublicacionConImagenes);
 router.patch("/:id/destacar", autenticar, soloUsuario, validar(schemaDestacarPublicacion), destacarPublicacion);

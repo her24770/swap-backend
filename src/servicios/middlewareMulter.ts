@@ -16,7 +16,7 @@ export function contenidoCoincideConMime(buffer: Buffer, mimetype: string): bool
     return firmas[mimetype]?.(buffer) ?? false;
 }
 
-function crearUpload(tipos: string[], limite: number, mensaje: string): multer.Multer {
+function crearUpload(tipos: string[], limite: number, maxArchivos: number, mensaje: string): multer.Multer {
     const storage: multer.StorageEngine = {
         _handleFile: (_req, file, callback) => {
             const chunks: Buffer[] = [];
@@ -38,7 +38,7 @@ function crearUpload(tipos: string[], limite: number, mensaje: string): multer.M
 
     return multer({
         storage,
-        limits: { fileSize: limite },
+        limits: { fileSize: limite, files: maxArchivos },
         fileFilter: (_req, file, callback) => {
             tipos.includes(file.mimetype)
                 ? callback(null, true)
@@ -50,11 +50,13 @@ function crearUpload(tipos: string[], limite: number, mensaje: string): multer.M
 export const uploadImagen = crearUpload(
     ["image/jpeg", "image/png", "image/webp"],
     TAMANO_MAX,
+    5,
     "Tipo de archivo no permitido. Solo JPG, PNG o WEBP.",
 );
 
 export const uploadPdf = crearUpload(
     ["application/pdf"],
     TAMANO_MAX_PDF,
+    1,
     "Tipo de archivo no permitido. Solo PDF.",
 );
