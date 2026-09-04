@@ -5,6 +5,7 @@ import swaggerRoutes from "./openapi/swagger";
 import cookieParser from "cookie-parser";
 import express, { NextFunction, Request, Response } from "express";
 import { rateLimitGlobal } from "./autenticacion/rateLimiter.js";
+import { TipoArchivoError } from "./servicios/middlewareMulter.js";
 
 const app = express();
 
@@ -21,6 +22,10 @@ app.use("/api", swaggerRoutes);
 app.use("/api", routes);
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+    if (err instanceof TipoArchivoError) {
+        res.status(400).json({ success: false, message: err.message });
+        return;
+    }
     if (err instanceof multer.MulterError) {
         res.status(400).json({ success: false, message: `Error de archivo: ${err.message}` });
         return;
