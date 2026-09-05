@@ -57,7 +57,10 @@ describe("cambiarEstadoUsuario", () => {
 
     await cambiarEstadoUsuario(req, res, vi.fn());
 
-    expect(actualizarUsuario).toHaveBeenCalledWith(5, { tiempo_suspendido: -1 });
+    expect(actualizarUsuario).toHaveBeenCalledWith(5, {
+      tiempo_suspendido: -1,
+      sesion_version: { increment: 1 },
+    });
     expect(notificarAccionModeracion).toHaveBeenCalledWith(5, expect.stringContaining("bloqueada"));
     expect(exitoResponse).toHaveBeenCalled();
   });
@@ -76,6 +79,7 @@ describe("cambiarEstadoUsuario", () => {
     const llamada = vi.mocked(actualizarUsuario).mock.calls[0];
     expect(llamada[0]).toBe(5);
     expect(llamada[1].tiempo_suspendido as number).toBeGreaterThan(Math.floor(Date.now() / 1000));
+    expect(llamada[1].sesion_version).toEqual({ increment: 1 });
   });
 
   it("rechaza si falta el motivo", async () => {
@@ -191,7 +195,10 @@ describe("cambiarEstadoModerador", () => {
 
     await cambiarEstadoModerador(req, res, vi.fn());
 
-    expect(actualizarModerador).toHaveBeenCalledWith(3, { tiempo_suspendido: -1 });
+    expect(actualizarModerador).toHaveBeenCalledWith(3, {
+      tiempo_suspendido: -1,
+      sesion_version: { increment: 1 },
+    });
     expect(exitoResponse).toHaveBeenCalled();
   });
 
@@ -212,7 +219,10 @@ describe("cambiarEstadoModerador", () => {
     await cambiarEstadoModerador(req, res, vi.fn());
 
     expect(contarModeradoresPorTipo).not.toHaveBeenCalled();
-    expect(actualizarModerador).toHaveBeenCalledWith(2, { tiempo_suspendido: 0 });
+    expect(actualizarModerador).toHaveBeenCalledWith(2, {
+      tiempo_suspendido: 0,
+      sesion_version: { increment: 1 },
+    });
   });
 });
 
