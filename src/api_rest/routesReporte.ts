@@ -6,6 +6,7 @@ import { validar } from "../autenticacion/middelwareValidacion.js";
 import { reportePaginationOptions, schemaCrearReporte, schemaActualizarEstadoReporte } from "../modelo/schemaReporte.js";
 import { obtenerReportesPaginados, registrarNuevoReporte, obtenerReportePorId, actualizarEstadoReporte } from "../controlador/controlReporte";
 import { uploadImagen } from "../servicios/middlewareMulter.js";
+import { marcarObsoleto } from "./compatibilidad.js";
 
 const router = Router();
 
@@ -20,6 +21,7 @@ router.post("/buscar", autenticar, validar(reportePaginationOptions), soloModera
 router.get("/:id", autenticar, soloModerador, obtenerReportePorId);
 
 // put /reporte/:id/estado - Actualizar el estado de un reporte
-router.put("/:id", autenticar, soloModerador, validar(schemaActualizarEstadoReporte), actualizarEstadoReporte);
+router.patch("/:id/estado", autenticar, soloModerador, validar(schemaActualizarEstadoReporte), actualizarEstadoReporte);
+router.put("/:id", marcarObsoleto("/api/v1/reportes/:id/estado"), autenticar, soloModerador, validar(schemaActualizarEstadoReporte), actualizarEstadoReporte);
 
 export default router;

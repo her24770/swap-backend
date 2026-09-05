@@ -8,6 +8,11 @@ import { rateLimitGlobal } from "./autenticacion/rateLimiter.js";
 
 const app = express();
 
+app.use((_req, res, next) => {
+    res.setHeader("X-API-Version", "1");
+    next();
+});
+
 app.use(cookieParser());
 app.use(cors({
     origin: process.env.FRONTEND_URL || "http://localhost:3000",
@@ -19,6 +24,8 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", swaggerRoutes);
 app.use("/api", routes);
+app.use("/api/v1", swaggerRoutes);
+app.use("/api/v1", routes);
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof multer.MulterError) {

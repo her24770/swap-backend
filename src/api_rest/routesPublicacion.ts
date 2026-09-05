@@ -18,6 +18,7 @@ import { uploadImagen } from "../servicios/middlewareMulter.js";
 import { schemaCrearPublicacion, schemaEditarPublicacion, schemaDestacarPublicacion, schemaFiltrosPublicacion } from "../modelo/schemaPublicacion.js";
 import { validar } from "../autenticacion/middelwareValidacion.js";
 import { moderarTexto } from "../autenticacion/middlewareModeracion.js";
+import { marcarObsoleto } from "./compatibilidad.js";
 
 const router = Router();
 
@@ -26,7 +27,8 @@ router.get("/user/:id", autenticar, obtenerPublicacionesUsuario);
 router.get("/", autenticar, obtenerTodasLasPublicaciones);
 router.get("/:id", autenticar, obtenerPublicacionPorId);
 router.post("/", autenticar, soloUsuario, uploadImagen.any(), validar(schemaCrearPublicacion), moderarTexto(['titulo', 'descripcion']), crearPublicacionConImagen);
-router.put("/:id", autenticar, soloUsuario, uploadImagen.any(), validar(schemaEditarPublicacion), moderarTexto(['titulo', 'descripcion']), editarPublicacion);
+router.patch("/:id", autenticar, soloUsuario, uploadImagen.any(), validar(schemaEditarPublicacion), moderarTexto(['titulo', 'descripcion']), editarPublicacion);
+router.put("/:id", marcarObsoleto("/api/v1/publicacion/:id"), autenticar, soloUsuario, uploadImagen.any(), validar(schemaEditarPublicacion), moderarTexto(['titulo', 'descripcion']), editarPublicacion);
 router.patch("/:id/estado", autenticar, soloUsuario, cambiarEstadoPublicacion);
 router.delete("/:id", autenticar, soloUsuario, eliminarPublicacionConImagenes);
 router.patch("/:id/destacar", autenticar, soloUsuario, validar(schemaDestacarPublicacion), destacarPublicacion);

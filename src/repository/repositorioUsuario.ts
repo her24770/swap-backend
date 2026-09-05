@@ -150,6 +150,26 @@ export async function eliminarContacto(id: number): Promise<number> {
     return result.count;
 }
 
+export async function reemplazarContactosUsuario(
+    idUsuario: number,
+    contactos: Array<{ tipoContacto: number; valor: string }>,
+): Promise<Contacto[]> {
+    return prisma.$transaction(async (tx) => {
+        await tx.contacto.deleteMany({ where: { id_usuario: idUsuario } });
+        const resultados: Contacto[] = [];
+        for (const contacto of contactos) {
+            resultados.push(await tx.contacto.create({
+                data: {
+                    id_usuario: idUsuario,
+                    tipo_contacto: contacto.tipoContacto,
+                    valor: contacto.valor,
+                },
+            }));
+        }
+        return resultados;
+    });
+}
+
 export async function actualizarContacto(
     id: number,
     data: Prisma.ContactoUpdateInput

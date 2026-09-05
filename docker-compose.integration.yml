@@ -1,0 +1,58 @@
+name: swap-backend-integration
+
+services:
+  postgres-integration:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: swap_test
+      POSTGRES_PASSWORD: swap_test
+      POSTGRES_DB: swap_integration_test
+    ports:
+      - "127.0.0.1:${INTEGRATION_POSTGRES_PORT:-55432}:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U swap_test -d swap_integration_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  redis-integration:
+    image: redis:7-alpine
+    command: redis-server --save "" --appendonly no
+    ports:
+      - "127.0.0.1:${INTEGRATION_REDIS_PORT:-56379}:6379"
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  integration-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    environment:
+      NODE_ENV: test
+      RUN_INTEGRATION: "true"
+      JWT_SECRET: integration-only-secret
+      DATABASE_URL: postgresql://swap_test:swap_test@postgres-integration:5432/swap_integration_test?schema=public
+      REDIS_URL: redis://redis-integration:6379/15
+      FRONTEND_URL: http://localhost:3000
+      CLOUDFLARE_R2_ACCOUNT_ID: integration-placeholder
+      CLOUDFLARE_R2_ACCESS_KEY_ID: integration-placeholder
+      CLOUDFLARE_R2_SECRET_ACCESS_KEY: integration-placeholder
+      CLOUDFLARE_R2_BUCKET_NAME: integration-placeholder
+      CLOUDFLARE_R2_PUBLIC_URL: https://integration.invalid
+    depends_on:
+      postgres-integration:
+        condition: service_healthy
+      redis-integration:
+        condition: service_healthy
+    command: >-
+      sh -c "npx prisma db execute --file ./prisma/setup.sql &&
+      npx prisma db push --skip-generate &&
+      npm run test:integration"
