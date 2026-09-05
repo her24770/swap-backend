@@ -1,6 +1,6 @@
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ServicioJWT } from "../../src/autenticacion/ServicioJWT";
+import { generarTokenSintetico } from "../helpers";
 import { registrarEventosConexion } from "../../src/sockets/socketServer";
 import app from "../../src/app";
 
@@ -15,6 +15,9 @@ const estado = vi.hoisted(() => ({
 // flujo use JWT directamente. Evita cargar el binario nativo de bcrypt.
 vi.mock("bcrypt", () => ({ default: { hash: vi.fn(), compare: vi.fn() }, hash: vi.fn(), compare: vi.fn() }));
 vi.mock("../../src/autenticacion/blacklist", () => ({ estaRevocado: vi.fn().mockResolvedValue(false) }));
+vi.mock("../../src/autenticacion/servicioSesionVersion", () => ({
+  obtenerVersionActual: vi.fn().mockResolvedValue(1),
+}));
 vi.mock("../../src/repository/repositorioEstado", () => ({
   obtenerEstadoPorNombre: vi.fn(async (nombre: string) => ({
     activo: { id_estado: 1, estado: "activo" },
@@ -115,7 +118,7 @@ vi.mock("../../src/servicios/servicioAcuerdo", () => ({ notificarActualizacionAc
 vi.mock("../../src/sockets/ioInstance", () => ({ getIO: vi.fn(() => null), setIO: vi.fn() }));
 
 function token(idUsuario: number) {
-  return ServicioJWT.generarToken({ sub: String(idUsuario), email: `u${idUsuario}@test.com`, rol: "usuario" });
+  return generarTokenSintetico({ id: idUsuario, email: `u${idUsuario}@test.com`, rol: "usuario", ver: 1 });
 }
 
 function prepararConversacion(estadoConversacion: number) {
@@ -227,11 +230,11 @@ describe("TEST-04 rápido — Mensajería y coordinación con dobles", () => {
     ["bloqueada", 3],
   ])("IT-20: Socket.IO no persiste mensajes en una conversación %s", async (_nombre, idEstado) => {
     prepararConversacion(idEstado);
-    const handlers = new Map<string, Function>();
+    const handlers = new Map<string, (...args: any[]) => void | Promise<void>>();
     const socket = {
       data: { usuario: { sub: "1" } },
       join: vi.fn(),
-      on: vi.fn((evento: string, handler: Function) => handlers.set(evento, handler)),
+      on: vi.fn((evento: string, handler: (...args: any[]) => void | Promise<void>) => handlers.set(evento, handler)),
     };
     registrarEventosConexion(socket as any);
 

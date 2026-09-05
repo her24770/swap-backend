@@ -25,6 +25,7 @@ function token(idUsuario: number): string {
         sub: String(idUsuario),
         email: `usuario-${idUsuario}@integration.test`,
         rol: "usuario",
+        ver: 1
     });
 }
 
@@ -111,14 +112,16 @@ async function crearConversacion(estado: number, conMensajeInicial = false) {
     });
 }
 
+type SocketEventHandler = (...args: any[]) => void | Promise<void>;
+
 function socketFalso(idUsuario: number) {
-    const handlers = new Map<string, Function>();
+    const handlers = new Map<string, SocketEventHandler>();
     return {
         handlers,
         socket: {
             data: { usuario: { sub: String(idUsuario), rol: "usuario" } },
             join: vi.fn(),
-            on: vi.fn((evento: string, handler: Function) => handlers.set(evento, handler)),
+            on: vi.fn((evento: string, handler: SocketEventHandler) => handlers.set(evento, handler)),
         },
     };
 }
