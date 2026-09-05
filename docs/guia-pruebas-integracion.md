@@ -14,6 +14,8 @@ Desde `Back/swap-backend`:
 
 ```bash
 npm run test:integration:docker
+# En Windows (PowerShell / CMD):
+npm run test:integration:docker:win
 ```
 
 Ese comando realiza todo el ciclo: elimina una ejecución aislada anterior,
@@ -55,13 +57,14 @@ si se cambia un puerto mediante `INTEGRATION_POSTGRES_PORT` o
    los fixtures del caso; en `afterEach`, llamar nuevamente a la limpieza.
 4. Usar `prisma` y `redis` reales para verificar persistencia, notificaciones y
    aislamiento; no depender de datos de otra prueba.
-5. Para flujos HTTP, importar `app` y usar Supertest. Para Socket.IO, registrar
+5. Para crear usuarios o moderadores autenticados listos para usar en tests, usar las funciones de `tests/helpers` (`crearUsuarioTest`, `crearModeradorTest`, `generarTokenSintetico`).
+6. Para flujos HTTP, importar `app` y usar Supertest. Para Socket.IO, registrar
    el evento con un socket falso o levantar el servidor si se necesita probar el
    transporte.
-6. Documentar el identificador IT, request, actores, estado inicial, respuesta
+7. Documentar el identificador IT, request, actores, estado inicial, respuesta
    esperada y efectos persistidos.
 
-Las suites rápidas con mocks pueden coexistir para feedback local, pero no
+Las suites rápidas con mocks pueden coexistir para feedback local (usando `generarTokenSintetico` y mockeando `obtenerVersionActual`), pero no
 sustituyen las suites `*-real.test.ts` que corren contra PostgreSQL y Redis.
 
 ## IT de chat existentes

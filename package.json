@@ -20,6 +20,7 @@
     "test:contract": "vitest run tests/integration/openapi.test.ts tests/integration/endpoint-inventory.test.ts tests/integration/autorizacion-endpoints.test.ts tests/integration/contrato-rest.test.ts",
     "test:integration": "vitest run tests/integration",
     "test:integration:docker": "sh scripts/run-integration.sh",
+    "test:integration:docker:win": "powershell -ExecutionPolicy Bypass -File scripts/run-integration.ps1",
     "test:integration:down": "docker compose -f docker-compose.integration.yml down --volumes --remove-orphans",
     "endpoints:inventory": "tsx scripts/generarMatrizEndpoints.ts"
   },
