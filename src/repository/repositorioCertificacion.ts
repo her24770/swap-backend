@@ -33,3 +33,23 @@ export async function buscarCertificacionPorId(id_certificacion: number) {
 export async function contarCertificacionesPorUsuario(id_usuario: number): Promise<number> {
     return prisma.certificacion.count({ where: { id_usuario } });
 }
+
+/**
+ * Busca si ya existe una certificacion para el usuario con exactamente
+ * el mismo nombre, lugar de emision e id_etiqueta.
+ */
+export async function buscarCertificacionDuplicada(
+    id_usuario: number,
+    nombre: string,
+    lugar_emision: string,
+    id_etiqueta: number
+): Promise<Certificacion | null> {
+    return prisma.certificacion.findFirst({
+        where: {
+            id_usuario,
+            nombre,
+            lugar_emision,
+            id_etiqueta,
+        },
+    });
+}
