@@ -1244,7 +1244,8 @@ const paths: Record<string, Record<string, unknown>> = {
             parameters: [pathId("id", "ID del reporte.")],
             responseSchema: ref("Reporte"),
         }),
-        put: operation("Reportes", "updateReportStatus", "Actualizar el estado de un reporte (solo moderador)", {
+        put: operation("Reportes", "updateReportStatusLegacy", "Actualizar el estado de un reporte (obsoleto)", {
+            deprecated: true,
             parameters: [pathId("id", "ID del reporte.")],
             body: jsonBody({
                 type: "object",
