@@ -9,6 +9,7 @@ interface OperationOptions {
     status?: number;
     secured?: boolean;
     rawResponse?: boolean;
+    deprecated?: boolean;
 }
 
 const ref = (name: string): OpenApiSchema => ({
@@ -104,6 +105,7 @@ const operation = (
         operationId,
         summary,
         ...(options.description ? { description: options.description } : {}),
+        ...(options.deprecated ? { deprecated: true } : {}),
         ...(options.parameters ? { parameters: options.parameters } : {}),
         ...(options.body ? { requestBody: options.body } : {}),
         security: secured ? [{ cookieAuth: [] }, { bearerAuth: [] }] : [],
@@ -694,7 +696,7 @@ const paths: Record<string, Record<string, unknown>> = {
             parameters: [pathId("id", "ID de la publicación.")],
             responseSchema: ref("Publicacion"),
         }),
-        put: operation("Publicaciones", "updatePublication", "Editar una publicación", {
+        patch: operation("Publicaciones", "updatePublication", "Editar parcialmente una publicación", {
             parameters: [pathId("id", "ID de la publicación.")],
             description: "Solo el propietario puede editarla. `etiquetas` e `imagenesEliminar` se envían como arreglos JSON serializados.",
             body: multipartBody({
@@ -724,6 +726,22 @@ const paths: Record<string, Record<string, unknown>> = {
                     urlsNuevas: arrayOf({ type: "string", format: "uri" }),
                 },
             },
+        }),
+        put: operation("Publicaciones", "updatePublicationLegacy", "Editar parcialmente una publicación (obsoleto)", {
+            deprecated: true,
+            parameters: [pathId("id", "ID de la publicación.")],
+            description: "Alias temporal de compatibilidad. Usar PATCH sobre esta misma ruta.",
+            body: multipartBody({
+                titulo: { type: "string", minLength: 3, maxLength: 100 },
+                descripcion: { type: "string", minLength: 10, maxLength: 255 },
+                precio: { type: "number", minimum: 0, maximum: 999.99 },
+                tipo_publicacion: publicationType,
+                estado: publicationState,
+                etiquetas: { type: "string", examples: ["[1,2,3]"] },
+                imagenesEliminar: { type: "string", examples: ["[\"https://example.com/imagen.webp\"]"] },
+                imagenes: { type: "array", items: imageFile, maxItems: 5 },
+            }, []),
+            responseSchema: { type: "object" },
         }),
         delete: operation("Publicaciones", "deletePublication", "Eliminar una publicación y sus imágenes", {
             parameters: [pathId("id", "ID de la publicación.")],
@@ -853,7 +871,8 @@ const paths: Record<string, Record<string, unknown>> = {
             }),
             responseSchema: ref("Acuerdo"),
         }),
-        put: operation("Acuerdos", "updateAgreementState", "Actualizar el estado de un acuerdo", {
+        put: operation("Acuerdos", "updateAgreementStateLegacy", "Actualizar el estado de un acuerdo (obsoleto)", {
+            deprecated: true,
             parameters: [pathId("id", "ID del acuerdo.")],
             body: jsonBody({
                 type: "object",
@@ -864,7 +883,8 @@ const paths: Record<string, Record<string, unknown>> = {
         }),
     },
     "/acuerdo/{id}/editar": {
-        put: operation("Acuerdos", "updateAgreement", "Editar la entrega de un acuerdo", {
+        put: operation("Acuerdos", "updateAgreementLegacy", "Editar la entrega de un acuerdo (obsoleto)", {
+            deprecated: true,
             parameters: [pathId("id", "ID del acuerdo.")],
             body: jsonBody({
                 type: "object",
@@ -879,7 +899,7 @@ const paths: Record<string, Record<string, unknown>> = {
         }),
     },
     "/conversacion/{id}/estado": {
-        put: operation("Conversaciones", "updateConversationState", "Aceptar o bloquear una conversación", {
+        patch: operation("Conversaciones", "updateConversationState", "Aceptar o bloquear una conversación", {
             parameters: [pathId("id", "ID de la conversación.")],
             body: jsonBody({
                 type: "object",
@@ -894,6 +914,16 @@ const paths: Record<string, Record<string, unknown>> = {
                     estado_nombre: { type: "string", enum: ["activo", "inactivo"] },
                 },
             },
+        }),
+        put: operation("Conversaciones", "updateConversationStateLegacy", "Aceptar o bloquear una conversación (obsoleto)", {
+            deprecated: true,
+            parameters: [pathId("id", "ID de la conversación.")],
+            body: jsonBody({
+                type: "object",
+                required: ["estado_id"],
+                properties: { estado_id: id },
+            }),
+            responseSchema: { type: "object" },
         }),
     },
     "/conversacion/conversaciones": {
@@ -929,7 +959,6 @@ const paths: Record<string, Record<string, unknown>> = {
     "/imagen/perfil/{id}": {
         put: operation("Imágenes", "updateProfilePicture", "Subir o reemplazar la foto de perfil", {
             parameters: [pathId("id", "ID del usuario propietario.")],
-            status: 201,
             body: multipartBody({ imagen: imageFile }, ["imagen"]),
             responseSchema: { type: "string", format: "uri" },
         }),
@@ -1108,7 +1137,17 @@ const paths: Record<string, Record<string, unknown>> = {
         }),
     },
     "/anuncio/{id_anuncio}": {
-        put: operation("Anuncios", "updateAd", "Editar un anuncio", {
+        patch: operation("Anuncios", "updateAd", "Editar parcialmente un anuncio", {
+            parameters: [pathId("id_anuncio", "ID del anuncio.")],
+            body: multipartBody({
+                titulo: { type: "string", minLength: 5, maxLength: 100 },
+                descripcion: { type: "string", minLength: 10, maxLength: 1000 },
+                imagen: imageFile,
+            }, []),
+            responseSchema: ref("Anuncio"),
+        }),
+        put: operation("Anuncios", "updateAdLegacy", "Editar parcialmente un anuncio (obsoleto)", {
+            deprecated: true,
             parameters: [pathId("id_anuncio", "ID del anuncio.")],
             body: multipartBody({
                 titulo: { type: "string", minLength: 5, maxLength: 100 },
@@ -1205,7 +1244,8 @@ const paths: Record<string, Record<string, unknown>> = {
             parameters: [pathId("id", "ID del reporte.")],
             responseSchema: ref("Reporte"),
         }),
-        put: operation("Reportes", "updateReportStatus", "Actualizar el estado de un reporte (solo moderador)", {
+        put: operation("Reportes", "updateReportStatusLegacy", "Actualizar el estado de un reporte (obsoleto)", {
+            deprecated: true,
             parameters: [pathId("id", "ID del reporte.")],
             body: jsonBody({
                 type: "object",
@@ -1415,6 +1455,250 @@ const paths: Record<string, Record<string, unknown>> = {
     },
 };
 
+const moderationReasonBody = jsonBody({
+    type: "object",
+    required: ["motivo"],
+    properties: {
+        motivo: { type: "string", minLength: 1 },
+        detalle: { type: "string", maxLength: 500 },
+    },
+});
+
+// Las rutas administrativas se mantienen junto al contrato principal, pero se
+// agregan en un bloque separado para que el inventario ruta ↔ OpenAPI sea auditable.
+// En ramas que ya definieron una ruta, se conserva la definición más completa
+// del contrato principal y sólo se agregan entradas realmente ausentes.
+const rutasRF04: Record<string, Record<string, unknown>> = {
+    "/acuerdo/{id}/estado": {
+        patch: operation("Acuerdos", "updateAgreementState", "Actualizar el estado de un acuerdo", {
+            parameters: [pathId("id", "ID del acuerdo.")],
+            body: jsonBody({
+                type: "object",
+                required: ["estado"],
+                properties: { estado: agreementState },
+            }),
+            responseSchema: ref("Acuerdo"),
+        }),
+    },
+    "/acuerdo/{id}/detalle": {
+        put: operation("Acuerdos", "replaceAgreementDetails", "Reemplazar los datos de entrega de un acuerdo", {
+            parameters: [pathId("id", "ID del acuerdo.")],
+            body: jsonBody({
+                type: "object",
+                required: ["fecha_entrega", "lugar_entrega", "observaciones"],
+                properties: {
+                    fecha_entrega: dateTime,
+                    lugar_entrega: { type: "string", minLength: 1 },
+                    observaciones: { type: "string", minLength: 1 },
+                },
+            }),
+            responseSchema: ref("Acuerdo"),
+        }),
+    },
+    "/conversacion": {
+        post: operation("Conversaciones", "startConversation", "Iniciar una conversación", {
+            description: "Crea atómicamente la conversación pendiente, su primer mensaje, el contexto opcional y la notificación. Si existe una conversación pendiente vacía por un intento antiguo fallido, la recupera sin duplicarla.",
+            body: jsonBody({
+                type: "object",
+                required: ["id_usuario_2", "mensaje"],
+                properties: {
+                    id_usuario_2: id,
+                    mensaje: { type: "string", minLength: 1, maxLength: 2000 },
+                    id_publicacion: id,
+                },
+            }),
+            status: 201,
+            responseSchema: {
+                type: "object",
+                properties: {
+                    conversacion: ref("Conversacion"),
+                    mensaje: { type: "object" },
+                },
+            },
+        }),
+    },
+    "/conversacion/conversaciones": {
+        get: operation("Conversaciones", "listMyConversations", "Listar conversaciones del usuario", {
+            responseSchema: arrayOf(ref("Conversacion")),
+        }),
+    },
+    "/conversacion/{id}/mensajes": {
+        get: operation("Conversaciones", "getConversationMessages", "Obtener mensajes de una conversación", {
+            parameters: [pathId("id", "ID de la conversación.")],
+            responseSchema: arrayOf({ type: "object" }),
+        }),
+    },
+    "/moderador/login": {
+        post: operation("Moderación", "moderatorLogin", "Iniciar sesión de moderador", {
+            secured: false,
+            body: jsonBody({
+                type: "object",
+                required: ["usuario", "password"],
+                properties: {
+                    usuario: { type: "string" },
+                    password: { type: "string", format: "password" },
+                },
+            }),
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/moderador/me": {
+        get: operation("Moderación", "getModeratorSession", "Obtener sesión de moderador", {
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/moderador": {
+        get: operation("Moderación", "listModerators", "Listar moderadores", {
+            responseSchema: arrayOf({ type: "object" }),
+        }),
+        post: operation("Moderación", "createModerator", "Crear moderador", {
+            status: 201,
+            body: jsonBody({ type: "object" }),
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/moderador/{id}": {
+        patch: operation("Moderación", "updateModerator", "Editar moderador", {
+            parameters: [pathId("id", "ID del moderador.")],
+            body: jsonBody({ type: "object" }),
+            responseSchema: { type: "object" },
+        }),
+        delete: operation("Moderación", "deleteModerator", "Eliminar moderador", {
+            parameters: [pathId("id", "ID del moderador.")],
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/moderador/{id}/estado": {
+        patch: operation("Moderación", "updateModeratorStatus", "Cambiar estado de moderador", {
+            parameters: [pathId("id", "ID del moderador.")],
+            body: moderationReasonBody,
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/moderador/usuarios": {
+        get: operation("Moderación", "listUsersForModeration", "Listar usuarios para moderación", {
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/moderador/usuarios/{id}/estado": {
+        patch: operation("Moderación", "updateUserModerationStatus", "Cambiar estado de usuario", {
+            parameters: [pathId("id", "ID del usuario.")],
+            body: moderationReasonBody,
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/moderador/usuarios/{id}/advertencia": {
+        post: operation("Moderación", "warnUser", "Enviar advertencia a usuario", {
+            parameters: [pathId("id", "ID del usuario.")],
+            body: moderationReasonBody,
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/moderador/publicaciones": {
+        get: operation("Moderación", "listPublicationsForModeration", "Listar publicaciones para moderación", {
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/moderador/publicaciones/{id}/bajar": {
+        patch: operation("Moderación", "deactivatePublicationByModerator", "Bajar una publicación", {
+            parameters: [pathId("id", "ID de la publicación.")],
+            body: moderationReasonBody,
+            responseSchema: ref("Publicacion"),
+        }),
+    },
+    "/moderador/publicaciones/{id}/reactivar": {
+        patch: operation("Moderación", "reactivatePublicationByModerator", "Reactivar una publicación", {
+            parameters: [pathId("id", "ID de la publicación.")],
+            body: moderationReasonBody,
+            responseSchema: ref("Publicacion"),
+        }),
+    },
+    "/moderador/publicaciones/{id}": {
+        delete: operation("Moderación", "deletePublicationByModerator", "Eliminar una publicación", {
+            parameters: [pathId("id", "ID de la publicación.")],
+            body: moderationReasonBody,
+            responseSchema: ref("Publicacion"),
+        }),
+    },
+    "/moderador/palabras": {
+        get: operation("Moderación", "listRestrictedWords", "Listar palabras restringidas", {
+            responseSchema: arrayOf({ type: "object" }),
+        }),
+        post: operation("Moderación", "createRestrictedWord", "Crear palabra restringida", {
+            status: 201,
+            body: jsonBody({
+                type: "object",
+                required: ["palabra"],
+                properties: { palabra: { type: "string", minLength: 2, maxLength: 100 } },
+            }),
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/moderador/palabras/{id}": {
+        patch: operation("Moderación", "updateRestrictedWord", "Editar palabra restringida", {
+            parameters: [pathId("id", "ID de la palabra restringida.")],
+            body: jsonBody({
+                type: "object",
+                required: ["palabra"],
+                properties: { palabra: { type: "string", minLength: 2, maxLength: 100 } },
+            }),
+            responseSchema: { type: "object" },
+        }),
+        delete: operation("Moderación", "deleteRestrictedWord", "Eliminar palabra restringida", {
+            parameters: [pathId("id", "ID de la palabra restringida.")],
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/reportes/buscar": {
+        post: operation("Reportes", "searchReports", "Buscar reportes para moderación", {
+            body: jsonBody({ type: "object" }),
+            responseSchema: { type: "object" },
+        }),
+    },
+    "/reportes/{id}": {
+        get: operation("Reportes", "getReport", "Obtener un reporte", {
+            parameters: [pathId("id", "ID del reporte.")],
+            responseSchema: ref("Reporte"),
+        }),
+        put: operation("Reportes", "updateReportStatusLegacy", "Actualizar estado de un reporte (obsoleto)", {
+            deprecated: true,
+            parameters: [pathId("id", "ID del reporte.")],
+            body: jsonBody({
+                type: "object",
+                required: ["estado"],
+                properties: {
+                    estado: { type: "string", enum: ["pendiente", "resuelto", "rechazado"] },
+                    id_reporte: id,
+                },
+            }),
+            responseSchema: ref("Reporte"),
+        }),
+    },
+    "/reportes/{id}/estado": {
+        patch: operation("Reportes", "updateReportStatus", "Actualizar estado de un reporte", {
+            parameters: [pathId("id", "ID del reporte.")],
+            body: jsonBody({
+                type: "object",
+                required: ["estado"],
+                properties: {
+                    estado: { type: "string", enum: ["pendiente", "resuelto", "rechazado"] },
+                },
+            }),
+            responseSchema: ref("Reporte"),
+        }),
+    },
+};
+
+for (const [ruta, definicion] of Object.entries(rutasRF04)) {
+    if (!(ruta in paths)) paths[ruta] = definicion;
+}
+
+// DELETE comparte el mismo path item ya declarado para PUT.
+paths["/resenas/{id_resena}"].delete = operation("Reseñas", "deleteReview", "Eliminar una reseña propia", {
+    parameters: [pathId("id_resena", "ID de la reseña.")],
+    responseSchema: { type: "object" },
+});
+
 const tags = [
     ["Sistema", "Disponibilidad y diagnóstico del servicio."],
     ["Autenticación", "Registro, sesión y recuperación de contraseña."],
@@ -1435,11 +1719,18 @@ const tags = [
     ["Notificaciones", "Notificaciones del usuario."],
     ["Reportes", "Reportes de contenido y usuarios."],
     ["Reseñas", "Calificaciones y reputación de perfiles."],
-    ["Moderación", "Panel de moderadores: cuentas, publicaciones y palabras restringidas."],
+    ["Moderación", "Administración de moderadores, cuentas, publicaciones y palabras restringidas."],
 ].map(([name, description]) => ({ name, description }));
 
 export const openApiDocument = {
     openapi: "3.2.0",
+    "x-api-version": 1,
+    "x-versioning-policy": "Las rutas canónicas usan /api/v1. /api se conserva como alias compatible durante toda la versión mayor 1.",
+    "x-idempotency-policy": {
+        safe: ["GET", "HEAD"],
+        idempotent: ["GET", "HEAD", "PUT", "DELETE"],
+        conditional: "PATCH es idempotente solo cuando asigna un estado o valor; POST no se considera idempotente salvo que la operación lo documente expresamente.",
+    },
     jsonSchemaDialect: "https://spec.openapis.org/oas/3.1/dialect/base",
     info: {
         title: "Swap Backend API",
@@ -1454,8 +1745,12 @@ export const openApiDocument = {
     },
     servers: [
         {
+            url: "/api/v1",
+            description: "Contrato estable v1 (recomendado)",
+        },
+        {
             url: "/api",
-            description: "Servidor actual",
+            description: "Alias sin versión conservado por compatibilidad",
         },
     ],
     tags,

@@ -15,12 +15,36 @@ describe("schemaActualizarPerfil", () => {
     expect(result.success).toBe(true);
   });
 
-  it("acepta una actualización con URL de foto válida", () => {
-    const result = schemaActualizarPerfil.safeParse({
-      url_foto_perfil: "https://example.com/foto.jpg",
-    });
+  it("acepta una URL de foto del dominio R2 configurado", () => {
+    const anterior = process.env.CLOUDFLARE_R2_PUBLIC_URL;
+    process.env.CLOUDFLARE_R2_PUBLIC_URL = "https://pub-test.r2.dev";
 
-    expect(result.success).toBe(true);
+    try {
+      const result = schemaActualizarPerfil.safeParse({
+        url_foto_perfil: "https://pub-test.r2.dev/perfil/foto.jpg",
+      });
+
+      expect(result.success).toBe(true);
+    } finally {
+      if (anterior === undefined) delete process.env.CLOUDFLARE_R2_PUBLIC_URL;
+      else process.env.CLOUDFLARE_R2_PUBLIC_URL = anterior;
+    }
+  });
+
+  it("rechaza una URL de foto de un dominio externo", () => {
+    const anterior = process.env.CLOUDFLARE_R2_PUBLIC_URL;
+    process.env.CLOUDFLARE_R2_PUBLIC_URL = "https://pub-test.r2.dev";
+
+    try {
+      const result = schemaActualizarPerfil.safeParse({
+        url_foto_perfil: "https://example.com/foto.jpg",
+      });
+
+      expect(result.success).toBe(false);
+    } finally {
+      if (anterior === undefined) delete process.env.CLOUDFLARE_R2_PUBLIC_URL;
+      else process.env.CLOUDFLARE_R2_PUBLIC_URL = anterior;
+    }
   });
 
   it("acepta descripción nullable", () => {

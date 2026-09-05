@@ -266,9 +266,22 @@ export async function buscarPublicacionesModeracion(
 }
 
 export async function guardarPublicacion(
-    data: Prisma.PublicacionCreateInput
+    data: Prisma.PublicacionCreateInput,
+    idsEtiquetas: number[] = [],
 ): Promise<Publicacion> {
-    return prisma.publicacion.create({ data });
+    return prisma.$transaction(async (tx) => {
+        const publicacion = await tx.publicacion.create({ data });
+        if (idsEtiquetas.length > 0) {
+            await tx.publicacionEtiqueta.createMany({
+                data: idsEtiquetas.map((idEtiqueta) => ({
+                    id_publicacion: publicacion.id_publicacion,
+                    id_etiqueta: idEtiqueta,
+                })),
+                skipDuplicates: true,
+            });
+        }
+        return publicacion;
+    });
 }
 
 export async function actualizarPublicacion(
@@ -341,6 +354,35 @@ export async function guardarImagen(
     data: Prisma.ImagenPublicacionCreateInput
 ): Promise<ImagenPublicacion> {
     return prisma.imagenPublicacion.create({ data });
+}
+
+export async function reemplazarEtiquetasPublicacion(
+    idPublicacion: number,
+    idsEtiquetas: number[]
+): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+        await tx.publicacionEtiqueta.deleteMany({
+            where: { id_publicacion: idPublicacion },
+        });
+
+        if (idsEtiquetas.length > 0) {
+            await tx.publicacionEtiqueta.createMany({
+                data: idsEtiquetas.map((idEtiqueta) => ({
+                    id_publicacion: idPublicacion,
+                    id_etiqueta: idEtiqueta,
+                })),
+                skipDuplicates: true,
+            });
+        }
+    });
+}
+
+export async function eliminarPublicacionConRelaciones(idPublicacion: number): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+        await tx.imagenPublicacion.deleteMany({ where: { id_publicacion: idPublicacion } });
+        await tx.publicacionEtiqueta.deleteMany({ where: { id_publicacion: idPublicacion } });
+        await tx.publicacion.delete({ where: { id_publicacion: idPublicacion } });
+    });
 }
 
 export async function eliminarImagen(id: number): Promise<ImagenPublicacion> {

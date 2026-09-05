@@ -7,6 +7,7 @@ import {
 
 import { ServicioJWT } from "../../src/autenticacion/ServicioJWT";
 import { estaRevocado } from "../../src/autenticacion/blacklist";
+import { obtenerVersionActual } from "../../src/autenticacion/servicioSesionVersion";
 import { errorResponse } from "../../src/servicios/Response";
 
 vi.mock("../../src/autenticacion/ServicioJWT", () => ({
@@ -17,6 +18,10 @@ vi.mock("../../src/autenticacion/ServicioJWT", () => ({
 
 vi.mock("../../src/autenticacion/blacklist", () => ({
   estaRevocado: vi.fn(),
+}));
+
+vi.mock("../../src/autenticacion/servicioSesionVersion", () => ({
+  obtenerVersionActual: vi.fn(),
 }));
 
 vi.mock("../../src/servicios/Response", () => ({
@@ -279,9 +284,12 @@ describe("autenticar", () => {
     vi.mocked(ServicioJWT.verificarToken)
       .mockReturnValue({
         sub: "1",
-        rol: "USER",
+        rol: "usuario",
         email: "[EMAIL_ADDRESS]",
+        ver: 3,
       });
+
+    vi.mocked(obtenerVersionActual).mockResolvedValue(3);
 
 
     const req: any = {
@@ -301,12 +309,37 @@ describe("autenticar", () => {
 
     expect(req.usuario).toEqual({
       sub: "1",
-      rol: "USER",
+      rol: "usuario",
       email: "[EMAIL_ADDRESS]",
+      ver: 3,
     });
 
 
     expect(next).toHaveBeenCalled();
+  });
+
+  it("rechaza un token cuya versión de sesión quedó obsoleta", async () => {
+    vi.mocked(estaRevocado).mockResolvedValue(false);
+    vi.mocked(ServicioJWT.verificarToken).mockReturnValue({
+      sub: "1",
+      rol: "usuario",
+      email: "test@test.com",
+      ver: 2,
+    });
+    vi.mocked(obtenerVersionActual).mockResolvedValue(3);
+
+    const req: any = { cookies: { "swap-token": "token123" }, headers: {} };
+    const res: any = {};
+    const next = vi.fn();
+
+    await autenticar(req, res, next);
+
+    expect(errorResponse).toHaveBeenCalledWith(
+      res,
+      "Sesión inválida. Por favor inicia sesión nuevamente.",
+      401,
+    );
+    expect(next).not.toHaveBeenCalled();
   });
 
 

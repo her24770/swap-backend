@@ -91,11 +91,7 @@ export const schemaEditarPublicacion = z.object({
 
     etiquetas: arrayMultipart(z.coerce.number().int().positive("Cada etiqueta debe ser un ID válido.")),
     imagenesEliminar: arrayMultipart(z.string().url("Cada imagen debe ser una URL válida.")),
-})
-.refine(
-    (data) => Object.keys(data).some((k) => data[k as keyof typeof data] !== undefined),
-    { message: "Debe enviar al menos un campo para actualizar." }
-);
+});
 
 export const schemaGuardarPublicacion = z.object({
     publicacionId: z

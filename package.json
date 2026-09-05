@@ -15,7 +15,14 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:watch": "vitest watch",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:unit": "vitest run tests/unit",
+    "test:contract": "vitest run tests/integration/openapi.test.ts tests/integration/endpoint-inventory.test.ts tests/integration/autorizacion-endpoints.test.ts tests/integration/contrato-rest.test.ts",
+    "test:integration": "vitest run tests/integration",
+    "test:integration:docker": "sh scripts/run-integration.sh",
+    "test:integration:docker:win": "powershell -ExecutionPolicy Bypass -File scripts/run-integration.ps1",
+    "test:integration:down": "docker compose -f docker-compose.integration.yml down --volumes --remove-orphans",
+    "endpoints:inventory": "tsx scripts/generarMatrizEndpoints.ts"
   },
   "prisma": {
     "seed": "ts-node --transpile-only prisma/seed.ts"
@@ -31,6 +38,7 @@
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
     "node-cron": "^4.6.0",

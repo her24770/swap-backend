@@ -15,7 +15,7 @@ export async function buscarConversacionPorId(id: number): Promise<(Conversacion
 export async function buscarConversacionEntreDosUsuarios(
     idUsuario1: number,
     idUsuario2: number
-): Promise<Conversacion | null> {
+): Promise<(Conversacion & { mensajes: Mensaje[] }) | null> {
     return prisma.conversacion.findFirst({
         where: {
             OR: [
@@ -115,6 +115,114 @@ export async function buscarMensajesPorConversacion(idConversacion: number): Pro
 
 export async function guardarMensaje(data: Prisma.MensajeCreateInput): Promise<Mensaje> {
     return prisma.mensaje.create({ data });
+}
+
+interface MensajeConNotificacionInput {
+    idConversacion: number;
+    idEmisor: number;
+    idReceptor: number;
+    texto: string;
+    idEstadoEnviado: number;
+    idPublicacion?: number;
+}
+
+export async function guardarMensajeConNotificacion(input: MensajeConNotificacionInput) {
+    return prisma.$transaction(async (tx) => {
+        if (input.idPublicacion !== undefined) {
+            await tx.contextoConversacion.upsert({
+                where: {
+                    id_conversacion_id_publicacion: {
+                        id_conversacion: input.idConversacion,
+                        id_publicacion: input.idPublicacion,
+                    },
+                },
+                update: {},
+                create: {
+                    id_conversacion: input.idConversacion,
+                    id_publicacion: input.idPublicacion,
+                    id_usuario: input.idEmisor,
+                },
+            });
+        }
+
+        const mensaje = await tx.mensaje.create({
+            data: {
+                id_conversacion: input.idConversacion,
+                id_emisor: input.idEmisor,
+                mensaje: input.texto,
+                estado_mensaje: input.idEstadoEnviado,
+            },
+        });
+        const notificacion = await tx.notificacion.create({
+            data: {
+                id_usuario: input.idReceptor,
+                mensaje: "Tienes un nuevo mensaje",
+                id_estado: input.idEstadoEnviado,
+            },
+            include: { estado: { select: { estado: true } } },
+        });
+        const conversacion = await tx.conversacion.findUnique({
+            where: { id_conversacion: input.idConversacion },
+            ...conversacionConUltimoMensaje,
+        });
+
+        return { mensaje, notificacion, conversacion };
+    });
+}
+
+interface ConversacionInicialInput {
+    idEmisor: number;
+    idReceptor: number;
+    texto: string;
+    idEstadoPendiente: number;
+    idEstadoEnviado: number;
+    idPublicacion?: number;
+}
+
+export async function guardarConversacionConMensajeInicial(input: ConversacionInicialInput) {
+    return prisma.$transaction(async (tx) => {
+        const creada = await tx.conversacion.create({
+            data: {
+                id_usuario_1: input.idEmisor,
+                id_usuario_2: input.idReceptor,
+                estado_conversacion: input.idEstadoPendiente,
+            },
+        });
+
+        if (input.idPublicacion !== undefined) {
+            await tx.contextoConversacion.create({
+                data: {
+                    id_conversacion: creada.id_conversacion,
+                    id_publicacion: input.idPublicacion,
+                    id_usuario: input.idEmisor,
+                },
+            });
+        }
+
+        const mensaje = await tx.mensaje.create({
+            data: {
+                id_conversacion: creada.id_conversacion,
+                id_emisor: input.idEmisor,
+                mensaje: input.texto,
+                estado_mensaje: input.idEstadoEnviado,
+            },
+        });
+        const notificacion = await tx.notificacion.create({
+            data: {
+                id_usuario: input.idReceptor,
+                mensaje: "Tienes un nuevo mensaje",
+                id_estado: input.idEstadoEnviado,
+            },
+            include: { estado: { select: { estado: true } } },
+        });
+        const conversacion = await tx.conversacion.findUnique({
+            where: { id_conversacion: creada.id_conversacion },
+            ...conversacionConUltimoMensaje,
+        });
+        if (!conversacion) throw new Error("No se pudo recuperar la conversación creada");
+
+        return { conversacion, mensaje, notificacion };
+    });
 }
 
 export async function actualizarMensaje(

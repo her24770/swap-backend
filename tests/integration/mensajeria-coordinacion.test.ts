@@ -1,6 +1,6 @@
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ServicioJWT } from "../../src/autenticacion/ServicioJWT";
+import { generarTokenSintetico } from "../helpers";
 import { registrarEventosConexion } from "../../src/sockets/socketServer";
 import app from "../../src/app";
 
@@ -15,6 +15,9 @@ const estado = vi.hoisted(() => ({
 // flujo use JWT directamente. Evita cargar el binario nativo de bcrypt.
 vi.mock("bcrypt", () => ({ default: { hash: vi.fn(), compare: vi.fn() }, hash: vi.fn(), compare: vi.fn() }));
 vi.mock("../../src/autenticacion/blacklist", () => ({ estaRevocado: vi.fn().mockResolvedValue(false) }));
+vi.mock("../../src/autenticacion/servicioSesionVersion", () => ({
+  obtenerVersionActual: vi.fn().mockResolvedValue(1),
+}));
 vi.mock("../../src/repository/repositorioEstado", () => ({
   obtenerEstadoPorNombre: vi.fn(async (nombre: string) => ({
     activo: { id_estado: 1, estado: "activo" },
@@ -25,15 +28,34 @@ vi.mock("../../src/repository/repositorioEstado", () => ({
 }));
 vi.mock("../../src/repository/repositorioMensaje", () => ({
   buscarConversacionEntreDosUsuarios: vi.fn(async () => estado.conversacion),
-  guardarConversacion: vi.fn(async (data: any) => {
+  guardarConversacionConMensajeInicial: vi.fn(async (data: any) => {
     estado.conversacion = {
       id_conversacion: 10,
-      id_usuario_1: data.usuario1.connect.id_usuario,
-      id_usuario_2: data.usuario2.connect.id_usuario,
-      estado_conversacion: data.estadoRel.connect.id_estado,
+      id_usuario_1: data.idEmisor,
+      id_usuario_2: data.idReceptor,
+      estado_conversacion: data.idEstadoPendiente,
       mensajes: [],
     };
-    return estado.conversacion;
+    const mensaje = {
+      id_mensaje: 1,
+      id_conversacion: 10,
+      id_emisor: data.idEmisor,
+      mensaje: data.texto,
+      estado_mensaje: data.idEstadoEnviado,
+      fecha_enviado: new Date("2026-09-01T10:00:00.000Z"),
+    };
+    estado.mensajes.push(mensaje);
+    estado.conversacion.mensajes = estado.mensajes;
+    return {
+      conversacion: {
+        ...estado.conversacion,
+        usuario1: { id_usuario: data.idEmisor, nombre: "Comprador" },
+        usuario2: { id_usuario: data.idReceptor, nombre: "Vendedor" },
+        contextos: [],
+      },
+      mensaje,
+      notificacion: { id_notificacion: 1 },
+    };
   }),
   buscarConversacionPorId: vi.fn(async () => estado.conversacion),
   buscarConversacionCompletaPorId: vi.fn(async () => estado.conversacion && ({
@@ -46,18 +68,22 @@ vi.mock("../../src/repository/repositorioMensaje", () => ({
   buscarMensajesPorConversacion: vi.fn(async () => estado.mensajes),
   buscarConversacionesPorUsuario: vi.fn(async () => []),
   actualizarConversacion: vi.fn(),
-  guardarMensaje: estado.guardarMensaje.mockImplementation(async (data: any) => {
+  guardarMensajeConNotificacion: estado.guardarMensaje.mockImplementation(async (data: any) => {
     const mensaje = {
       id_mensaje: estado.mensajes.length + 1,
-      id_conversacion: data.conversacion.connect.id_conversacion,
-      id_emisor: data.emisor.connect.id_usuario,
-      mensaje: data.mensaje,
-      estado_mensaje: data.estadoRel.connect.id_estado,
+      id_conversacion: data.idConversacion,
+      id_emisor: data.idEmisor,
+      mensaje: data.texto,
+      estado_mensaje: data.idEstadoEnviado,
       fecha_enviado: new Date(`2026-09-01T10:0${estado.mensajes.length}:00.000Z`),
     };
     estado.mensajes.push(mensaje);
     estado.conversacion.mensajes = estado.mensajes;
-    return mensaje;
+    return {
+      mensaje,
+      notificacion: { id_notificacion: estado.mensajes.length },
+      conversacion: { ...estado.conversacion, mensajes: [mensaje], contextos: [] },
+    };
   }),
 }));
 vi.mock("../../src/repository/repositorioNotificacion", () => ({
@@ -92,7 +118,7 @@ vi.mock("../../src/servicios/servicioAcuerdo", () => ({ notificarActualizacionAc
 vi.mock("../../src/sockets/ioInstance", () => ({ getIO: vi.fn(() => null), setIO: vi.fn() }));
 
 function token(idUsuario: number) {
-  return ServicioJWT.generarToken({ sub: String(idUsuario), email: `u${idUsuario}@test.com`, rol: "usuario" });
+  return generarTokenSintetico({ id: idUsuario, email: `u${idUsuario}@test.com`, rol: "usuario", ver: 1 });
 }
 
 function prepararConversacion(estadoConversacion: number) {
@@ -113,7 +139,7 @@ beforeEach(() => {
   estado.crearAcuerdo.mockClear();
 });
 
-describe("TEST-04 — Mensajería y coordinación", () => {
+describe("TEST-04 rápido — Mensajería y coordinación con dobles", () => {
   it("IT-19: crea el contacto y recupera el historial completo en orden", async () => {
     const creado = await request(app)
       .post("/api/conversacion")
@@ -147,15 +173,56 @@ describe("TEST-04 — Mensajería y coordinación", () => {
     ["bloqueada", 3],
   ])("IT-20: REST no persiste mensajes en una conversación %s", async (_nombre, idEstado) => {
     prepararConversacion(idEstado);
+    if (idEstado === 2) {
+      estado.mensajes.push({
+        id_mensaje: 1,
+        id_conversacion: 10,
+        id_emisor: 1,
+        mensaje: "Solicitud ya enviada",
+        estado_mensaje: 4,
+        fecha_enviado: new Date("2026-09-01T10:00:00.000Z"),
+      });
+    }
 
     const respuesta = await request(app)
       .post("/api/conversacion")
       .set("Authorization", `Bearer ${token(1)}`)
       .send({ id_usuario_2: 2, mensaje: "No debe guardarse" })
-      .expect(400);
+      .expect(idEstado === 2 ? 409 : 400);
 
-    expect(respuesta.body.message).toMatch(/debe estar activa/i);
+    expect(respuesta.body.message).toMatch(idEstado === 2 ? /solicitud pendiente/i : /debe estar activa/i);
     expect(estado.guardarMensaje).not.toHaveBeenCalled();
+  });
+
+  it("SP-03: recupera el primer mensaje si una versión anterior dejó una conversación pendiente vacía", async () => {
+    prepararConversacion(2);
+
+    const respuesta = await request(app)
+      .post("/api/conversacion")
+      .set("Authorization", `Bearer ${token(1)}`)
+      .send({ id_usuario_2: 2, mensaje: "Reintento seguro" })
+      .expect(201);
+
+    expect(respuesta.body.data.mensaje.mensaje).toBe("Reintento seguro");
+    expect(estado.mensajes).toHaveLength(1);
+  });
+
+  it("SP-03: reintentar el mismo primer mensaje no crea un duplicado", async () => {
+    const body = { id_usuario_2: 2, mensaje: "Mensaje idempotente" };
+    await request(app)
+      .post("/api/conversacion")
+      .set("Authorization", `Bearer ${token(1)}`)
+      .send(body)
+      .expect(201);
+
+    const repetida = await request(app)
+      .post("/api/conversacion")
+      .set("Authorization", `Bearer ${token(1)}`)
+      .send(body)
+      .expect(200);
+
+    expect(repetida.body.data.mensaje.mensaje).toBe("Mensaje idempotente");
+    expect(estado.mensajes).toHaveLength(1);
   });
 
   it.each([
@@ -163,11 +230,11 @@ describe("TEST-04 — Mensajería y coordinación", () => {
     ["bloqueada", 3],
   ])("IT-20: Socket.IO no persiste mensajes en una conversación %s", async (_nombre, idEstado) => {
     prepararConversacion(idEstado);
-    const handlers = new Map<string, Function>();
+    const handlers = new Map<string, (...args: any[]) => void | Promise<void>>();
     const socket = {
       data: { usuario: { sub: "1" } },
       join: vi.fn(),
-      on: vi.fn((evento: string, handler: Function) => handlers.set(evento, handler)),
+      on: vi.fn((evento: string, handler: (...args: any[]) => void | Promise<void>) => handlers.set(evento, handler)),
     };
     registrarEventosConexion(socket as any);
 

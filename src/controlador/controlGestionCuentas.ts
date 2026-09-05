@@ -68,7 +68,12 @@ export async function cambiarEstadoUsuario(req: Request, res: Response, next: Ne
             return;
         }
 
-        await actualizarUsuario(idUsuario, { tiempo_suspendido: tiempoSuspendido });
+        // El estado y la invalidación se escriben atómicamente para que un
+        // fallo intermedio no deje sesiones vigentes en una cuenta bloqueada.
+        await actualizarUsuario(idUsuario, {
+            tiempo_suspendido: tiempoSuspendido,
+            sesion_version: { increment: 1 },
+        });
 
         const detalle = justificante.detalle ? ` Detalle: ${justificante.detalle}` : "";
         await notificarAccionModeracion(
@@ -146,7 +151,10 @@ export async function cambiarEstadoModerador(req: Request, res: Response, next: 
             return;
         }
 
-        await actualizarModerador(idModerador, { tiempo_suspendido: tiempoSuspendido });
+        await actualizarModerador(idModerador, {
+            tiempo_suspendido: tiempoSuspendido,
+            sesion_version: { increment: 1 },
+        });
 
         exitoResponse(
             res,

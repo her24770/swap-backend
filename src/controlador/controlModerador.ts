@@ -83,6 +83,7 @@ export async function iniciarSesionModerador(req: Request, res: Response, next: 
             sub: String(moderador.id_moderador),
             email: moderador.usuario,
             rol: nivel,
+            ver: moderador.sesion_version,
         };
         const token = ServicioJWT.generarToken(payload);
 
@@ -231,7 +232,15 @@ export async function editarModerador(req: Request, res: Response, next: NextFun
             data.password = await ServicioBcrypt.hashearPassword(password);
         }
 
+        // Fix BG-04: un cambio de nivel o de password no debe dejar viva
+        // una sesión ya emitida. Se incrementa dentro del mismo UPDATE para
+        // que el cambio crítico y la invalidación sean atómicos.
+        if (nivel !== undefined || password !== undefined) {
+            data.sesion_version = { increment: 1 };
+        }
+
         const moderadorActualizado = await actualizarModerador(id, data);
+
         exitoResponse(res, moderadorPublico(moderadorActualizado), "Moderador actualizado exitosamente", 200);
     } catch (error) {
         next(error);

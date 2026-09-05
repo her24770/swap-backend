@@ -22,7 +22,8 @@ Backend service for **Swap** — a platform for student tutoring, academic mater
 | Carpeta          | Qué va ahí                                                                                                       |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `api_rest/`      | Routers de Express — solo enrutan, sin lógica. Ej: `routerAuth.ts`, `routerPublicacion.ts`                       |
-| `controlador/`   | Lógica de negocio. Recibe la request, llama al repositorio, devuelve respuesta. Ej: `controlUsuario.ts`          |
+| `controlador/`   | Adaptadores HTTP: leen request, llaman servicios y construyen la respuesta. Ej: `controlPublicacion.ts`           |
+| `servicios/`     | Casos de uso y coordinación de reglas, repositorios y proveedores externos. Ej: `servicioPublicacion.ts`          |
 | `modelo/`        | Interfaces y tipos TypeScript del dominio. Ej: `Usuario.ts`, `Publicacion.ts`                                    |
 | `repository/`    | Queries a Prisma. Solo acceso a datos, sin lógica de negocio. Ej: `repositorioUsuario.ts`                        |
 | `persistencia/`  | Singleton de `PrismaClient` — un único cliente para toda la app. Solo `prismaClient.ts`                          |
@@ -75,8 +76,9 @@ curl http://localhost:3001/api/health
 
 Con el backend en ejecución, la documentación interactiva está disponible en:
 
-- Swagger UI: `http://localhost:3001/api/docs`
-- Especificación OpenAPI 3.2: `http://localhost:3001/api/openapi.json`
+- Swagger UI canónico: `http://localhost:3001/api/v1/docs`
+- Especificación OpenAPI 3.2: `http://localhost:3001/api/v1/openapi.json`
+- Alias compatible durante v1: `http://localhost:3001/api/docs`
 
 Swagger UI permite ejecutar cada operación desde el navegador. Las rutas protegidas
 aceptan la cookie `swap-token` creada por el inicio de sesión o un JWT configurado
@@ -232,6 +234,46 @@ Generar reporte de cobertura:
 ```bash
 npm run test:coverage
 ```
+
+### Contrato e inventario de endpoints
+
+La matriz trazable se genera desde los routers de Express y se cruza con OpenAPI
+y las invocaciones HTTP existentes:
+
+```bash
+npm run endpoints:inventory
+npm run test:contract
+```
+
+El resultado queda en `docs/matriz-endpoints.md`. CI debe ejecutar
+`test:contract`: falla si una ruta no está documentada o si la seguridad de
+OpenAPI no coincide con sus middlewares. La matriz diferencia documentación,
+pruebas de autorización y casos funcionales pendientes.
+
+Las decisiones de versionado, idempotencia y compatibilidad de verbos están en
+`docs/contrato-rest-v1.md`. La URL canónica es `/api/v1`; `/api` permanece como
+alias compatible. Los `PUT` parciales heredados responden con headers de
+deprecación y tienen reemplazos `PATCH` documentados.
+
+### Integración aislada
+
+El entorno de integración usa PostgreSQL/pgvector y Redis efímeros, sin reutilizar
+volúmenes ni nombres del entorno de desarrollo:
+
+```bash
+npm run test:integration:docker
+```
+
+El comando elimina una ejecución aislada anterior, crea el esquema, ejecuta las
+suites y destruye contenedores, red y volúmenes al finalizar. Además, cada caso
+real trunca PostgreSQL reiniciando identidades, vacía Redis DB 15, reinicia los
+rate limiters y vuelve a crear sus fixtures. La limpieza valida antes que
+`NODE_ENV=test`, que PostgreSQL termine en `_test` y que Redis use DB 15; así
+evita truncar por error una base de desarrollo o producción. El comando
+`npm run test:integration:down` queda disponible como limpieza manual. Para
+la guía completa para el resto del equipo (incluyendo ejecución desde el host y
+cómo agregar nuevas IT), consultar
+[`docs/guia-pruebas-integracion.md`](docs/guia-pruebas-integracion.md).
 
 ---
 

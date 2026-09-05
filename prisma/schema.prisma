@@ -29,6 +29,7 @@ model Usuario {
   total_resenas       Int                    @default(0)
   reportes_recibidos  Int                    @default(0)
   tiempo_suspendido   Int                    @default(0)
+  sesion_version      Int                    @default(1)
   contactos           Contacto[]
   tiemposDisponibles  TiempoDisponible[]
   certificaciones     Certificacion[]
@@ -55,6 +56,7 @@ model Moderador {
   password          String @db.VarChar(255)
   id_tipo_moderador Int
   tiempo_suspendido Int    @default(0)
+  sesion_version    Int    @default(1)
 
   tipoRel  TipoModerador @relation(fields: [id_tipo_moderador], references: [id_tipo_moderador])
   reportes Reporte[]

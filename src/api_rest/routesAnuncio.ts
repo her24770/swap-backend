@@ -12,13 +12,15 @@ import { uploadImagen } from "../servicios/middlewareMulter.js";
 import { validar } from "../autenticacion/middelwareValidacion.js";
 import { schemaCrearAnuncio, schemaEditarAnuncio } from "../modelo/schemaAnuncio.js";
 import { moderarImagenes, moderarTexto } from "../autenticacion/middlewareModeracion.js";
+import { marcarObsoleto } from "./compatibilidad.js";
 
 const router = Router();
 
 router.get("/user/:id_usuario", autenticar, obtenerAnunciosUsuario);
 router.get("/", autenticar, obtenerTodosLosAnuncios);
 router.post("/", autenticar, soloUsuario, uploadImagen.single('imagen'), validar(schemaCrearAnuncio), moderarTexto(['titulo', 'descripcion']), moderarImagenes, crearAnuncioUsuario);
-router.put("/:id_anuncio", autenticar, soloUsuario, uploadImagen.single('imagen'), validar(schemaEditarAnuncio), moderarTexto(['titulo', 'descripcion']), moderarImagenes, editarAnuncioUsuario);
+router.patch("/:id_anuncio", autenticar, soloUsuario, uploadImagen.single('imagen'), validar(schemaEditarAnuncio), moderarTexto(['titulo', 'descripcion']), moderarImagenes, editarAnuncioUsuario);
+router.put("/:id_anuncio", marcarObsoleto("/api/v1/anuncio/:id_anuncio"), autenticar, soloUsuario, uploadImagen.single('imagen'), validar(schemaEditarAnuncio), moderarTexto(['titulo', 'descripcion']), moderarImagenes, editarAnuncioUsuario);
 router.delete("/:id_anuncio", autenticar, soloUsuario, eliminarAnuncioUsuario);
 
 export default router;

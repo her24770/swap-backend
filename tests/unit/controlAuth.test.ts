@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-import { iniciarSesion, registro } from "../../src/controlador/controlAuth";
+import { iniciarSesion, registro, restablecerPassword } from "../../src/controlador/controlAuth";
 
 import {
   buscarUsuarioPorEmail,
@@ -320,5 +320,35 @@ describe("registro", () => {
       "El correo institucional ya está registrado.",
       409,
     );
+  });
+});
+
+describe("restablecerPassword", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("actualiza la contraseña e invalida las sesiones en el mismo UPDATE", async () => {
+    vi.mocked(redis.get).mockResolvedValue("123456");
+    vi.mocked(buscarUsuarioPorEmail).mockResolvedValue({ id_usuario: 8 } as any);
+    vi.mocked(ServicioBcrypt.hashearPassword).mockResolvedValue("nuevo-hash");
+
+    const req: any = {
+      body: {
+        email: "usuario@uvg.edu.gt",
+        code: "123456",
+        newPassword: "NuevaClave1",
+      },
+    };
+    const res: any = {};
+
+    await restablecerPassword(req, res, vi.fn());
+
+    expect(actualizarUsuario).toHaveBeenCalledWith(8, {
+      password: "nuevo-hash",
+      sesion_version: { increment: 1 },
+    });
+    expect(redis.del).toHaveBeenCalled();
+    expect(exitoResponse).toHaveBeenCalled();
   });
 });

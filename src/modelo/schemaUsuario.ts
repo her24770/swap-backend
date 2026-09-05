@@ -17,6 +17,15 @@ export const schemaActualizarPerfil = z.object({
     url_foto_perfil: z
         .string()
         .url("La URL de la foto no tiene un formato válido.")
+        .refine((url) => {
+            // Fix BG-18: si aceptamos cualquier dominio aquí, se puede saltar
+            // por completo el flujo de subida moderada (PUT /api/imagen/perfil/:id
+            // + análisis en background). Solo se permiten URLs que ya
+            // pasaron por nuestro propio bucket de R2.
+            const baseR2 = process.env.CLOUDFLARE_R2_PUBLIC_URL;
+            if (!baseR2) return false; // fail-closed si falta la config
+            return url === baseR2 || url.startsWith(`${baseR2}/`);
+        }, "La foto de perfil debe subirse primero mediante el endpoint de subida de imágenes.")
         .optional(),
 
     descripcion: z
@@ -28,6 +37,13 @@ export const schemaActualizarPerfil = z.object({
     (data) => Object.keys(data).length > 0,
     { message: "Debe enviar al menos un campo para actualizar." }
 );
+
+// Fix BG-08:  Usamos allowlist (no blocklist):
+// si trae ALGÚN "esquema:" al inicio, solo se permite si está en esta lista.
+// Esto bloquea javascript:, data:, file:, vbscript:, y cualquier esquema
+// futuro que no hayamos anticipado.
+const ESQUEMAS_PERMITIDOS = ["http", "https", "tel", "mailto"];
+const PATRON_ESQUEMA = /^([a-zA-Z][a-zA-Z0-9+.-]*):/;
 
 /**
  * Schema para PUT /api/user/:id/contactos
@@ -41,7 +57,12 @@ const contactoSchema = z.object({
     valor: z
         .string({ required_error: "El valor del contacto es obligatorio." })
         .min(1, "El valor no puede estar vacío.")
-        .max(255, "El valor no puede superar 255 caracteres."),
+        .max(255, "El valor no puede superar 255 caracteres.")
+        .refine((valor) => {
+            const match = valor.trim().match(PATRON_ESQUEMA);
+            if (!match) return true; // sin esquema (número, usuario, correo) — permitido
+            return ESQUEMAS_PERMITIDOS.includes(match[1].toLowerCase());
+        }, "El valor del contacto contiene un protocolo no permitido."),
 });
 
 export const schemaAgregarContactos = z.object({

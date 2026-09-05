@@ -12,6 +12,11 @@ export default defineConfig({
 
     testTimeout: 30_000,
 
+    // Las suites que comparten la infraestructura real limpian y recrean la
+    // misma BD/Redis por caso. En ese modo los archivos deben ser secuenciales
+    // para impedir que un TRUNCATE de una suite alcance a otra.
+    fileParallelism: process.env.RUN_INTEGRATION !== "true",
+
     sequence: {
       concurrent: false,
     },
