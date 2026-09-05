@@ -1,12 +1,15 @@
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
 import { inventariarRutas } from "../../scripts/generarMatrizEndpoints";
-import { ServicioJWT } from "../../src/autenticacion/ServicioJWT";
+import { generarTokenSintetico } from "../helpers";
 import app from "../../src/app";
 
 // COBERTURA_AUTORIZACION_DINAMICA: el generador de matriz reconoce que esta
 // suite prueba todos los endpoints protegidos obtenidos desde las rutas reales.
 vi.mock("../../src/autenticacion/blacklist", () => ({ estaRevocado: vi.fn().mockResolvedValue(false) }));
+vi.mock("../../src/autenticacion/servicioSesionVersion", () => ({
+    obtenerVersionActual: vi.fn().mockResolvedValue(1),
+}));
 vi.mock("../../src/autenticacion/rateLimiter", () => ({
     rateLimitGlobal: (_req: unknown, _res: unknown, next: () => void) => next(),
 }));
@@ -22,7 +25,7 @@ const rutasConRol = rutasProtegidas.filter((endpoint) =>
 );
 
 function tokenParaRol(rol: string): string {
-    return ServicioJWT.generarToken({ sub: "999", email: "prueba@uvg.edu.gt", rol });
+    return generarTokenSintetico({ id: 999, email: "prueba@uvg.edu.gt", rol, ver: 1 });
 }
 
 function ejecutar(metodo: string, ruta: string) {
