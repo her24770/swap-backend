@@ -416,5 +416,178 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
             });
             expect(usuarioDbVerificacionFinal?.tiempo_suspendido).toBeGreaterThan(timestampActual);
         });
+
+        it("IT-27 (Advertencias): el moderador envía una advertencia formal y el usuario la recibe sin que se restrinja su cuenta", async () => {
+            // 1. Preparación de entidades: Usuario activo y moderador
+            const usuario = await crearUsuarioTest({ nombre: "Usuario Advertido" });
+            const moderador = await crearModeradorTest({ usuario: "mod_advertencias" });
+
+            // 2. El moderador envía una advertencia formal utilizando el endpoint real
+            const respuestaAdvertencia = await request(app)
+                .post(`/api/v1/moderador/usuarios/${usuario.id_usuario}/advertencia`)
+                .set("Authorization", `Bearer ${moderador.token}`)
+                .send({
+                    motivo: "Uso indebido de lenguaje",
+                    detalle: "Primera llamada de atención por comentarios ofensivos en publicaciones.",
+                })
+                .expect(200);
+
+            expect(respuestaAdvertencia.body.success).toBe(true);
+            expect(respuestaAdvertencia.body.data.id_usuario).toBe(usuario.id_usuario);
+
+            // 3. Verificación de persistencia de la advertencia en PostgreSQL (tabla Notificacion)
+            const notificacionesDb = await prisma.notificacion.findMany({
+                where: { id_usuario: usuario.id_usuario },
+            });
+            expect(notificacionesDb.length).toBe(1);
+            expect(notificacionesDb[0].mensaje).toContain("Recibiste una advertencia de un moderador");
+            expect(notificacionesDb[0].mensaje).toContain("Uso indebido de lenguaje");
+
+            // 4. El usuario consulta sus notificaciones a través de la API REST
+            const consultaNotificaciones = await request(app)
+                .get("/api/v1/notificacion")
+                .set("Authorization", `Bearer ${usuario.token}`)
+                .expect(200);
+
+            expect(consultaNotificaciones.body.success).toBe(true);
+            expect(consultaNotificaciones.body.data).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        id_usuario: usuario.id_usuario,
+                        mensaje: expect.stringContaining("Recibiste una advertencia"),
+                    }),
+                ]),
+            );
+
+            // 5. La advertencia no aplica restricciones de suspensión ni de bloqueo
+            const usuarioDb = await prisma.usuario.findUnique({
+                where: { id_usuario: usuario.id_usuario },
+            });
+            expect(usuarioDb?.tiempo_suspendido).toBe(0);
+            expect(usuarioDb?.sesion_version).toBe(usuario.sesion_version);
+
+            // El usuario continúa plenamente autorizado y puede realizar operaciones
+            const sesionUsuario = await request(app)
+                .get("/api/v1/auth/me")
+                .set("Authorization", `Bearer ${usuario.token}`)
+                .expect(200);
+            expect(sesionUsuario.body.success).toBe(true);
+        });
+
+        it("IT-27 (Sanciones y BG-24): suspensión y bloqueo de cuentas, intentos de reversión por el infractor y protección de publicaciones bajadas por moderación", async () => {
+            // 1. Preparación de entidades: Usuario infractor con publicación activa, denunciante y moderador
+            const infractor = await crearUsuarioTest({ nombre: "Usuario Infractor BG24" });
+            const denunciante = await crearUsuarioTest({ nombre: "Usuario Denunciante BG24" });
+            const moderador = await crearModeradorTest({ usuario: "mod_sanciones_bg24" });
+
+            const publicacion = await crearPublicacionTest({
+                id_usuario: infractor.id_usuario,
+                titulo: "Material Académico no Autorizado",
+                descripcion: "Venta de material con derechos reservados",
+                precio: "80.00",
+                estado: estados.activo,
+            });
+
+            // 2. Denunciante reporta la publicación
+            await request(app)
+                .post("/api/v1/reportes")
+                .set("Authorization", `Bearer ${denunciante.token}`)
+                .send({
+                    tipo_objetivo: "publicacion",
+                    id_objetivo: publicacion.id_publicacion,
+                    motivo: "Propiedad intelectual o derechos de autor",
+                    detalle: "El contenido infringe derechos protegidos.",
+                })
+                .expect(201);
+
+            // 3. El moderador baja la publicación por moderación (queda en estado 'inactivo')
+            const respuestaBajarPub = await request(app)
+                .patch(`/api/v1/moderador/publicaciones/${publicacion.id_publicacion}/bajar`)
+                .set("Authorization", `Bearer ${moderador.token}`)
+                .send({
+                    motivo: "Propiedad intelectual o derechos de autor",
+                    detalle: "Publicación retirada de la plataforma tras reporte verificado",
+                })
+                .expect(200);
+
+            expect(respuestaBajarPub.body.success).toBe(true);
+            expect(respuestaBajarPub.body.data.estado_nombre).toBe("inactivo");
+
+            // 4. Verificación de BG-24: El propietario intenta revertir la sanción reactivando su publicación
+            const intentoReactivacionPropietario = await request(app)
+                .patch(`/api/v1/publicacion/${publicacion.id_publicacion}/estado`)
+                .set("Authorization", `Bearer ${infractor.token}`)
+                .send({ estado_id: estados.activo })
+                .expect(409);
+
+            expect(intentoReactivacionPropietario.body.success).toBe(false);
+            expect(intentoReactivacionPropietario.body.message).toContain("reportes pendientes");
+
+            // El propietario tampoco puede usar el endpoint de moderador para reactivarla
+            await request(app)
+                .patch(`/api/v1/moderador/publicaciones/${publicacion.id_publicacion}/reactivar`)
+                .set("Authorization", `Bearer ${infractor.token}`)
+                .send({ motivo: "Quiero reactivar mi publicación" })
+                .expect(403);
+
+            // La publicación en PostgreSQL permanece intacta como 'inactiva'
+            const publicacionDb = await prisma.publicacion.findUnique({
+                where: { id_publicacion: publicacion.id_publicacion },
+            });
+            expect(publicacionDb?.estado).toBe(estados.inactivo);
+
+            // 5. El moderador aplica sanción de suspensión temporal (7 días) a la cuenta del infractor
+            const respuestaSuspension = await request(app)
+                .patch(`/api/v1/moderador/usuarios/${infractor.id_usuario}/estado`)
+                .set("Authorization", `Bearer ${moderador.token}`)
+                .send({
+                    accion: "suspender",
+                    dias: 7,
+                    motivo: "Propiedad intelectual o derechos de autor",
+                    detalle: "Suspensión temporal por reiteración de faltas",
+                })
+                .expect(200);
+
+            expect(respuestaSuspension.body.success).toBe(true);
+            const timestampActual = Math.floor(Date.now() / 1000);
+
+            const infractorSuspendidoDb = await prisma.usuario.findUnique({
+                where: { id_usuario: infractor.id_usuario },
+            });
+            expect(infractorSuspendidoDb?.tiempo_suspendido).toBeGreaterThan(timestampActual);
+
+            // 6. El usuario suspendido intenta revertir su propia sanción
+            const intentoReversionSuspension = await request(app)
+                .patch(`/api/v1/moderador/usuarios/${infractor.id_usuario}/estado`)
+                .set("Authorization", `Bearer ${infractor.token}`)
+                .send({
+                    accion: "reactivar",
+                    motivo: "Intento auto-reactivación no autorizada",
+                })
+                .expect(401);
+
+            expect(intentoReversionSuspension.body.success).toBe(false);
+
+            // 7. El moderador escala la sanción a bloqueo definitivo (-1)
+            const respuestaBloqueo = await request(app)
+                .patch(`/api/v1/moderador/usuarios/${infractor.id_usuario}/estado`)
+                .set("Authorization", `Bearer ${moderador.token}`)
+                .send({
+                    accion: "bloquear",
+                    motivo: "Incumplimiento grave de normas",
+                    detalle: "Bloqueo definitivo de cuenta",
+                })
+                .expect(200);
+
+            expect(respuestaBloqueo.body.success).toBe(true);
+            expect(respuestaBloqueo.body.data.tiempo_suspendido).toBe(-1);
+
+            // 8. El estado final en PostgreSQL permanece bloqueado y consistente
+            const infractorBloqueadoDb = await prisma.usuario.findUnique({
+                where: { id_usuario: infractor.id_usuario },
+            });
+            expect(infractorBloqueadoDb?.tiempo_suspendido).toBe(-1);
+            expect(infractorBloqueadoDb?.sesion_version).toBe(infractor.sesion_version + 2);
+        });
     },
 );
