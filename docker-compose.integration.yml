@@ -42,6 +42,7 @@ services:
       DATABASE_URL: postgresql://swap_test:swap_test@postgres-integration:5432/swap_integration_test?schema=public
       REDIS_URL: redis://redis-integration:6379/15
       FRONTEND_URL: http://localhost:3000
+      OPENAI_API_KEY: integration-placeholder
       CLOUDFLARE_R2_ACCOUNT_ID: integration-placeholder
       CLOUDFLARE_R2_ACCESS_KEY_ID: integration-placeholder
       CLOUDFLARE_R2_SECRET_ACCESS_KEY: integration-placeholder

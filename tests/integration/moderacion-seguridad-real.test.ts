@@ -35,6 +35,7 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
                 "resuelto",
                 "rechazado",
                 "enviado",
+                "disponible",
             ]);
 
             // Asegurar tipos de perfil base para publicaciones
@@ -745,6 +746,119 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
             });
             expect(notificaciones.length).toBe(1);
             expect(notificaciones[0].mensaje).toContain("error temporal");
+        });
+
+        it("IT-29: mantener y aplicar la lista de palabras inadecuadas en el filtro local y pipeline de creación", async () => {
+            const moderador = await crearModeradorTest();
+            const usuario = await crearUsuarioTest({ nombre: "Usuario Test IT29" });
+
+            const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+            const palabraInadecuada = "terminoprohibidoespecifico";
+
+            // 1. El moderador agrega una nueva palabra restringida usando la API REST
+            const respuestaCrearPalabra = await request(app)
+                .post("/api/v1/moderador/palabras")
+                .set("Authorization", `Bearer ${moderador.token}`)
+                .send({ palabra: palabraInadecuada })
+                .expect(201);
+
+            expect(respuestaCrearPalabra.body.success).toBe(true);
+            expect(respuestaCrearPalabra.body.data.palabra).toBe(palabraInadecuada);
+            const idPalabra = respuestaCrearPalabra.body.data.id_palabra;
+            expect(idPalabra).toBeDefined();
+
+            // 2. Comprobar que la palabra quedó correctamente registrada en PostgreSQL
+            const palabraEnDb = await prisma.palabraRestringida.findUnique({
+                where: { id_palabra: idPalabra },
+            });
+            expect(palabraEnDb).not.toBeNull();
+            expect(palabraEnDb?.palabra).toBe(palabraInadecuada);
+
+            // 3. Un usuario intenta crear una publicación que contiene la palabra restringida
+            const respuestaCreacionRechazada = await request(app)
+                .post("/api/v1/publicacion")
+                .set("Authorization", `Bearer ${usuario.token}`)
+                .field("titulo", `Publicación con ${palabraInadecuada} en título`)
+                .field("descripcion", "Descripción que contiene una palabra restringida por moderación")
+                .field("precio", "45.00")
+                .field("tipo_publicacion", "material")
+                .expect(422);
+
+            expect(respuestaCreacionRechazada.body.success).toBe(false);
+            expect(respuestaCreacionRechazada.body.message).toContain("normas de la comunidad");
+
+            // 4. La publicación no debe persistirse en PostgreSQL
+            const publicacionesRechazadas = await prisma.publicacion.findMany({
+                where: { id_usuario: usuario.id_usuario },
+            });
+            expect(publicacionesRechazadas.length).toBe(0);
+
+            // 5. Verificar que el proveedor externo (OpenAI) NO fue invocado (short-circuit del filtro local)
+            expect(fetchSpy).not.toHaveBeenCalled();
+
+            // 6. El moderador elimina la palabra restringida usando la API REST
+            const respuestaEliminar = await request(app)
+                .delete(`/api/v1/moderador/palabras/${idPalabra}`)
+                .set("Authorization", `Bearer ${moderador.token}`)
+                .expect(200);
+
+            expect(respuestaEliminar.body.success).toBe(true);
+
+            // 7. Comprobar que la palabra fue eliminada en PostgreSQL
+            const palabraEliminadaDb = await prisma.palabraRestringida.findUnique({
+                where: { id_palabra: idPalabra },
+            });
+            expect(palabraEliminadaDb).toBeNull();
+
+            // 8. Simular de forma controlada una respuesta segura del proveedor externo de moderación
+            fetchSpy.mockImplementation(async (input: any) => {
+                const url = String(input);
+                if (url.includes("api.openai.com")) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            results: [{
+                                flagged: false,
+                                category_scores: {},
+                            }],
+                        }),
+                    } as any;
+                }
+                // Fallback para otros servicios como embeddings
+                return {
+                    ok: true,
+                    json: async () => ({ vector: [0.1, 0.2, 0.3] }),
+                } as any;
+            });
+
+            // 9. El usuario vuelve a intentar crear la publicación con el mismo contenido
+            const respuestaCreacionExitosa = await request(app)
+                .post("/api/v1/publicacion")
+                .set("Authorization", `Bearer ${usuario.token}`)
+                .field("titulo", `Publicación con ${palabraInadecuada} en título`)
+                .field("descripcion", "Descripción válida ahora que la palabra ya no está restringida")
+                .field("precio", "45.00")
+                .field("tipo_publicacion", "material")
+                .expect(201);
+
+            expect(respuestaCreacionExitosa.body.success).toBe(true);
+            const idPublicacionCreada = respuestaCreacionExitosa.body.data.id_publicacion;
+            expect(idPublicacionCreada).toBeDefined();
+
+            // 10. Comprobar la persistencia final correcta en PostgreSQL
+            const publicacionEnDb = await prisma.publicacion.findUnique({
+                where: { id_publicacion: idPublicacionCreada },
+            });
+            expect(publicacionEnDb).not.toBeNull();
+            expect(publicacionEnDb?.titulo).toBe(`Publicación con ${palabraInadecuada} en título`);
+            expect(publicacionEnDb?.id_usuario).toBe(usuario.id_usuario);
+
+            // 11. Verificar que ahora la frontera externa de OpenAI SÍ fue invocada exactamente 1 vez
+            const llamadasOpenAI = fetchSpy.mock.calls.filter(([url]) =>
+                String(url).includes("api.openai.com")
+            );
+            expect(llamadasOpenAI.length).toBe(1);
         });
     },
 );

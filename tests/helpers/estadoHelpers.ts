@@ -1,13 +1,13 @@
 import prisma from "../../src/persistencia/prismaClient";
 
-export type NombreEstadoComun = "activo" | "inactivo" | "pendiente" | "resuelto" | "rechazado" | "enviado";
+export type NombreEstadoComun = "activo" | "inactivo" | "pendiente" | "resuelto" | "rechazado" | "enviado" | "disponible";
 
 /**
  * Asegura la existencia de los registros en la tabla Estado de PostgreSQL en integración
  * y retorna un mapa llave-valor con sus respectivos id_estado.
  */
 export async function asegurarEstadosIniciales(
-    estados: NombreEstadoComun[] = ["activo", "inactivo", "pendiente", "resuelto", "rechazado", "enviado"]
+    estados: NombreEstadoComun[] = ["activo", "inactivo", "pendiente", "resuelto", "rechazado", "enviado", "disponible"]
 ): Promise<Record<NombreEstadoComun, number>> {
     const mapaEstados: Partial<Record<NombreEstadoComun, number>> = {};
     for (const nombre of estados) {
