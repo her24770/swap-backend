@@ -140,7 +140,7 @@ function buscarPruebasHttp(directorioProyecto: string): {
         if (contenido.includes("COBERTURA_AUTORIZACION_DINAMICA")) {
             coberturaAutorizacion.add(basename(archivo));
         }
-        for (const match of contenido.matchAll(/\.(get|post|put|patch|delete)\(\s*["'`]\/api([^"'`]+)["'`]/g)) {
+        for (const match of contenido.matchAll(/\.(get|post|put|patch|delete)\(\s*["'`]\/api(?:\/v1)?([^"'`]+)["'`]/g)) {
             const llave = `${match[1].toUpperCase()} ${match[2] || "/"}`;
             const referencias = casos.get(llave) ?? new Set<string>();
             referencias.add(basename(archivo));
