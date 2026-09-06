@@ -822,10 +822,9 @@ const paths: Record<string, Record<string, unknown>> = {
             responseSchema: arrayOf(ref("Etiqueta")),
         }),
     },
-    "/acuerdo/user/{id}": {
+    "/acuerdo": {
         get: operation("Acuerdos", "getUserAgreements", "Obtener los acuerdos de un usuario", {
             parameters: [
-                pathId("id", "ID del usuario."),
                 query("tipo", "Tipo del historial.", { type: "string", enum: ["producto", "material", "negocio", "tutoria"] }),
                 query("estado", "Estado del acuerdo.", agreementState),
                 query("q", "Texto para filtrar el historial."),

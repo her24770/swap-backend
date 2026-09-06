@@ -166,7 +166,7 @@ export async function registrarNuevoReporte(req: Request, res: Response, next: N
             evidencias.map((archivo) => subirImagenR2(archivo.buffer, archivo.mimetype, "reportes"))
         );
 
-        const nuevoReporte = await guardarReporte({
+        const datosReporte: any = {
             emisor: { connect: { id_usuario: idEmisor } },
             receptor: { connect: { id_usuario: idReceptor } },
             motivoRel: { connect: { id_motivo: motivoReporte.id_motivo } },
@@ -174,7 +174,13 @@ export async function registrarNuevoReporte(req: Request, res: Response, next: N
             observaciones: construirObservaciones(tipoObjetivo, idObjetivo, motivo, detalle),
             link_imagen: urlsEvidencia.length > 0 ? JSON.stringify(urlsEvidencia) : "",
             fecha: new Date(),
-        } as any);
+        };
+
+        if (tipoObjetivo === "publicacion") {
+            datosReporte.publicacion = { connect: { id_publicacion: idObjetivo } };
+        }
+
+        const nuevoReporte = await guardarReporte(datosReporte);
 
         await actualizarUsuario(idReceptor, {
             reportes_recibidos: { increment: 1 },
