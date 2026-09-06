@@ -1,9 +1,13 @@
 import request from "supertest";
-import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { RekognitionClient } from "@aws-sdk/client-rekognition";
+import { PDFDocument } from "pdf-lib";
 import app from "../../src/app";
 import prisma from "../../src/persistencia/prismaClient";
+import { poolModeracion } from "../../src/servicios/servicioModerarCertificacionBackground";
 import {
     asegurarEstadosIniciales,
+    asegurarTiposPerfilBase,
     crearModeradorTest,
     crearPublicacionTest,
     crearUsuarioTest,
@@ -20,6 +24,8 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
         let estados: Record<NombreEstadoComun, number>;
 
         beforeEach(async () => {
+            process.env.OPENAI_API_KEY = "mock-openai-integration-key";
+
             // Limpieza completa del entorno y garantía de aislamiento de datos
             await limpiarEntornoIntegracion();
             estados = await asegurarEstadosIniciales([
@@ -30,9 +36,13 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
                 "rechazado",
                 "enviado",
             ]);
+
+            // Asegurar tipos de perfil base para publicaciones
+            await asegurarTiposPerfilBase();
         });
 
         afterEach(async () => {
+            vi.restoreAllMocks();
             await limpiarEntornoIntegracion();
         });
 
@@ -588,6 +598,153 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
             });
             expect(infractorBloqueadoDb?.tiempo_suspendido).toBe(-1);
             expect(infractorBloqueadoDb?.sesion_version).toBe(infractor.sesion_version + 2);
+        });
+
+        it("IT-28 (Escenario A): falla la moderación externa de texto y el sistema actúa en modo fail-closed", async () => {
+            const usuario = await crearUsuarioTest({ nombre: "Usuario Test IT28 A" });
+
+            // 1. Verificación previa del filtro local de palabras restringidas en BD (sin invocar al proveedor externo)
+            await prisma.palabraRestringida.create({
+                data: { palabra: "estafaprohibida" },
+            });
+
+            const respuestaFiltroLocal = await request(app)
+                .post("/api/v1/publicacion")
+                .set("Authorization", `Bearer ${usuario.token}`)
+                .field("titulo", "Publicación con estafaprohibida")
+                .field("descripcion", "Descripción con contenido que viola filtro local")
+                .field("precio", "50.00")
+                .field("tipo_publicacion", "material")
+                .expect(422);
+
+            expect(respuestaFiltroLocal.body.success).toBe(false);
+            expect(respuestaFiltroLocal.body.message).toContain("normas de la comunidad");
+            expect(await prisma.publicacion.count()).toBe(0);
+
+            // 2. Simulación de fallo en la frontera externa de OpenAI (error 503 / caída de red)
+            vi.spyOn(console, "error").mockImplementation(() => {});
+            vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Conexión con OpenAI rechazada (503)"));
+
+            const respuestaFalloProveedor = await request(app)
+                .post("/api/v1/publicacion")
+                .set("Authorization", `Bearer ${usuario.token}`)
+                .field("titulo", "Libro de Cálculo Diferencial")
+                .field("descripcion", "Libro de texto universitario en excelente estado")
+                .field("precio", "75.00")
+                .field("tipo_publicacion", "material")
+                .expect(503);
+
+            expect(respuestaFalloProveedor.body.success).toBe(false);
+            expect(respuestaFalloProveedor.body.message).toContain("No se pudo verificar el contenido");
+
+            // 3. Verificación de que NINGUNA publicación fue creada en PostgreSQL (comportamiento fail-closed)
+            const publicacionesEnDb = await prisma.publicacion.findMany({
+                where: { id_usuario: usuario.id_usuario },
+            });
+            expect(publicacionesEnDb.length).toBe(0);
+        });
+
+        it("IT-28 (Escenario B): falla la moderación externa de imágenes y la publicación no se crea de forma permisiva (BG-16)", async () => {
+            const usuario = await crearUsuarioTest({ nombre: "Usuario Test IT28 B" });
+
+            // 1. La moderación de texto responde exitosamente para permitir que el pipeline avance a la etapa de imágenes
+            vi.spyOn(globalThis, "fetch").mockResolvedValue({
+                ok: true,
+                json: async () => ({
+                    results: [{ flagged: false, category_scores: {} }],
+                }),
+            } as any);
+
+            // 2. Se simula la caída controlada del cliente externo de AWS Rekognition
+            vi.spyOn(console, "error").mockImplementation(() => {});
+            vi.spyOn(RekognitionClient.prototype, "send").mockRejectedValue(
+                new Error("AWS Rekognition Service Unavailable (500)")
+            );
+
+            // 3. El usuario intenta crear la publicación adjuntando una imagen
+            const imagenBuffer = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+            const respuestaCreacion = await request(app)
+                .post("/api/v1/publicacion")
+                .set("Authorization", `Bearer ${usuario.token}`)
+                .field("titulo", "Tutoría de Álgebra Lineal")
+                .field("descripcion", "Sesiones personalizadas de álgebra y matrices")
+                .field("precio", "60.00")
+                .field("tipo_publicacion", "tutoria")
+                .attach("imagenes", imagenBuffer, "foto_tutoria.png")
+                .expect(503);
+
+            expect(respuestaCreacion.body.success).toBe(false);
+            expect(respuestaCreacion.body.message).toContain("No se pudo verificar el contenido");
+
+            // 4. Verificación de que la publicación NO fue persistida en PostgreSQL antes de moderar las imágenes (BG-16)
+            const publicacionesEnDb = await prisma.publicacion.findMany({
+                where: { id_usuario: usuario.id_usuario },
+            });
+            expect(publicacionesEnDb.length).toBe(0);
+
+            // Tampoco deben quedar imágenes huérfanas en la base de datos
+            const imagenesEnDb = await prisma.imagenPublicacion.findMany();
+            expect(imagenesEnDb.length).toBe(0);
+        });
+
+        it("IT-28 (Escenario C): falla la moderación externa en certificaciones y el procesamiento en background aplica fail-closed", async () => {
+            const usuario = await crearUsuarioTest({ nombre: "Usuario Certificacion IT28" });
+            const etiqueta = await prisma.etiqueta.create({
+                data: {
+                    nombre: "Programación Web",
+                    descripcion: "Desarrollo de aplicaciones web modernas",
+                },
+            });
+
+            // 1. Crear documento PDF válido en memoria con texto
+            const pdfDoc = await PDFDocument.create();
+            const page = pdfDoc.addPage([200, 200]);
+            page.drawText("Certificado de Programacion Web", { x: 20, y: 100 });
+            const pdfBytes = Buffer.from(await pdfDoc.save());
+
+            // 2. Simular indisponibilidad de las APIs externas de moderación (OpenAI y Rekognition)
+            vi.spyOn(console, "error").mockImplementation(() => {});
+            vi.spyOn(globalThis, "fetch").mockRejectedValue(
+                new Error("OpenAI Moderations API Timeout (504)")
+            );
+            vi.spyOn(RekognitionClient.prototype, "send").mockRejectedValue(
+                new Error("AWS Rekognition Service Unavailable (500)")
+            );
+
+            // 3. El usuario envía su certificado a través del endpoint REST
+            const respuestaUpload = await request(app)
+                .post("/api/v1/certificacion")
+                .set("Authorization", `Bearer ${usuario.token}`)
+                .field("nombre", "Certificado TypeScript")
+                .field("lugar_emision", "Facultad de Ingeniería")
+                .field("id_etiqueta", etiqueta.id_etiqueta)
+                .attach("pdf", pdfBytes, "certificado.pdf")
+                .expect(202);
+
+            expect(respuestaUpload.body.success).toBe(true);
+            expect(respuestaUpload.body.data.estado).toBe("en_proceso");
+
+            // 4. Esperar a que el pool asíncrono procese la tarea
+            for (let i = 0; i < 30; i++) {
+                const estadoPool = poolModeracion.obtenerEstado();
+                if (estadoPool.activos === 0 && estadoPool.enEspera === 0) {
+                    break;
+                }
+                await new Promise((resolve) => setTimeout(resolve, 100));
+            }
+
+            // 5. Verificación de que la certificación NO quedó persistida en PostgreSQL (fail-closed)
+            const certificacionesEnDb = await prisma.certificacion.findMany({
+                where: { id_usuario: usuario.id_usuario },
+            });
+            expect(certificacionesEnDb.length).toBe(0);
+
+            // 6. Verificar que se notificó al usuario sobre la imposibilidad temporal de procesar el documento
+            const notificaciones = await prisma.notificacion.findMany({
+                where: { id_usuario: usuario.id_usuario },
+            });
+            expect(notificaciones.length).toBe(1);
+            expect(notificaciones[0].mensaje).toContain("error temporal");
         });
     },
 );

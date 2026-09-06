@@ -1,5 +1,6 @@
 import prisma from "../../src/persistencia/prismaClient";
 import { generarSufijoUnico, crearUsuarioTest } from "./authHelpers";
+import { obtenerOCrearTipoPerfil } from "./tipoPerfilHelpers";
 
 export interface PublicacionTestFixture {
     id_publicacion: number;
@@ -33,14 +34,7 @@ export async function crearPublicacionTest(datosPersonalizados: Partial<{
     let tipoPublicacion = datosPersonalizados.tipo_publicacion;
     if (!tipoPublicacion) {
         const nombreTipo = datosPersonalizados.tipo_perfil ?? "producto";
-        let tipo = await prisma.tipoPerfil.findUnique({
-            where: { tipo_perfil: nombreTipo },
-        });
-        if (!tipo) {
-            tipo = await prisma.tipoPerfil.create({
-                data: { tipo_perfil: nombreTipo },
-            });
-        }
+        const tipo = await obtenerOCrearTipoPerfil(nombreTipo);
         tipoPublicacion = tipo.id_tipo_perfil;
     }
 
