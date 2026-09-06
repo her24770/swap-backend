@@ -380,7 +380,7 @@ const password = {
 };
 const paginationProperties = {
     page: { type: "integer", minimum: 1, default: 1 },
-    limit: { type: "integer", minimum: 1, default: 10 },
+    limit: { type: "integer", minimum: 1, maximum: 100, default: 10 },
     sort: { type: "string", enum: ["fecha", "calificacion", "precio", "me_gusta"], default: "fecha" },
     order: { type: "string", enum: ["asc", "desc"], default: "desc" },
     tipo: publicationType,

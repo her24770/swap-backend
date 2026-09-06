@@ -69,7 +69,8 @@ function agruparAcuerdos(acuerdos: any[]): AcuerdoAgrupado[] {
 
 export async function obtenerAcuerdosUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-        const idUsuario = Number(req.params.id);
+        // id del usuario debe ser el id del usuario autenticado
+        const idUsuario = Number(req.usuario?.sub);
         const tipo = req.query.tipo as string | undefined;
         const estado = req.query.estado as string | undefined;
         const q = req.query.q as string | undefined;

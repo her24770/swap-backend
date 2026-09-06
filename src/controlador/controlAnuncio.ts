@@ -151,6 +151,12 @@ export async function eliminarAnuncioUsuario(req: Request, res: Response, next: 
             return;
         }
 
+
+        if (anuncio.id_usuario !== idUsuario) {
+            errorResponse(res, "No tienes permiso para eliminar este anuncio", 403);
+            return;
+        }
+
         // Eliminar imagen de R2 si existe y no está vacía
         if (anuncio.imagen_url && anuncio.imagen_url !== "") {
             try {
@@ -197,6 +203,10 @@ export async function editarAnuncioUsuario(req: Request, res: Response, next: Ne
             return;
         }
 
+        if (anuncioExistente.id_usuario !== Number(req.usuario?.sub)) {
+            errorResponse(res, "No tienes permiso para editar este anuncio", 403);
+            return;
+        }
         // Si no se sube una nueva imagen, mantenemos la que ya tiene el anuncio existente
         let urlImagen = anuncioExistente.imagen_url;
         let urlAnteriorParaBorrar: string | null = null;

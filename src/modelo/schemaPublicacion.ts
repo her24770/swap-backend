@@ -110,7 +110,7 @@ export const schemaDestacarPublicacion = z.object({
 
 export const paginationOptions = z.object({
     page: z.number().int().positive().optional().default(1),
-    limit: z.number().int().positive().optional().default(10),
+    limit: z.number().int().positive().max(100, "El límite no puede superar 100.").optional().default(10),
     sort: z.enum(["fecha", "me_gusta", "precio"]).optional().default("fecha"),
     order: z.enum(["asc", "desc"]).optional().default("desc"),
     tipo: z.string().optional(),
