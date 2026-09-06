@@ -823,7 +823,8 @@ const paths: Record<string, Record<string, unknown>> = {
         }),
     },
     "/acuerdo": {
-        get: operation("Acuerdos", "getUserAgreements", "Obtener los acuerdos de un usuario", {
+        get: operation("Acuerdos", "getUserAgreements", "Obtener los acuerdos del usuario autenticado", {
+            description: "El usuario se identifica por el token, no por parámetro de ruta.",
             parameters: [
                 query("tipo", "Tipo del historial.", { type: "string", enum: ["producto", "material", "negocio", "tutoria"] }),
                 query("estado", "Estado del acuerdo.", agreementState),
