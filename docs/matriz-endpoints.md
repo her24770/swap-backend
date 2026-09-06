@@ -10,13 +10,13 @@ La columna de prueba HTTP solo acredita que existe una invocación; los escenari
 
 | ID | Método | Ruta Express | Acceso según middleware | OpenAPI | Prueba HTTP localizada |
 | --- | --- | --- | --- | --- | --- |
-| EP-001 | POST | `/acuerdo/:id` | usuario | `createAgreement` | `mensajeria-coordinacion.test.ts`, `autorizacion-endpoints.test.ts` |
-| EP-002 | PUT | `/acuerdo/:id` | usuario | `updateAgreementStateLegacy` | `autorizacion-endpoints.test.ts` |
-| EP-003 | PUT | `/acuerdo/:id/detalle` | usuario | `replaceAgreementDetails` | `autorizacion-endpoints.test.ts` |
-| EP-004 | PUT | `/acuerdo/:id/editar` | usuario | `updateAgreementLegacy` | `autorizacion-endpoints.test.ts` |
-| EP-005 | PATCH | `/acuerdo/:id/estado` | usuario | `updateAgreementState` | `autorizacion-endpoints.test.ts` |
-| EP-006 | GET | `/acuerdo/conversacion/:id` | autenticado | `getConversationAgreements` | `mensajeria-coordinacion.test.ts`, `autorizacion-endpoints.test.ts` |
-| EP-007 | GET | `/acuerdo/user/:id` | autenticado | `getUserAgreements` | `autorizacion-endpoints.test.ts` |
+| EP-001 | GET | `/acuerdo` | autenticado | `getUserAgreements` | `autorizacion-endpoints.test.ts` |
+| EP-002 | POST | `/acuerdo/:id` | usuario | `createAgreement` | `mensajeria-coordinacion.test.ts`, `autorizacion-endpoints.test.ts` |
+| EP-003 | PUT | `/acuerdo/:id` | usuario | `updateAgreementStateLegacy` | `autorizacion-endpoints.test.ts` |
+| EP-004 | PUT | `/acuerdo/:id/detalle` | usuario | `replaceAgreementDetails` | `autorizacion-endpoints.test.ts` |
+| EP-005 | PUT | `/acuerdo/:id/editar` | usuario | `updateAgreementLegacy` | `autorizacion-endpoints.test.ts` |
+| EP-006 | PATCH | `/acuerdo/:id/estado` | usuario | `updateAgreementState` | `autorizacion-endpoints.test.ts` |
+| EP-007 | GET | `/acuerdo/conversacion/:id` | autenticado | `getConversationAgreements` | `mensajeria-coordinacion.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-008 | GET | `/anuncio` | autenticado | `listAds` | `autorizacion-endpoints.test.ts` |
 | EP-009 | POST | `/anuncio` | usuario | `createAd` | `autorizacion-endpoints.test.ts` |
 | EP-010 | DELETE | `/anuncio/:id_anuncio` | usuario | `deleteAd` | `autorizacion-endpoints.test.ts` |
@@ -40,7 +40,7 @@ La columna de prueba HTTP solo acredita que existe una invocación; los escenari
 | EP-028 | PATCH | `/conversacion/:id/estado` | usuario | `updateConversationState` | `autorizacion-endpoints.test.ts` |
 | EP-029 | PUT | `/conversacion/:id/estado` | usuario | `updateConversationStateLegacy` | `autorizacion-endpoints.test.ts` |
 | EP-030 | GET | `/conversacion/:id/mensajes` | usuario | `getConversationMessages` | `mensajeria-coordinacion.test.ts`, `autorizacion-endpoints.test.ts` |
-| EP-031 | GET | `/conversacion/conversaciones` | usuario | `listMyConversations` | `autorizacion-endpoints.test.ts` |
+| EP-031 | GET | `/conversacion/conversaciones` | usuario | `listConversations` | `autorizacion-endpoints.test.ts` |
 | EP-032 | GET | `/estado` | público | `listStates` | `infraestructura-real.test.ts` |
 | EP-033 | GET | `/etiqueta` | público | `listTags` | pendiente |
 | EP-034 | GET | `/etiqueta/publicacion/:id` | autenticado | `getPublicationTags` | `autorizacion-endpoints.test.ts` |
@@ -61,19 +61,19 @@ La columna de prueba HTTP solo acredita que existe una invocación; los escenari
 | EP-049 | DELETE | `/moderador/:id` | superadmin | `deleteModerator` | `autorizacion-endpoints.test.ts` |
 | EP-050 | PATCH | `/moderador/:id` | superadmin | `updateModerator` | `autorizacion-endpoints.test.ts` |
 | EP-051 | PATCH | `/moderador/:id/estado` | superadmin | `updateModeratorStatus` | `autorizacion-endpoints.test.ts` |
-| EP-052 | POST | `/moderador/login` | público | `moderatorLogin` | pendiente |
-| EP-053 | GET | `/moderador/me` | moderador | `getModeratorSession` | `autorizacion-endpoints.test.ts` |
+| EP-052 | POST | `/moderador/login` | público | `loginModerator` | pendiente |
+| EP-053 | GET | `/moderador/me` | moderador | `getCurrentModerator` | `autorizacion-endpoints.test.ts` |
 | EP-054 | GET | `/moderador/palabras` | moderador | `listRestrictedWords` | `autorizacion-endpoints.test.ts` |
 | EP-055 | POST | `/moderador/palabras` | moderador | `createRestrictedWord` | `autorizacion-endpoints.test.ts` |
 | EP-056 | DELETE | `/moderador/palabras/:id` | moderador | `deleteRestrictedWord` | `autorizacion-endpoints.test.ts` |
 | EP-057 | PATCH | `/moderador/palabras/:id` | moderador | `updateRestrictedWord` | `autorizacion-endpoints.test.ts` |
 | EP-058 | GET | `/moderador/publicaciones` | moderador | `listPublicationsForModeration` | `autorizacion-endpoints.test.ts` |
-| EP-059 | DELETE | `/moderador/publicaciones/:id` | moderador | `deletePublicationByModerator` | `autorizacion-endpoints.test.ts` |
-| EP-060 | PATCH | `/moderador/publicaciones/:id/bajar` | moderador | `deactivatePublicationByModerator` | `autorizacion-endpoints.test.ts` |
-| EP-061 | PATCH | `/moderador/publicaciones/:id/reactivar` | moderador | `reactivatePublicationByModerator` | `autorizacion-endpoints.test.ts` |
+| EP-059 | DELETE | `/moderador/publicaciones/:id` | moderador | `deletePublicationModeration` | `autorizacion-endpoints.test.ts` |
+| EP-060 | PATCH | `/moderador/publicaciones/:id/bajar` | moderador | `takeDownPublication` | `autorizacion-endpoints.test.ts` |
+| EP-061 | PATCH | `/moderador/publicaciones/:id/reactivar` | moderador | `reactivatePublication` | `autorizacion-endpoints.test.ts` |
 | EP-062 | GET | `/moderador/usuarios` | moderador | `listUsersForModeration` | `autorizacion-endpoints.test.ts` |
 | EP-063 | POST | `/moderador/usuarios/:id/advertencia` | moderador | `warnUser` | `autorizacion-endpoints.test.ts` |
-| EP-064 | PATCH | `/moderador/usuarios/:id/estado` | moderador | `updateUserModerationStatus` | `autorizacion-endpoints.test.ts` |
+| EP-064 | PATCH | `/moderador/usuarios/:id/estado` | moderador | `updateUserStatus` | `autorizacion-endpoints.test.ts` |
 | EP-065 | GET | `/notificacion` | usuario | `listNotifications` | `autorizacion-endpoints.test.ts` |
 | EP-066 | PATCH | `/notificacion/:id/estado` | usuario | `updateNotificationState` | `autorizacion-endpoints.test.ts` |
 | EP-067 | GET | `/publicacion` | autenticado | `listPublications` | `autorizacion-endpoints.test.ts` |
@@ -96,7 +96,7 @@ La columna de prueba HTTP solo acredita que existe una invocación; los escenari
 | EP-084 | GET | `/recomendacion/similares/:id` | autenticado | `getSimilarPublications` | `autorizacion-endpoints.test.ts` |
 | EP-085 | GET | `/recomendacion/tutores` | autenticado | `getTutorRecommendations` | `autorizacion-endpoints.test.ts` |
 | EP-086 | POST | `/reportes` | usuario | `createReport` | `autorizacion-endpoints.test.ts` |
-| EP-087 | GET | `/reportes/:id` | moderador | `getReport` | `autorizacion-endpoints.test.ts` |
+| EP-087 | GET | `/reportes/:id` | moderador | `getReportById` | `autorizacion-endpoints.test.ts` |
 | EP-088 | PUT | `/reportes/:id` | moderador | `updateReportStatusLegacy` | `autorizacion-endpoints.test.ts` |
 | EP-089 | PATCH | `/reportes/:id/estado` | moderador | `updateReportStatus` | `autorizacion-endpoints.test.ts` |
 | EP-090 | POST | `/reportes/buscar` | moderador | `searchReports` | `autorizacion-endpoints.test.ts` |
