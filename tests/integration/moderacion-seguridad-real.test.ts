@@ -278,5 +278,143 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
             expect(reporteDbFinal?.estadoRel.estado).toBe("resuelto");
             expect(reporteDbFinal?.receptor.id_usuario).toBe(denunciado.id_usuario);
         });
+
+        it("IT-30: aplica sanción tras reporte y bloquea operaciones protegidas (publicación, mensajería y acuerdos)", async () => {
+            // 1. Usuario A reporta a Usuario B por comportamiento abusivo
+            const usuarioA = await crearUsuarioTest({ nombre: "Usuario Denunciante A" });
+            const usuarioB = await crearUsuarioTest({ nombre: "Usuario Infractor B" });
+            const moderador = await crearModeradorTest({ usuario: "mod_sanciones" });
+
+            const respuestaReporte = await request(app)
+                .post("/api/v1/reportes")
+                .set("Authorization", `Bearer ${usuarioA.token}`)
+                .send({
+                    tipo_objetivo: "usuario",
+                    id_objetivo: usuarioB.id_usuario,
+                    motivo: "Spam o estafa",
+                    detalle: "El usuario envía enlaces sospechosos e intenta estafar miembros de la comunidad.",
+                })
+                .expect(201);
+
+            expect(respuestaReporte.body.success).toBe(true);
+            const idReporte = respuestaReporte.body.data.id_reporte;
+            expect(idReporte).toBeDefined();
+
+            // 2. El moderador recupera y gestiona el reporte pendiente
+            const consultaReportes = await request(app)
+                .post("/api/v1/reportes/buscar")
+                .set("Authorization", `Bearer ${moderador.token}`)
+                .send({ estado: "pendiente" })
+                .expect(200);
+
+            expect(consultaReportes.body.data.reportes).toEqual(
+                expect.arrayContaining([expect.objectContaining({ id_reporte: idReporte })]),
+            );
+
+            // El moderador resuelve el reporte marcándolo como resuelto
+            await request(app)
+                .patch(`/api/v1/reportes/${idReporte}/estado`)
+                .set("Authorization", `Bearer ${moderador.token}`)
+                .send({ estado: "resuelto" })
+                .expect(200);
+
+            // 3. El moderador aplica a Usuario B una sanción (suspensión temporal de 7 días)
+            const respuestaSancion = await request(app)
+                .patch(`/api/v1/moderador/usuarios/${usuarioB.id_usuario}/estado`)
+                .set("Authorization", `Bearer ${moderador.token}`)
+                .send({
+                    accion: "suspender",
+                    dias: 7,
+                    motivo: "Spam o estafa",
+                    detalle: "Comportamiento abusivo y reportes confirmados por moderación",
+                })
+                .expect(200);
+
+            expect(respuestaSancion.body.success).toBe(true);
+            expect(respuestaSancion.body.data).toEqual(
+                expect.objectContaining({
+                    id_usuario: usuarioB.id_usuario,
+                    accion: "suspender",
+                }),
+            );
+
+            // 4. Verifica que la sanción haya quedado correctamente persistida en PostgreSQL
+            const usuarioDbSancionado = await prisma.usuario.findUnique({
+                where: { id_usuario: usuarioB.id_usuario },
+            });
+            const timestampActual = Math.floor(Date.now() / 1000);
+            expect(usuarioDbSancionado?.tiempo_suspendido).toBeGreaterThan(timestampActual);
+            // La versión de sesión se incrementa para invalidar tokens emitidos previamente
+            expect(usuarioDbSancionado?.sesion_version).toBe(usuarioB.sesion_version + 1);
+
+            // Comprobar que se generó la notificación correspondiente en la base de datos
+            const notificacionesUsuarioB = await prisma.notificacion.findMany({
+                where: { id_usuario: usuarioB.id_usuario },
+            });
+            expect(notificacionesUsuarioB.length).toBeGreaterThan(0);
+            expect(notificacionesUsuarioB[0].mensaje).toContain("suspendida");
+
+            // 5. Usuario B intenta crear una publicación protegida (primera operación protegida)
+            const respuestaCrearPublicacion = await request(app)
+                .post("/api/v1/publicacion")
+                .set("Authorization", `Bearer ${usuarioB.token}`)
+                .send({
+                    titulo: "Publicación No Autorizada",
+                    descripcion: "Intento crear una publicación con cuenta sancionada",
+                    precio: "100.00",
+                })
+                .expect(401);
+
+            expect(respuestaCrearPublicacion.body.success).toBe(false);
+
+            // Garantizar que no se creó ninguna publicación en la base de datos
+            const publicacionesUsuarioB = await prisma.publicacion.count({
+                where: { id_usuario: usuarioB.id_usuario },
+            });
+            expect(publicacionesUsuarioB).toBe(0);
+
+            // 6. Usuario B intenta realizar una segunda operación protegida: Iniciar conversación / enviar mensaje
+            const respuestaCrearConversacion = await request(app)
+                .post("/api/v1/conversacion")
+                .set("Authorization", `Bearer ${usuarioB.token}`)
+                .send({
+                    id_usuario_2: usuarioA.id_usuario,
+                    mensaje: "Mensaje no permitido desde cuenta suspendida",
+                })
+                .expect(401);
+
+            expect(respuestaCrearConversacion.body.success).toBe(false);
+
+            // Garantizar que no se generaron conversaciones ni mensajes en PostgreSQL
+            const conversacionesCreadas = await prisma.conversacion.count({
+                where: { id_usuario_1: usuarioB.id_usuario },
+            });
+            const mensajesCreados = await prisma.mensaje.count({
+                where: { id_emisor: usuarioB.id_usuario },
+            });
+            expect(conversacionesCreadas).toBe(0);
+            expect(mensajesCreados).toBe(0);
+
+            // 7. Usuario B intenta realizar una tercera operación protegida: Crear un acuerdo
+            const respuestaCrearAcuerdo = await request(app)
+                .post("/api/v1/acuerdo/1")
+                .set("Authorization", `Bearer ${usuarioB.token}`)
+                .send({
+                    id_conversacion: 1,
+                    fecha_entrega: new Date(Date.now() + 86400000).toISOString(),
+                    lugar_entrega: "Biblioteca Central",
+                    observaciones: "Entrega de prueba",
+                })
+                .expect(401);
+
+            expect(respuestaCrearAcuerdo.body.success).toBe(false);
+            expect(await prisma.acuerdo.count()).toBe(0);
+
+            // 8. Verifica que la sanción continúa activa y que las restricciones se mantienen
+            const usuarioDbVerificacionFinal = await prisma.usuario.findUnique({
+                where: { id_usuario: usuarioB.id_usuario },
+            });
+            expect(usuarioDbVerificacionFinal?.tiempo_suspendido).toBeGreaterThan(timestampActual);
+        });
     },
 );
