@@ -78,15 +78,15 @@ La columna de prueba HTTP solo acredita que existe una invocación; los escenari
 | EP-066 | PATCH | `/notificacion/:id/estado` | usuario | `updateNotificationState` | `autorizacion-endpoints.test.ts` |
 | EP-067 | GET | `/publicacion` | autenticado | `listPublications` | `autorizacion-endpoints.test.ts` |
 | EP-068 | POST | `/publicacion` | usuario | `createPublication` | `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
-| EP-069 | DELETE | `/publicacion/:id` | usuario | `deletePublication` | `autorizacion-endpoints.test.ts` |
-| EP-070 | GET | `/publicacion/:id` | autenticado | `getPublication` | `autorizacion-endpoints.test.ts` |
+| EP-069 | DELETE | `/publicacion/:id` | usuario | `deletePublication` | `perfil-publicaciones-resenas-real.test.ts`, `autorizacion-endpoints.test.ts` |
+| EP-070 | GET | `/publicacion/:id` | autenticado | `getPublication` | `perfil-publicaciones-resenas-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-071 | PATCH | `/publicacion/:id` | usuario | `updatePublication` | `autorizacion-endpoints.test.ts` |
 | EP-072 | PUT | `/publicacion/:id` | usuario | `updatePublicationLegacy` | `contrato-rest.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-073 | PATCH | `/publicacion/:id/destacar` | usuario | `pinPublication` | `autorizacion-endpoints.test.ts` |
-| EP-074 | PATCH | `/publicacion/:id/estado` | usuario | `updatePublicationState` | `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
-| EP-075 | POST | `/publicacion/buscar` | autenticado | `searchPublications` | `autorizacion-endpoints.test.ts` |
+| EP-074 | PATCH | `/publicacion/:id/estado` | usuario | `updatePublicationState` | `perfil-publicaciones-resenas-real.test.ts`, `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
+| EP-075 | POST | `/publicacion/buscar` | autenticado | `searchPublications` | `perfil-publicaciones-resenas-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-076 | GET | `/publicacion/destacadas/user/:id` | autenticado | `getPinnedUserPublications` | `autorizacion-endpoints.test.ts` |
-| EP-077 | GET | `/publicacion/user/:id` | autenticado | `getUserPublications` | `autorizacion-endpoints.test.ts` |
+| EP-077 | GET | `/publicacion/user/:id` | autenticado | `getUserPublications` | `perfil-publicaciones-resenas-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-078 | POST | `/recomendacion/evento` | usuario | `registerRecommendationEvent` | `autorizacion-endpoints.test.ts` |
 | EP-079 | DELETE | `/recomendacion/favoritas` | usuario | `removeFavoriteTags` | `autorizacion-endpoints.test.ts` |
 | EP-080 | POST | `/recomendacion/favoritas` | usuario | `addFavoriteTags` | `autorizacion-endpoints.test.ts` |
@@ -100,13 +100,13 @@ La columna de prueba HTTP solo acredita que existe una invocación; los escenari
 | EP-088 | PUT | `/reportes/:id` | moderador | `updateReportStatusLegacy` | `autorizacion-endpoints.test.ts` |
 | EP-089 | PATCH | `/reportes/:id/estado` | moderador | `updateReportStatus` | `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-090 | POST | `/reportes/buscar` | moderador | `searchReports` | `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
-| EP-091 | POST | `/resenas` | usuario | `createReview` | `autorizacion-endpoints.test.ts` |
+| EP-091 | POST | `/resenas` | usuario | `createReview` | `perfil-publicaciones-resenas-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-092 | DELETE | `/resenas/:id_resena` | usuario | `deleteReview` | `autorizacion-endpoints.test.ts` |
 | EP-093 | PUT | `/resenas/:id_resena` | usuario | `updateReview` | `autorizacion-endpoints.test.ts` |
-| EP-094 | GET | `/resenas/usuario/:id_usuario` | público | `getUserReviews` | pendiente |
+| EP-094 | GET | `/resenas/usuario/:id_usuario` | público | `getUserReviews` | `perfil-publicaciones-resenas-real.test.ts` |
 | EP-095 | GET | `/user/:id` | autenticado | `getUser` | `autorizacion-endpoints.test.ts` |
 | EP-096 | PATCH | `/user/:id` | usuario | `updateUser` | `autorizacion-endpoints.test.ts` |
 | EP-097 | GET | `/user/:id/contactos` | autenticado | `getUserContacts` | `autorizacion-endpoints.test.ts` |
 | EP-098 | PUT | `/user/:id/contactos` | usuario | `replaceUserContacts` | `autorizacion-endpoints.test.ts` |
-| EP-099 | GET | `/user/:id/perfil-publico` | público | `getPublicProfile` | pendiente |
+| EP-099 | GET | `/user/:id/perfil-publico` | público | `getPublicProfile` | `perfil-publicaciones-resenas-real.test.ts` |
 | EP-100 | POST | `/user/tutores/buscar` | autenticado | `searchTutors` | `autorizacion-endpoints.test.ts` |
