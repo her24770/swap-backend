@@ -13,6 +13,8 @@ import redis from "../../src/persistencia/redisClient";
 import { ServicioBcrypt } from "../../src/autenticacion/ServicioBcrypt";
 import { reiniciarRateLimiters } from "../../src/autenticacion/rateLimiter";
 import { registrarEventosConexion } from "../../src/sockets/socketServer";
+import { RekognitionClient } from "@aws-sdk/client-rekognition";
+import * as servicioR2 from "../../src/servicios/servicioR2";
 import {
     cerrarEntornoIntegracion,
     limpiarEntornoIntegracion,
@@ -500,6 +502,181 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
                 where: { id_conversacion: conversacion.id_conversacion },
             });
             expect(totalFinalDb).toBe(61);
+        });
+
+        it("IT-36 (Escenario A - Magic bytes / BG-15): rechaza uploads donde el MIME declarado es válido pero el contenido real es inválido, sin efectos persistentes", async () => {
+            // Mock de moderación de texto para que el pipeline no se detenga antes de Multer
+            vi.spyOn(globalThis, "fetch").mockResolvedValue({
+                ok: true,
+                json: async () => ({
+                    results: [{ flagged: false, category_scores: {} }],
+                }),
+            } as any);
+
+            const usuario = await crearUsuarioTest({ nombre: "Usuario Upload Magic Bytes" });
+
+            // 1. Intento de upload en Publicaciones declarando MIME image/png y extensión .png pero con payload malicioso
+            const payloadNoImagen = Buffer.from("<?php echo 'malicious payload pretending to be image'; ?>");
+            const respuestaUploadImagenFalsa = await request(app)
+                .post("/api/v1/publicacion")
+                .set("Authorization", `Bearer ${usuario.token}`)
+                .field("titulo", "Publicación con archivo falso")
+                .field("descripcion", "Descripción válida para publicación de prueba")
+                .field("precio", "50.00")
+                .field("tipo_publicacion", "material")
+                .attach("imagenes", payloadNoImagen, { filename: "foto_perfil.png", contentType: "image/png" });
+
+            expect(respuestaUploadImagenFalsa.status).toBe(400);
+            expect(respuestaUploadImagenFalsa.body.success).toBe(false);
+            expect(respuestaUploadImagenFalsa.body.message).toBe("Tipo de archivo no permitido. Solo JPG, PNG o WEBP.");
+
+            // Verificación en BD: No se persistió la publicación ni imágenes asociadas
+            expect(await prisma.publicacion.count()).toBe(0);
+            expect(await prisma.imagenPublicacion.count()).toBe(0);
+
+            // 2. Intento de upload en Certificaciones declarando application/pdf pero con contenido no-PDF
+            const etiqueta = await prisma.etiqueta.create({
+                data: {
+                    nombre: "Etiqueta Cert Magic Bytes",
+                    descripcion: "Etiqueta de prueba para validación de PDF",
+                },
+            });
+
+            const payloadNoPdf = Buffer.from("INVALID_NON_PDF_FILE_HEADER_DATA");
+            const respuestaUploadPdfFalso = await request(app)
+                .post("/api/v1/certificacion")
+                .set("Authorization", `Bearer ${usuario.token}`)
+                .field("nombre", "Certificado Falso")
+                .field("lugar_emision", "Universidad Invalida")
+                .field("id_etiqueta", etiqueta.id_etiqueta)
+                .attach("pdf", payloadNoPdf, { filename: "certificado.pdf", contentType: "application/pdf" });
+
+            expect(respuestaUploadPdfFalso.status).toBe(400);
+            expect(respuestaUploadPdfFalso.body.success).toBe(false);
+            expect(respuestaUploadPdfFalso.body.message).toBe("Tipo de archivo no permitido. Solo PDF.");
+
+            // Verificación en BD: No se persistió ninguna certificación
+            expect(await prisma.certificacion.count()).toBe(0);
+        });
+
+        it("IT-36 (Escenario B - Límite de tamaño / BG-05): permite archivos dentro de 5MB y rechaza uploads que excedan el límite sin persistencia parcial", async () => {
+            // Mocks de servicios externos para permitir que el upload válido concluya exitosamente
+            vi.spyOn(globalThis, "fetch").mockResolvedValue({
+                ok: true,
+                json: async () => ({
+                    results: [{ flagged: false, category_scores: {} }],
+                }),
+            } as any);
+            vi.spyOn(RekognitionClient.prototype, "send").mockResolvedValue({
+                ModerationLabels: [],
+            } as any);
+            vi.spyOn(servicioR2, "subirImagenR2").mockResolvedValue("https://r2.test.invalid/imagen_valida.png");
+
+            const usuario = await crearUsuarioTest({ nombre: "Usuario Upload Limite Tamaño" });
+
+            // 1. Subcaso dentro del límite: Imagen PNG válida de 2 KB (inicia con firma PNG legítima)
+            const bufferValido = Buffer.concat([
+                Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+                Buffer.alloc(2048),
+            ]);
+
+            const respuestaValida = await request(app)
+                .post("/api/v1/publicacion")
+                .set("Authorization", `Bearer ${usuario.token}`)
+                .field("titulo", "Publicación Tamaño Válido")
+                .field("descripcion", "Descripción válida con archivo dentro del límite")
+                .field("precio", "75.00")
+                .field("tipo_publicacion", "material")
+                .attach("imagenes", bufferValido, "imagen_valida.png");
+
+            expect(respuestaValida.status).toBe(201);
+            expect(respuestaValida.body.success).toBe(true);
+            expect(await prisma.publicacion.count({ where: { id_usuario: usuario.id_usuario } })).toBe(1);
+            expect(await prisma.imagenPublicacion.count()).toBe(1);
+
+            // 2. Subcaso que excede el límite (5 MB + 1024 bytes con firma PNG válida)
+            const bufferExcedido = Buffer.concat([
+                Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+                Buffer.alloc(5 * 1024 * 1024 + 1024 - 8),
+            ]);
+
+            const respuestaExcedida = await request(app)
+                .post("/api/v1/publicacion")
+                .set("Authorization", `Bearer ${usuario.token}`)
+                .field("titulo", "Publicación Tamaño Excedido")
+                .field("descripcion", "Descripción con imagen que debe ser rechazada por tamaño")
+                .field("precio", "85.00")
+                .field("tipo_publicacion", "material")
+                .attach("imagenes", bufferExcedido, "imagen_grande.png");
+
+            expect(respuestaExcedida.status).toBe(400);
+            expect(respuestaExcedida.body.success).toBe(false);
+            expect(respuestaExcedida.body.message).toBe("Error de archivo: File too large");
+
+            // Verificación en BD: No se creó una segunda publicación ni imágenes huérfanas
+            expect(await prisma.publicacion.count({ where: { id_usuario: usuario.id_usuario } })).toBe(1);
+            expect(await prisma.imagenPublicacion.count()).toBe(1);
+        });
+
+        it("IT-36 (Escenario C - Límite de cantidad / BG-05): acepta hasta el máximo de 5 imágenes y rechaza solicitudes con 6 o más archivos sin crear publicaciones inconsistentes", async () => {
+            // Mocks de servicios externos
+            vi.spyOn(globalThis, "fetch").mockResolvedValue({
+                ok: true,
+                json: async () => ({
+                    results: [{ flagged: false, category_scores: {} }],
+                }),
+            } as any);
+            vi.spyOn(RekognitionClient.prototype, "send").mockResolvedValue({
+                ModerationLabels: [],
+            } as any);
+            vi.spyOn(servicioR2, "subirImagenR2").mockResolvedValue("https://r2.test.invalid/imagen_batch.png");
+
+            const usuario = await crearUsuarioTest({ nombre: "Usuario Upload Limite Cantidad" });
+            const bufferValido = Buffer.concat([
+                Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+                Buffer.alloc(100),
+            ]);
+
+            // 1. Subcaso permitido: Exactamente 5 imágenes adjuntas
+            let peticionPermitida = request(app)
+                .post("/api/v1/publicacion")
+                .set("Authorization", `Bearer ${usuario.token}`)
+                .field("titulo", "Publicación con 5 imágenes")
+                .field("descripcion", "Descripción válida con 5 imágenes adjuntas")
+                .field("precio", "90.00")
+                .field("tipo_publicacion", "material");
+
+            for (let i = 1; i <= 5; i++) {
+                peticionPermitida = peticionPermitida.attach("imagenes", bufferValido, `imagen_${i}.png`);
+            }
+
+            const respuestaPermitida = await peticionPermitida;
+            expect(respuestaPermitida.status).toBe(201);
+            expect(respuestaPermitida.body.success).toBe(true);
+            expect(await prisma.publicacion.count({ where: { id_usuario: usuario.id_usuario } })).toBe(1);
+            expect(await prisma.imagenPublicacion.count()).toBe(5);
+
+            // 2. Subcaso excedido: 6 imágenes adjuntas (supera el límite de files: 5)
+            let peticionExcedida = request(app)
+                .post("/api/v1/publicacion")
+                .set("Authorization", `Bearer ${usuario.token}`)
+                .field("titulo", "Publicación con 6 imágenes")
+                .field("descripcion", "Descripción que debe fallar por exceso de archivos")
+                .field("precio", "95.00")
+                .field("tipo_publicacion", "material");
+
+            for (let i = 1; i <= 6; i++) {
+                peticionExcedida = peticionExcedida.attach("imagenes", bufferValido, `imagen_excedida_${i}.png`);
+            }
+
+            const respuestaExcedida = await peticionExcedida;
+            expect(respuestaExcedida.status).toBe(400);
+            expect(respuestaExcedida.body.success).toBe(false);
+            expect(respuestaExcedida.body.message).toBe("Error de archivo: Too many files");
+
+            // Verificación en BD: No se creó ninguna publicación adicional ni imágenes huérfanas
+            expect(await prisma.publicacion.count({ where: { id_usuario: usuario.id_usuario } })).toBe(1);
+            expect(await prisma.imagenPublicacion.count()).toBe(5);
         });
     },
 );
