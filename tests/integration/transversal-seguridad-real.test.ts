@@ -9,10 +9,19 @@ import {
     crearUsuarioTest,
     type NombreEstadoComun,
 } from "../helpers";
+import redis from "../../src/persistencia/redisClient";
+import { ServicioBcrypt } from "../../src/autenticacion/ServicioBcrypt";
+import { reiniciarRateLimiters } from "../../src/autenticacion/rateLimiter";
+import { registrarEventosConexion } from "../../src/sockets/socketServer";
 import {
     cerrarEntornoIntegracion,
     limpiarEntornoIntegracion,
 } from "./entornoIntegracion";
+
+vi.mock("bcrypt", async () => {
+    const real = await vi.importActual<typeof import("bcrypt")>("bcrypt");
+    return { default: real, ...real };
+});
 
 describe.runIf(process.env.RUN_INTEGRATION === "true")(
     "TEST-08 real — transversal (seguridad y consistencia de datos)",
@@ -302,6 +311,195 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
             const acuerdosConversacionA = respuestaConsultaConversacionA.body.data;
             expect(acuerdosConversacionA.length).toBe(1);
             expect(acuerdosConversacionA[0].id_acuerdo).toBe(acuerdoAB.id_acuerdo);
+        });
+
+        it("IT-35 (Escenario A - Auth / Redis): bloquea con 429 tras exceder intentos fallidos de login persistidos en Redis y restaura tras credenciales correctas", async () => {
+            const passwordValido = "PasswordValido123!";
+            const hash = await ServicioBcrypt.hashearPassword(passwordValido);
+            const usuario = await crearUsuarioTest({
+                nombre: "Usuario Rate Limit Auth",
+                email_institucional: "ratelimit-auth@uvg.edu.gt",
+                password: hash,
+            });
+
+            // 1. Ejecutar 5 intentos fallidos (límite máximo permitido para bucket login)
+            for (let intento = 1; intento <= 5; intento++) {
+                const respuestaFallo = await request(app)
+                    .post("/api/auth/login")
+                    .send({
+                        email_institucional: usuario.email_institucional,
+                        password: "PasswordErroneo!",
+                    });
+
+                expect(respuestaFallo.status).toBe(401);
+                expect(respuestaFallo.body.success).toBe(false);
+                expect(respuestaFallo.body.message).toBe("Credenciales invalidas");
+            }
+
+            // 2. Comprobar que los intentos se registraron en Redis
+            const clavesRateLimit = await redis.keys("rate:login:*");
+            expect(clavesRateLimit.length).toBeGreaterThanOrEqual(1);
+
+            // 3. Intento número 6 (excede el límite): bloqueado con 429 Too Many Requests
+            const respuestaBloqueada = await request(app)
+                .post("/api/auth/login")
+                .send({
+                    email_institucional: usuario.email_institucional,
+                    password: passwordValido, // Aunque la contraseña sea correcta, está bloqueado
+                });
+
+            expect(respuestaBloqueada.status).toBe(429);
+            expect(respuestaBloqueada.body.success).toBe(false);
+            expect(respuestaBloqueada.body.message).toContain("Demasiados intentos fallidos");
+
+            // 4. Limpieza del limitador y login exitoso posterior
+            await limpiarEntornoIntegracion();
+            await asegurarEstadosIniciales(["activo"]);
+
+            // Re-crear usuario tras limpiar entorno
+            const hash2 = await ServicioBcrypt.hashearPassword(passwordValido);
+            const usuarioRestaurado = await crearUsuarioTest({
+                nombre: "Usuario Rate Limit Auth 2",
+                email_institucional: "ratelimit-auth-2@uvg.edu.gt",
+                password: hash2,
+            });
+
+            const respuestaExitosa = await request(app)
+                .post("/api/auth/login")
+                .send({
+                    email_institucional: usuarioRestaurado.email_institucional,
+                    password: passwordValido,
+                });
+
+            expect(respuestaExitosa.status).toBe(200);
+            expect(respuestaExitosa.body.success).toBe(true);
+            expect(respuestaExitosa.headers["set-cookie"]).toBeDefined();
+        });
+
+        it("IT-35 (Escenario B - API Global / Express): limita solicitudes masivas con 429 por IP, previene efectos secundarios y se restaura al reiniciar limitadores", async () => {
+            reiniciarRateLimiters();
+
+            const usuario = await crearUsuarioTest({ nombre: "Usuario API Global" });
+            await prisma.etiqueta.create({
+                data: {
+                    nombre: "Etiqueta Prueba Rate Limit",
+                    descripcion: "Descripción para prueba de rate limit",
+                },
+            });
+
+            // 1. Ejecutar 120 peticiones permitidas dentro de la cuota global por IP
+            for (let i = 1; i <= 120; i++) {
+                const respuestaPermitida = await request(app)
+                    .get("/api/v1/etiqueta")
+                    .set("Authorization", `Bearer ${usuario.token}`);
+                expect(respuestaPermitida.status).toBe(200);
+                expect(respuestaPermitida.body.success).toBe(true);
+            }
+
+            // 2. Petición número 121 (supera LIMITE_API_GLOBAL = 120 req/min)
+            const respuestaExcedida = await request(app)
+                .get("/api/v1/etiqueta")
+                .set("Authorization", `Bearer ${usuario.token}`);
+            expect(respuestaExcedida.status).toBe(429);
+            expect(respuestaExcedida.body.success).toBe(false);
+            expect(respuestaExcedida.body.message).toBe("Demasiadas solicitudes. Intenta nuevamente más tarde.");
+
+            // 3. Comprobar que una mutación rechazada por rate limit no produce efectos secundarios
+            const conteoEtiquetasInicial = await prisma.etiqueta.count();
+            const respuestaMutacionBloqueada = await request(app)
+                .post("/api/v1/etiqueta")
+                .set("Authorization", `Bearer ${usuario.token}`)
+                .send({ nombre_etiqueta: "Etiqueta No Debe Crearse" });
+
+            expect(respuestaMutacionBloqueada.status).toBe(429);
+            const conteoEtiquetasFinal = await prisma.etiqueta.count();
+            expect(conteoEtiquetasFinal).toBe(conteoEtiquetasInicial);
+
+            // 4. Reiniciar rate limiters permite reanudar peticiones inmediatamente sin esperar la ventana de 60s
+            reiniciarRateLimiters();
+            const respuestaPostReinicio = await request(app)
+                .get("/api/v1/etiqueta")
+                .set("Authorization", `Bearer ${usuario.token}`);
+            expect(respuestaPostReinicio.status).toBe(200);
+            expect(respuestaPostReinicio.body.success).toBe(true);
+        });
+
+        it("IT-35 (Escenario C - Socket.IO): limita eventos masivos por usuario, no persiste mensajes bloqueados y conserva capacidad independiente para otros usuarios", async () => {
+            reiniciarRateLimiters();
+
+            // 1. Crear fixtures: 2 usuarios participantes y conversación activa
+            const usuario1 = await crearUsuarioTest({ nombre: "Emisor Socket 1" });
+            const usuario2 = await crearUsuarioTest({ nombre: "Emisor Socket 2" });
+
+            const conversacion = await prisma.conversacion.create({
+                data: {
+                    id_usuario_1: usuario1.id_usuario,
+                    id_usuario_2: usuario2.id_usuario,
+                    estado_conversacion: estados.activo,
+                },
+            });
+
+            type SocketEventHandler = (...args: any[]) => void | Promise<void>;
+            const crearSocketMock = (idUsuario: number) => {
+                const handlers = new Map<string, SocketEventHandler>();
+                return {
+                    handlers,
+                    socket: {
+                        data: { usuario: { sub: String(idUsuario), rol: "usuario" } },
+                        join: vi.fn(),
+                        on: vi.fn((evento: string, handler: SocketEventHandler) => handlers.set(evento, handler)),
+                    },
+                };
+            };
+
+            const mock1 = crearSocketMock(usuario1.id_usuario);
+            const mock2 = crearSocketMock(usuario2.id_usuario);
+            registrarEventosConexion(mock1.socket as any);
+            registrarEventosConexion(mock2.socket as any);
+
+            // 2. Usuario 1 emite 60 mensajes (límite máximo permitido: LIMITE_SOCKET_EVENTOS = 60)
+            for (let i = 1; i <= 60; i++) {
+                const respuesta = await new Promise<any>((resolve) => {
+                    mock1.handlers.get("mensaje:enviar")!(
+                        { id_conversacion: conversacion.id_conversacion, mensaje: `Mensaje número ${i}` },
+                        resolve,
+                    );
+                });
+                expect(respuesta.success).toBe(true);
+                expect(respuesta.data).toBeDefined();
+            }
+
+            // 3. Usuario 1 emite el mensaje 61 (excede el límite): rechazado con mensaje de rate limiting
+            const respuestaBloqueada = await new Promise<any>((resolve) => {
+                mock1.handlers.get("mensaje:enviar")!(
+                    { id_conversacion: conversacion.id_conversacion, mensaje: "Mensaje 61 excedente" },
+                    resolve,
+                );
+            });
+            expect(respuestaBloqueada.success).toBe(false);
+            expect(respuestaBloqueada.message).toBe("Demasiados mensajes. Intenta nuevamente más tarde.");
+
+            // 4. Verificación en BD: exactamente 60 mensajes persistidos (el 61 no generó persistencia)
+            const totalMensajesEnDb = await prisma.mensaje.count({
+                where: { id_conversacion: conversacion.id_conversacion },
+            });
+            expect(totalMensajesEnDb).toBe(60);
+
+            // 5. Independencia: Usuario 2 no ha consumido su cuota y puede enviar mensajes normalmente
+            const respuestaUsuario2 = await new Promise<any>((resolve) => {
+                mock2.handlers.get("mensaje:enviar")!(
+                    { id_conversacion: conversacion.id_conversacion, mensaje: "Mensaje legítimo de Usuario 2" },
+                    resolve,
+                );
+            });
+            expect(respuestaUsuario2.success).toBe(true);
+            expect(respuestaUsuario2.data).toBeDefined();
+
+            // Total mensajes en BD ahora es 61 (60 de usuario 1 + 1 de usuario 2)
+            const totalFinalDb = await prisma.mensaje.count({
+                where: { id_conversacion: conversacion.id_conversacion },
+            });
+            expect(totalFinalDb).toBe(61);
         });
     },
 );
