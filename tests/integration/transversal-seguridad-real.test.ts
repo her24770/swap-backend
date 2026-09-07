@@ -15,6 +15,7 @@ import { reiniciarRateLimiters } from "../../src/autenticacion/rateLimiter";
 import { registrarEventosConexion } from "../../src/sockets/socketServer";
 import { RekognitionClient } from "@aws-sdk/client-rekognition";
 import * as servicioR2 from "../../src/servicios/servicioR2";
+import * as repositorioUsuario from "../../src/repository/repositorioUsuario";
 import {
     cerrarEntornoIntegracion,
     limpiarEntornoIntegracion,
@@ -677,6 +678,136 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
             // Verificación en BD: No se creó ninguna publicación adicional ni imágenes huérfanas
             expect(await prisma.publicacion.count({ where: { id_usuario: usuario.id_usuario } })).toBe(1);
             expect(await prisma.imagenPublicacion.count()).toBe(5);
+        });
+
+        it("IT-37 (Escenario A - Fallo en Storage / BG-14): si la subida a R2 falla, la operación se cancela sin alterar la base de datos ni borrar recursos previos", async () => {
+            const fotoOriginal = "https://r2.test.invalid/perfil/foto_original_a.png";
+            const usuario = await crearUsuarioTest({
+                nombre: "Usuario R2 Falla Storage",
+                url_foto_perfil: fotoOriginal,
+            });
+
+            // 1. Simular que la moderación de imagen aprueba el contenido
+            vi.spyOn(RekognitionClient.prototype, "send").mockResolvedValue({
+                ModerationLabels: [],
+            } as any);
+
+            // 2. Simular fallo en la frontera externa de Cloudflare R2
+            vi.spyOn(servicioR2, "subirImagenR2").mockRejectedValue(
+                new Error("Cloudflare R2 Connection Timeout (504)")
+            );
+            const spyEliminar = vi.spyOn(servicioR2, "eliminarImagenR2");
+
+            const bufferValido = Buffer.concat([
+                Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+                Buffer.alloc(100),
+            ]);
+
+            // 3. El usuario intenta actualizar su foto de perfil
+            const respuesta = await request(app)
+                .put(`/api/v1/imagen/perfil/${usuario.id_usuario}`)
+                .set("Authorization", `Bearer ${usuario.token}`)
+                .attach("imagen", bufferValido, "nueva_foto.png");
+
+            expect(respuesta.status).toBe(500);
+
+            // 4. Verificación de consistencia en PostgreSQL: la foto previa permanece intacta
+            const usuarioEnDb = await prisma.usuario.findUnique({
+                where: { id_usuario: usuario.id_usuario },
+            });
+            expect(usuarioEnDb?.url_foto_perfil).toBe(fotoOriginal);
+
+            // 5. Verificación de consistencia en Storage: nunca se intentó eliminar la foto original
+            expect(spyEliminar).not.toHaveBeenCalled();
+        });
+
+        it("IT-37 (Escenario B - Fallo en DB / Compensación R2 / BG-14): si la persistencia en BD falla tras subir a R2, se ejecuta la compensación eliminando el objeto huérfano de R2 y conservando el estado previo", async () => {
+            const fotoOriginal = "https://r2.test.invalid/perfil/foto_original_b.png";
+            const usuario = await crearUsuarioTest({
+                nombre: "Usuario R2 Compensacion DB",
+                url_foto_perfil: fotoOriginal,
+            });
+
+            vi.spyOn(RekognitionClient.prototype, "send").mockResolvedValue({
+                ModerationLabels: [],
+            } as any);
+
+            // 1. Subida exitosa a R2 que entrega una URL específica
+            const urlNuevaSubida = "https://r2.test.invalid/perfil/user_nueva_b.png";
+            vi.spyOn(servicioR2, "subirImagenR2").mockResolvedValue(urlNuevaSubida);
+
+            // 2. Espía para verificar la compensación
+            const spyEliminar = vi.spyOn(servicioR2, "eliminarImagenR2").mockResolvedValue(undefined);
+
+            // 3. Simular fallo en la operación de persistencia posterior en PostgreSQL
+            vi.spyOn(repositorioUsuario, "actualizarUsuario").mockRejectedValue(
+                new Error("PostgreSQL write conflict / deadlock simulated")
+            );
+
+            const bufferValido = Buffer.concat([
+                Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+                Buffer.alloc(100),
+            ]);
+
+            // 4. El usuario intenta actualizar su foto de perfil
+            const respuesta = await request(app)
+                .put(`/api/v1/imagen/perfil/${usuario.id_usuario}`)
+                .set("Authorization", `Bearer ${usuario.token}`)
+                .attach("imagen", bufferValido, "nueva_foto.png");
+
+            expect(respuesta.status).toBe(500);
+
+            // 5. Comprobar que SWAP ejecutó la compensación sobre la imagen recién subida para evitar huérfanos
+            expect(spyEliminar).toHaveBeenCalledWith(urlNuevaSubida);
+
+            // 6. Comprobar que NO se eliminó la foto original
+            expect(spyEliminar).not.toHaveBeenCalledWith(fotoOriginal);
+
+            // 7. Verificación en PostgreSQL: la referencia permanece inalterada
+            const usuarioEnDb = await prisma.usuario.findUnique({
+                where: { id_usuario: usuario.id_usuario },
+            });
+            expect(usuarioEnDb?.url_foto_perfil).toBe(fotoOriginal);
+        });
+
+        it("IT-37 (Escenario C - Consistencia en flujo exitoso): cuando R2 y PostgreSQL completan exitosamente, la referencia se actualiza y la imagen anterior se elimina de R2", async () => {
+            const fotoOriginal = "https://r2.test.invalid/perfil/foto_original_c.png";
+            const usuario = await crearUsuarioTest({
+                nombre: "Usuario R2 Exito Completo",
+                url_foto_perfil: fotoOriginal,
+            });
+
+            vi.spyOn(RekognitionClient.prototype, "send").mockResolvedValue({
+                ModerationLabels: [],
+            } as any);
+
+            const urlNuevaFinal = "https://r2.test.invalid/perfil/user_nueva_c.png";
+            vi.spyOn(servicioR2, "subirImagenR2").mockResolvedValue(urlNuevaFinal);
+            const spyEliminar = vi.spyOn(servicioR2, "eliminarImagenR2").mockResolvedValue(undefined);
+
+            const bufferValido = Buffer.concat([
+                Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+                Buffer.alloc(100),
+            ]);
+
+            const respuesta = await request(app)
+                .put(`/api/v1/imagen/perfil/${usuario.id_usuario}`)
+                .set("Authorization", `Bearer ${usuario.token}`)
+                .attach("imagen", bufferValido, "nueva_foto.png");
+
+            expect(respuesta.status).toBe(201);
+            expect(respuesta.body.success).toBe(true);
+            expect(respuesta.body.data).toBe(urlNuevaFinal);
+
+            // 1. Verificación en PostgreSQL: el usuario ahora apunta a la nueva foto
+            const usuarioEnDb = await prisma.usuario.findUnique({
+                where: { id_usuario: usuario.id_usuario },
+            });
+            expect(usuarioEnDb?.url_foto_perfil).toBe(urlNuevaFinal);
+
+            // 2. Verificación en R2: solo se eliminó la foto anterior, NO la nueva
+            expect(spyEliminar).toHaveBeenCalledWith(fotoOriginal);
+            expect(spyEliminar).not.toHaveBeenCalledWith(urlNuevaFinal);
         });
     },
 );
