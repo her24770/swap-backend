@@ -809,5 +809,174 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
             expect(spyEliminar).toHaveBeenCalledWith(fotoOriginal);
             expect(spyEliminar).not.toHaveBeenCalledWith(urlNuevaFinal);
         });
+
+        it("IT-50: autoriza acceso al historial y envío de mensajes únicamente a participantes, y rechaza acceso por ID a usuarios ajenos autenticados", async () => {
+            // 1. Setup: Crear tres usuarios reales (A: participante 1, B: participante 2, C: ajeno)
+            const usuarioA = await crearUsuarioTest({ nombre: "Usuario A Participante" });
+            const usuarioB = await crearUsuarioTest({ nombre: "Usuario B Participante" });
+            const usuarioC = await crearUsuarioTest({ nombre: "Usuario C Ajeno" });
+
+            // 2. Crear conversación activa entre A y B con un mensaje inicial legítimo de A
+            const conversacion = await prisma.conversacion.create({
+                data: {
+                    id_usuario_1: usuarioA.id_usuario,
+                    id_usuario_2: usuarioB.id_usuario,
+                    estado_conversacion: estados.activo,
+                    mensajes: {
+                        create: {
+                            id_emisor: usuarioA.id_usuario,
+                            mensaje: "Hola B, este es un mensaje legítimo de A",
+                            estado_mensaje: estados.enviado,
+                        },
+                    },
+                },
+            });
+            const idConversacion = conversacion.id_conversacion;
+
+            // 3. Comprobar que el mensaje inicial de A quedó correctamente persistido en PostgreSQL
+            const mensajesIniciales = await prisma.mensaje.findMany({
+                where: { id_conversacion: idConversacion },
+            });
+            expect(mensajesIniciales).toHaveLength(1);
+            expect(mensajesIniciales[0].mensaje).toBe("Hola B, este es un mensaje legítimo de A");
+            expect(mensajesIniciales[0].id_emisor).toBe(usuarioA.id_usuario);
+
+            // 4. Usuario A puede consultar legítimamente el historial vía REST
+            const resHistorialA = await request(app)
+                .get(`/api/v1/conversacion/${idConversacion}/mensajes`)
+                .set("Authorization", `Bearer ${usuarioA.token}`);
+            expect(resHistorialA.status).toBe(200);
+            expect(resHistorialA.body.success).toBe(true);
+            expect(resHistorialA.body.data).toHaveLength(1);
+            expect(resHistorialA.body.data[0].mensaje).toBe("Hola B, este es un mensaje legítimo de A");
+
+            // 5. Usuario B puede consultar legítimamente el mismo historial vía REST
+            const resHistorialB = await request(app)
+                .get(`/api/v1/conversacion/${idConversacion}/mensajes`)
+                .set("Authorization", `Bearer ${usuarioB.token}`);
+            expect(resHistorialB.status).toBe(200);
+            expect(resHistorialB.body.success).toBe(true);
+            expect(resHistorialB.body.data).toHaveLength(1);
+            expect(resHistorialB.body.data[0].mensaje).toBe("Hola B, este es un mensaje legítimo de A");
+
+            // 6 & 7. Usuario C (autenticado pero ajeno) intenta consultar el historial con idConversacion -> 403 Forbidden
+            const resHistorialC = await request(app)
+                .get(`/api/v1/conversacion/${idConversacion}/mensajes`)
+                .set("Authorization", `Bearer ${usuarioC.token}`);
+            expect(resHistorialC.status).toBe(403);
+            expect(resHistorialC.body.success).toBe(false);
+            expect(resHistorialC.body.message).toContain("No tienes permiso");
+
+            // 8. Usuario C intenta unirse a la sala y enviar mensaje vía Socket.IO
+            type SocketEventHandler = (...args: any[]) => void | Promise<void>;
+            const crearSocketMock = (idUsuario: number) => {
+                const handlers = new Map<string, SocketEventHandler>();
+                const socketJoin = vi.fn();
+                return {
+                    handlers,
+                    socketJoin,
+                    socket: {
+                        data: { usuario: { sub: String(idUsuario), rol: "usuario" } },
+                        join: socketJoin,
+                        on: vi.fn((evento: string, handler: SocketEventHandler) => {
+                            handlers.set(evento, handler);
+                        }),
+                    },
+                };
+            };
+
+            const mockSocketC = crearSocketMock(usuarioC.id_usuario);
+            registrarEventosConexion(mockSocketC.socket as any);
+
+            // Intento de C de unirse a la conversación vía Socket.IO -> rechazado
+            const ackUnirseC = await new Promise<any>((resolve) => {
+                const handler = mockSocketC.handlers.get("conversacion:unirse");
+                expect(handler).toBeDefined();
+                handler!(idConversacion, resolve);
+            });
+            expect(ackUnirseC.success).toBe(false);
+            expect(ackUnirseC.message).toBe("No tienes permiso para unirte a esta conversación");
+            expect(mockSocketC.socketJoin).not.toHaveBeenCalledWith(`conversacion:${idConversacion}`);
+
+            // Intento de C de enviar mensaje vía Socket.IO -> rechazado
+            const ackEnviarC = await new Promise<any>((resolve) => {
+                const handler = mockSocketC.handlers.get("mensaje:enviar");
+                expect(handler).toBeDefined();
+                handler!(
+                    {
+                        id_conversacion: idConversacion,
+                        mensaje: "Intento no autorizado de C en conversación ajena",
+                    },
+                    resolve,
+                );
+            });
+            expect(ackEnviarC.success).toBe(false);
+            expect(ackEnviarC.message).toBe("No tienes permiso para enviar mensajes en esta conversación");
+
+            // 9. Comprobar en PostgreSQL que los intentos de C no persistieron mensajes ni modificaron el historial
+            const mensajesPostIntentoC = await prisma.mensaje.findMany({
+                where: { id_conversacion: idConversacion },
+            });
+            expect(mensajesPostIntentoC).toHaveLength(1);
+            expect(mensajesPostIntentoC[0].mensaje).toBe("Hola B, este es un mensaje legítimo de A");
+
+            const conteoTotalMensajesC = await prisma.mensaje.count({
+                where: { id_emisor: usuarioC.id_usuario },
+            });
+            expect(conteoTotalMensajesC).toBe(0);
+
+            // 10. Participante legítimo B continúa pudiendo operar normalmente (envío por Socket.IO)
+            const mockSocketB = crearSocketMock(usuarioB.id_usuario);
+            registrarEventosConexion(mockSocketB.socket as any);
+
+            const ackEnviarB = await new Promise<any>((resolve) => {
+                const handler = mockSocketB.handlers.get("mensaje:enviar");
+                expect(handler).toBeDefined();
+                handler!(
+                    {
+                        id_conversacion: idConversacion,
+                        mensaje: "Respuesta legítima de B",
+                    },
+                    resolve,
+                );
+            });
+            expect(ackEnviarB.success).toBe(true);
+            expect(ackEnviarB.data).toBeDefined();
+
+            // Comprobar persistencia del nuevo mensaje en PostgreSQL
+            const mensajesFinales = await prisma.mensaje.findMany({
+                where: { id_conversacion: idConversacion },
+                orderBy: { id_mensaje: "asc" },
+            });
+            expect(mensajesFinales).toHaveLength(2);
+            expect(mensajesFinales.map((m) => m.mensaje)).toEqual([
+                "Hola B, este es un mensaje legítimo de A",
+                "Respuesta legítima de B",
+            ]);
+
+            // Comprobar que tanto A como B pueden consultar el historial actualizado con 2 mensajes vía REST
+            const resHistorialFinalA = await request(app)
+                .get(`/api/v1/conversacion/${idConversacion}/mensajes`)
+                .set("Authorization", `Bearer ${usuarioA.token}`);
+            expect(resHistorialFinalA.status).toBe(200);
+            expect(resHistorialFinalA.body.data).toHaveLength(2);
+            expect(resHistorialFinalA.body.data.map((m: any) => m.mensaje)).toEqual([
+                "Hola B, este es un mensaje legítimo de A",
+                "Respuesta legítima de B",
+            ]);
+
+            const resHistorialFinalB = await request(app)
+                .get(`/api/v1/conversacion/${idConversacion}/mensajes`)
+                .set("Authorization", `Bearer ${usuarioB.token}`);
+            expect(resHistorialFinalB.status).toBe(200);
+            expect(resHistorialFinalB.body.data).toHaveLength(2);
+
+            // C sigue siendo rechazado al consultar el historial actualizado
+            const resHistorialFinalC = await request(app)
+                .get(`/api/v1/conversacion/${idConversacion}/mensajes`)
+                .set("Authorization", `Bearer ${usuarioC.token}`);
+            expect(resHistorialFinalC.status).toBe(403);
+            expect(resHistorialFinalC.body.success).toBe(false);
+        });
     },
 );
