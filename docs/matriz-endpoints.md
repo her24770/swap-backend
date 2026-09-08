@@ -80,7 +80,7 @@ La columna de prueba HTTP solo acredita que existe una invocación; los escenari
 | EP-068 | POST | `/publicacion` | usuario | `createPublication` | `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-069 | DELETE | `/publicacion/:id` | usuario | `deletePublication` | `autorizacion-endpoints.test.ts` |
 | EP-070 | GET | `/publicacion/:id` | autenticado | `getPublication` | `autorizacion-endpoints.test.ts` |
-| EP-071 | PATCH | `/publicacion/:id` | usuario | `updatePublication` | `autorizacion-endpoints.test.ts` |
+| EP-071 | PATCH | `/publicacion/:id` | usuario | `updatePublication` | `perfil-publicaciones-resenas-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-072 | PUT | `/publicacion/:id` | usuario | `updatePublicationLegacy` | `contrato-rest.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-073 | PATCH | `/publicacion/:id/destacar` | usuario | `pinPublication` | `autorizacion-endpoints.test.ts` |
 | EP-074 | PATCH | `/publicacion/:id/estado` | usuario | `updatePublicationState` | `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
@@ -101,8 +101,8 @@ La columna de prueba HTTP solo acredita que existe una invocación; los escenari
 | EP-089 | PATCH | `/reportes/:id/estado` | moderador | `updateReportStatus` | `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-090 | POST | `/reportes/buscar` | moderador | `searchReports` | `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-091 | POST | `/resenas` | usuario | `createReview` | `autorizacion-endpoints.test.ts` |
-| EP-092 | DELETE | `/resenas/:id_resena` | usuario | `deleteReview` | `autorizacion-endpoints.test.ts` |
-| EP-093 | PUT | `/resenas/:id_resena` | usuario | `updateReview` | `autorizacion-endpoints.test.ts` |
+| EP-092 | DELETE | `/resenas/:id_resena` | usuario | `deleteReview` | `perfil-publicaciones-resenas-real.test.ts`, `autorizacion-endpoints.test.ts` |
+| EP-093 | PUT | `/resenas/:id_resena` | usuario | `updateReview` | `perfil-publicaciones-resenas-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-094 | GET | `/resenas/usuario/:id_usuario` | público | `getUserReviews` | pendiente |
 | EP-095 | GET | `/user/:id` | autenticado | `getUser` | `autorizacion-endpoints.test.ts` |
 | EP-096 | PATCH | `/user/:id` | usuario | `updateUser` | `autorizacion-endpoints.test.ts` |
