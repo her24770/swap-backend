@@ -12,12 +12,12 @@ La política esperada es manual e independiente de los routers. `Propiedad esper
 
 | ID | Método | Ruta Express | Rol esperado | Rol implementado | Propiedad esperada | Conforme | OpenAPI | Prueba HTTP localizada |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| EP-001 | GET | `/acuerdo` | usuario | usuario | sesión propia | ✅ | `getUserAgreements` | `historial-guardados.test.ts`, `transversal-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
-| EP-002 | POST | `/acuerdo/:id` | usuario | usuario | sesión propia | ✅ | `createAgreement` | `mensajeria-coordinacion-real.test.ts`, `mensajeria-coordinacion.test.ts`, `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
+| EP-001 | GET | `/acuerdo` | usuario | usuario | sesión propia | ✅ | `getUserAgreements` | `historial-guardados.test.ts`, `transversal-seguridad-real.test.ts`, `tutorias-real.test.ts`, `autorizacion-endpoints.test.ts` |
+| EP-002 | POST | `/acuerdo/:id` | usuario | usuario | sesión propia | ✅ | `createAgreement` | `mensajeria-coordinacion-real.test.ts`, `mensajeria-coordinacion.test.ts`, `moderacion-seguridad-real.test.ts`, `tutorias-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-003 | PUT | `/acuerdo/:id` | usuario | usuario | participante del recurso | ✅ | `updateAgreementStateLegacy` | `autorizacion-endpoints.test.ts` |
 | EP-004 | PUT | `/acuerdo/:id/detalle` | usuario | usuario | participante del recurso | ✅ | `replaceAgreementDetails` | `transversal-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-005 | PUT | `/acuerdo/:id/editar` | usuario | usuario | participante del recurso | ✅ | `updateAgreementLegacy` | `autorizacion-endpoints.test.ts` |
-| EP-006 | PATCH | `/acuerdo/:id/estado` | usuario | usuario | participante del recurso | ✅ | `updateAgreementState` | `transversal-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
+| EP-006 | PATCH | `/acuerdo/:id/estado` | usuario | usuario | participante del recurso | ✅ | `updateAgreementState` | `transversal-seguridad-real.test.ts`, `tutorias-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-007 | GET | `/acuerdo/conversacion/:id` | usuario | usuario | participante del recurso | ✅ | `getConversationAgreements` | `mensajeria-coordinacion-real.test.ts`, `transversal-seguridad-real.test.ts`, `mensajeria-coordinacion.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-008 | GET | `/anuncio` | autenticado | autenticado | no aplica | ✅ | `listAds` | `autorizacion-endpoints.test.ts` |
 | EP-009 | POST | `/anuncio` | usuario | usuario | sesión propia | ✅ | `createAd` | `autorizacion-endpoints.test.ts` |
@@ -34,10 +34,10 @@ La política esperada es manual e independiente de los routers. `Propiedad esper
 | EP-020 | POST | `/auth/send-register-code` | público | público | no aplica | ✅ | `sendRegisterCode` | `autenticacion-perfiles.test.ts`, `auth-sesion.test.ts` |
 | EP-021 | POST | `/auth/verify-reset-code` | público | público | no aplica | ✅ | `verifyResetCode` | `autenticacion-perfiles.test.ts`, `auth-sesion.test.ts` |
 | EP-022 | GET | `/busqueda` | autenticado | autenticado | no aplica | ✅ | `semanticSearch` | `autorizacion-endpoints.test.ts` |
-| EP-023 | POST | `/certificacion` | usuario | usuario | sesión propia | ✅ | `createCertification` | `moderacion-seguridad-real.test.ts`, `transversal-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
+| EP-023 | POST | `/certificacion` | usuario | usuario | sesión propia | ✅ | `createCertification` | `moderacion-seguridad-real.test.ts`, `transversal-seguridad-real.test.ts`, `tutorias-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-024 | DELETE | `/certificacion/:id` | usuario | usuario | propietario del recurso | ✅ | `deleteCertification` | `autorizacion-endpoints.test.ts` |
 | EP-025 | GET | `/certificacion/:id` | autenticado | autenticado | no aplica | ✅ | `getCertification` | `autorizacion-endpoints.test.ts` |
-| EP-026 | GET | `/certificacion/user/:id_usuario` | autenticado | autenticado | no aplica | ✅ | `getUserCertifications` | `autorizacion-endpoints.test.ts` |
+| EP-026 | GET | `/certificacion/user/:id_usuario` | autenticado | autenticado | no aplica | ✅ | `getUserCertifications` | `tutorias-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-027 | POST | `/conversacion` | usuario | usuario | sesión propia | ✅ | `startConversation` | `mensajeria-coordinacion-real.test.ts`, `mensajeria-coordinacion.test.ts`, `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-028 | PATCH | `/conversacion/:id/estado` | usuario | usuario | participante del recurso | ✅ | `updateConversationState` | `mensajeria-coordinacion-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-029 | PUT | `/conversacion/:id/estado` | usuario | usuario | participante del recurso | ✅ | `updateConversationStateLegacy` | `autorizacion-endpoints.test.ts` |
@@ -52,8 +52,8 @@ La política esperada es manual e independiente de los routers. `Propiedad esper
 | EP-038 | DELETE | `/guardados/:publicacionId` | usuario | usuario | sesión propia | ✅ | `removeSavedPublication` | `autorizacion-endpoints.test.ts` |
 | EP-039 | POST | `/guardados/:publicacionId` | usuario | usuario | sesión propia | ✅ | `savePublication` | `historial-guardados.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-040 | GET | `/health` | público | público | no aplica | ✅ | `getHealth` | `contrato-rest.test.ts`, `health.test.ts` |
-| EP-041 | GET | `/horarios/:usuarioId` | público | público | no aplica | ✅ | `getUserSchedule` | `autenticacion-perfiles.test.ts` |
-| EP-042 | PUT | `/horarios/:usuarioId` | usuario | usuario | propietario por parámetro | ✅ | `replaceUserSchedule` | `autenticacion-perfiles.test.ts`, `autorizacion-endpoints.test.ts` |
+| EP-041 | GET | `/horarios/:usuarioId` | público | público | no aplica | ✅ | `getUserSchedule` | `autenticacion-perfiles.test.ts`, `tutorias-real.test.ts` |
+| EP-042 | PUT | `/horarios/:usuarioId` | usuario | usuario | propietario por parámetro | ✅ | `replaceUserSchedule` | `autenticacion-perfiles.test.ts`, `tutorias-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-043 | PUT | `/imagen/perfil/:id` | usuario | usuario | propietario por parámetro | ✅ | `updateProfilePicture` | `transversal-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-044 | POST | `/imagen/upload` | autenticado | autenticado | sesión propia | ✅ | `uploadImage` | `autorizacion-endpoints.test.ts` |
 | EP-045 | DELETE | `/likes/:publicacionId` | usuario | usuario | sesión propia | ✅ | `unlikePublication` | `autorizacion-endpoints.test.ts` |
@@ -111,4 +111,4 @@ La política esperada es manual e independiente de los routers. `Propiedad esper
 | EP-097 | GET | `/user/:id/contactos` | autenticado | autenticado | no aplica | ✅ | `getUserContacts` | `autorizacion-endpoints.test.ts` |
 | EP-098 | PUT | `/user/:id/contactos` | usuario | usuario | propietario por parámetro | ✅ | `replaceUserContacts` | `autenticacion-perfiles.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-099 | GET | `/user/:id/perfil-publico` | autenticado | autenticado | no aplica | ✅ | `getPublicProfile` | `autenticacion-perfiles.test.ts`, `perfil-publicaciones-resenas-real.test.ts`, `autorizacion-endpoints.test.ts` |
-| EP-100 | POST | `/user/tutores/buscar` | autenticado | autenticado | no aplica | ✅ | `searchTutors` | `autorizacion-endpoints.test.ts` |
+| EP-100 | POST | `/user/tutores/buscar` | autenticado | autenticado | no aplica | ✅ | `searchTutors` | `tutorias-real.test.ts`, `autorizacion-endpoints.test.ts` |

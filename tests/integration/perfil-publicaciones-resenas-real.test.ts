@@ -101,7 +101,10 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
                 .expect(201);
 
             const [perfil, publicaciones, resenas] = await Promise.all([
-                request(app).get(`/api/v1/user/${vendedor.id_usuario}/perfil-publico`).expect(200),
+                request(app)
+                    .get(`/api/v1/user/${vendedor.id_usuario}/perfil-publico`)
+                    .set("Authorization", `Bearer ${comprador.token}`)
+                    .expect(200),
                 request(app)
                     .get(`/api/v1/publicacion/user/${vendedor.id_usuario}`)
                     .query({ tipo: "material" })
@@ -360,6 +363,7 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
 
             const perfil = await request(app)
                 .get(`/api/v1/user/${receptor.id_usuario}/perfil-publico`)
+                .set("Authorization", `Bearer ${comprador.token}`)
                 .expect(200);
             const receptorDb = await prisma.usuario.findUnique({
                 where: { id_usuario: receptor.id_usuario },
