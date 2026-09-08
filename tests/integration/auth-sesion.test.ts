@@ -106,6 +106,30 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
             await agente.get("/api/v1/auth/me").expect(401);
         });
 
+        it("IT-03: logout limpia la cookie y revoca también una copia previa del JWT", async () => {
+            const usuario = await crearUsuarioConPassword();
+            const login = await request(app)
+                .post("/api/v1/auth/login")
+                .send({ email_institucional: usuario.email_institucional, password: PASSWORD_PLANO })
+                .expect(200);
+            const cookie = login.headers["set-cookie"]?.[0];
+            const token = cookie?.match(/^swap-token=([^;]+)/)?.[1];
+            expect(cookie).toBeTruthy();
+            expect(token).toBeTruthy();
+
+            const logout = await request(app)
+                .post("/api/v1/auth/logout")
+                .set("Cookie", cookie!)
+                .expect(200);
+
+            expect(logout.headers["set-cookie"]?.[0]).toMatch(/swap-token=;/);
+            expect(logout.headers["set-cookie"]?.[0]).toMatch(/Expires=/i);
+            await request(app)
+                .get("/api/v1/auth/me")
+                .set("Authorization", `Bearer ${token}`)
+                .expect(401);
+        });
+
         it("forgot-password: responde igual exista o no la cuenta, y solo guarda código real si existe", async () => {
             const usuario = await crearUsuarioConPassword({ email_institucional: "existe@uvg.edu.gt" });
 

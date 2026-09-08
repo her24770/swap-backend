@@ -1,5 +1,16 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { inventariarOpenApi, inventariarRutas } from "../../scripts/generarMatrizEndpoints";
+import {
+    generarMarkdown,
+    inventariarOpenApi,
+    inventariarRutas,
+} from "../../scripts/generarMatrizEndpoints";
+import {
+    POLITICA_AUTORIZACION,
+    POLITICA_POR_ENDPOINT,
+    clavePolitica,
+} from "../../scripts/politicaAutorizacion";
 
 describe("Contrato rutas ↔ OpenAPI", () => {
     const rutas = inventariarRutas();
@@ -29,5 +40,41 @@ describe("Contrato rutas ↔ OpenAPI", () => {
         }));
 
         expect(diferencias).toEqual([]);
+    });
+
+    it("SP-01: define exactamente una política independiente para cada endpoint", () => {
+        const rutasReales = rutas.map((item) => clavePolitica(item.metodo, item.rutaExpress)).sort();
+        const rutasEsperadas = POLITICA_AUTORIZACION
+            .map((item) => clavePolitica(item.metodo, item.ruta))
+            .sort();
+
+        expect(new Set(rutasEsperadas).size).toBe(POLITICA_AUTORIZACION.length);
+        expect(rutasEsperadas).toEqual(rutasReales);
+    });
+
+    it("SP-01: los roles y middlewares de propietario coinciden con la política", () => {
+        const diferencias = rutas.flatMap((endpoint) => {
+            const clave = clavePolitica(endpoint.metodo, endpoint.rutaExpress);
+            const politica = POLITICA_POR_ENDPOINT.get(clave);
+            if (!politica) return [`${clave}: sin política`];
+
+            const problemas: string[] = [];
+            if (politica.rol !== endpoint.rol) {
+                problemas.push(`${clave}: rol esperado ${politica.rol}, implementado ${endpoint.rol}`);
+            }
+            const esperaPropietarioParametro = politica.propiedad === "propietario por parámetro";
+            if (esperaPropietarioParametro !== endpoint.verificaPropietarioParametro) {
+                problemas.push(`${clave}: verificarPropietario esperado=${esperaPropietarioParametro}, implementado=${endpoint.verificaPropietarioParametro}`);
+            }
+            return problemas;
+        });
+
+        expect(diferencias).toEqual([]);
+    });
+
+    it("SP-01: la matriz versionada está sincronizada con rutas, política y pruebas", () => {
+        const versionada = readFileSync(resolve("docs/matriz-endpoints.md"), "utf8")
+            .replace(/\r\n/g, "\n");
+        expect(versionada).toBe(generarMarkdown().replace(/\r\n/g, "\n"));
     });
 });

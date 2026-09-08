@@ -8,8 +8,9 @@ import { moderarTexto } from "../autenticacion/middlewareModeracion.js";
 
 const router = Router();
 
-//Ruta para obtener el perfil público de un usuario
-router.get("/:id/perfil-publico", obtenerPerfilPublico);
+// El contenido es público entre miembros, pero requiere una sesión válida:
+// los contactos nunca se exponen a visitantes anónimos (BG-17).
+router.get("/:id/perfil-publico", autenticar, obtenerPerfilPublico);
 
 //Ruta para obtener datos del usuario así como sus publicaciones
 router.get("/:id", autenticar, obtenerUsuario);

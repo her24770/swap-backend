@@ -1,5 +1,6 @@
 import prisma from "../../src/persistencia/prismaClient";
 import { ServicioJWT } from "../../src/autenticacion/ServicioJWT";
+import { ServicioBcrypt } from "../../src/autenticacion/ServicioBcrypt";
 
 export interface UsuarioTestFixture {
     id_usuario: number;
@@ -8,6 +9,10 @@ export interface UsuarioTestFixture {
     email_institucional: string;
     sesion_version: number;
     token: string;
+}
+
+export interface UsuarioAutenticableTestFixture extends UsuarioTestFixture {
+    passwordPlano: string;
 }
 
 export interface ModeradorTestFixture {
@@ -69,6 +74,52 @@ export async function crearUsuarioTest(datosPersonalizados: Partial<{
         email_institucional: usuario.email_institucional,
         sesion_version: usuario.sesion_version,
         token,
+    };
+}
+
+/**
+ * Variante de `crearUsuarioTest` para flujos que pasan por el login real.
+ * Persiste un hash bcrypt y conserva la contrasena plana solo en el fixture.
+ */
+export async function crearUsuarioAutenticableTest(datosPersonalizados: Partial<{
+    nombre: string;
+    carnet: number;
+    email_institucional: string;
+    passwordPlano: string;
+    url_foto_perfil: string;
+    sesion_version: number;
+    tiempo_suspendido: number;
+}> = {}): Promise<UsuarioAutenticableTestFixture> {
+    const sufijo = generarSufijoUnico();
+    const passwordPlano = datosPersonalizados.passwordPlano ?? "Password1";
+    const carnet = datosPersonalizados.carnet ?? (800000 + (sufijo % 99999));
+    const email = datosPersonalizados.email_institucional ?? `usuario_${sufijo}@uvg.edu.gt`;
+
+    const usuario = await prisma.usuario.create({
+        data: {
+            nombre: datosPersonalizados.nombre ?? `Usuario Test ${sufijo}`,
+            carnet,
+            email_institucional: email,
+            password: await ServicioBcrypt.hashearPassword(passwordPlano),
+            url_foto_perfil: datosPersonalizados.url_foto_perfil ?? "default.png",
+            sesion_version: datosPersonalizados.sesion_version ?? 1,
+            tiempo_suspendido: datosPersonalizados.tiempo_suspendido ?? 0,
+        },
+    });
+
+    return {
+        id_usuario: usuario.id_usuario,
+        nombre: usuario.nombre,
+        carnet: usuario.carnet,
+        email_institucional: usuario.email_institucional,
+        sesion_version: usuario.sesion_version,
+        passwordPlano,
+        token: ServicioJWT.generarToken({
+            sub: String(usuario.id_usuario),
+            email: usuario.email_institucional,
+            rol: "usuario",
+            ver: usuario.sesion_version,
+        }),
     };
 }
 
