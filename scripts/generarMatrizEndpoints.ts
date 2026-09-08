@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { openApiDocument } from "../src/openapi/openapi";
+import { POLITICA_AUTORIZACION, POLITICA_POR_ENDPOINT, clavePolitica } from "./politicaAutorizacion";
 
 const METODOS = ["get", "post", "put", "patch", "delete"] as const;
 type Metodo = typeof METODOS[number];
@@ -12,6 +13,7 @@ export interface EndpointRuta {
     archivo: string;
     autenticado: boolean;
     rol: "público" | "autenticado" | "usuario" | "moderador" | "superadmin";
+    verificaPropietarioParametro: boolean;
 }
 
 export interface OperacionOpenApi {
@@ -68,6 +70,7 @@ function extraerEndpointsArchivo(
         const fragmento = contenido.slice(inicio, fin);
         const rutaExpress = unirRutas(prefijo, coincidencia[2]);
         const rol = detectarRol(fragmento, middlewareGlobal);
+        const middlewares = `${middlewareGlobal} ${fragmento}`;
         return {
             metodo: coincidencia[1] as Metodo,
             rutaExpress,
@@ -75,6 +78,7 @@ function extraerEndpointsArchivo(
             archivo,
             autenticado: rol !== "público",
             rol,
+            verificaPropietarioParametro: middlewares.includes("verificarPropietario"),
         };
     });
 }
@@ -166,6 +170,9 @@ export function generarMarkdown(directorioProyecto = process.cwd()): string {
     const openapi = inventariarOpenApi();
     const { casos: pruebas, coberturaAutorizacion } = buscarPruebasHttp(directorioProyecto);
     const filas = rutas.map((endpoint, indice) => {
+        const politica = POLITICA_POR_ENDPOINT.get(
+            clavePolitica(endpoint.metodo, endpoint.rutaExpress),
+        );
         const operaciones = openapi.filter((operacion) =>
             operacion.metodo === endpoint.metodo && endpoint.rutasOpenApi.includes(operacion.ruta),
         );
@@ -177,7 +184,13 @@ export function generarMarkdown(directorioProyecto = process.cwd()): string {
             .flatMap(([, archivos]) => [...archivos]);
         if (endpoint.autenticado) referencias.push(...coberturaAutorizacion);
         const id = `EP-${String(indice + 1).padStart(3, "0")}`;
-        return `| ${id} | ${endpoint.metodo.toUpperCase()} | \`${endpoint.rutaExpress}\` | ${endpoint.rol} | ${operaciones.map((op) => `\`${op.operationId}\``).join(", ") || "❌"} | ${[...new Set(referencias)].map((item) => `\`${item}\``).join(", ") || "pendiente"} |`;
+        const propietarioParametroEsperado = politica?.propiedad === "propietario por parámetro";
+        const cumple = Boolean(
+            politica
+            && politica.rol === endpoint.rol
+            && propietarioParametroEsperado === endpoint.verificaPropietarioParametro
+        );
+        return `| ${id} | ${endpoint.metodo.toUpperCase()} | \`${endpoint.rutaExpress}\` | ${politica?.rol ?? "❌ sin política"} | ${endpoint.rol} | ${politica?.propiedad ?? "❌"} | ${cumple ? "✅" : "❌"} | ${operaciones.map((op) => `\`${op.operationId}\``).join(", ") || "❌"} | ${[...new Set(referencias)].map((item) => `\`${item}\``).join(", ") || "pendiente"} |`;
     });
 
     const documentados = rutas.filter((endpoint) => openapi.some((operacion) =>
@@ -188,6 +201,12 @@ export function generarMarkdown(directorioProyecto = process.cwd()): string {
         const [metodo, ruta] = llave.split(" ", 2);
         return metodo === endpoint.metodo.toUpperCase() && coincideRutaConcreta(endpoint.rutaExpress, ruta);
     })).length;
+    const conformes = rutas.filter((endpoint) => {
+        const politica = POLITICA_POR_ENDPOINT.get(clavePolitica(endpoint.metodo, endpoint.rutaExpress));
+        return politica
+            && politica.rol === endpoint.rol
+            && (politica.propiedad === "propietario por parámetro") === endpoint.verificaPropietarioParametro;
+    }).length;
 
     return [
         "# Matriz trazable de endpoints",
@@ -195,13 +214,15 @@ export function generarMarkdown(directorioProyecto = process.cwd()): string {
         "> Archivo generado por `npm run endpoints:inventory`. No editar manualmente.",
         "",
         `- Rutas Express inventariadas: **${rutas.length}**`,
+        `- Endpoints con política esperada explícita: **${POLITICA_AUTORIZACION.length}/${rutas.length}**`,
+        `- Endpoints conformes en rol y middleware de propietario: **${conformes}/${rutas.length}**`,
         `- Rutas documentadas en OpenAPI: **${documentados}/${rutas.length}**`,
         `- Rutas con al menos una invocación HTTP localizada: **${probados}/${rutas.length}**`,
         "",
-        "La columna de prueba HTTP solo acredita que existe una invocación; los escenarios mínimos pendientes por endpoint son: caso exitoso, 401 sin sesión, 403 con rol/propietario incorrecto, 400 de validación y errores de dominio 404/409 cuando apliquen.",
+        "La política esperada es manual e independiente de los routers. `Propiedad esperada` indica si el alcance se obtiene de la sesión, se compara con un parámetro, se valida contra el recurso o exige ser participante. La conformidad automática contrasta rol y presencia de `verificarPropietario` cuando corresponde; las validaciones de recurso/participante se cubren en pruebas de dominio.",
         "",
-        "| ID | Método | Ruta Express | Acceso según middleware | OpenAPI | Prueba HTTP localizada |",
-        "| --- | --- | --- | --- | --- | --- |",
+        "| ID | Método | Ruta Express | Rol esperado | Rol implementado | Propiedad esperada | Conforme | OpenAPI | Prueba HTTP localizada |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
         ...filas,
         "",
     ].join("\n");

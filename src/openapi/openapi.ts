@@ -554,7 +554,6 @@ const paths: Record<string, Record<string, unknown>> = {
     },
     "/user/{id}/perfil-publico": {
         get: operation("Usuarios", "getPublicProfile", "Obtener el perfil público de un usuario", {
-            secured: false,
             parameters: [pathId("id", "ID del usuario.")],
             responseSchema: ref("Usuario"),
         }),

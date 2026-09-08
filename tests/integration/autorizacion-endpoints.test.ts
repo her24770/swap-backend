@@ -1,6 +1,7 @@
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
 import { inventariarRutas } from "../../scripts/generarMatrizEndpoints";
+import { POLITICA_POR_ENDPOINT, clavePolitica } from "../../scripts/politicaAutorizacion";
 import { generarTokenSintetico } from "../helpers";
 import app from "../../src/app";
 
@@ -17,8 +18,10 @@ vi.mock("../../src/autenticacion/rateLimiter", () => ({
 const rutas = inventariarRutas();
 const rutasProtegidas = rutas.flatMap((endpoint) => endpoint.rutasOpenApi.map((ruta) => ({
     ...endpoint,
+    rol: POLITICA_POR_ENDPOINT.get(clavePolitica(endpoint.metodo, endpoint.rutaExpress))?.rol
+        ?? "sin-politica",
     ruta: ruta.replace(/\{[^}]+\}/g, "1"),
-})) ).filter((endpoint) => endpoint.autenticado);
+})) ).filter((endpoint) => endpoint.rol !== "público");
 
 const rutasConRol = rutasProtegidas.filter((endpoint) =>
     endpoint.rol === "usuario" || endpoint.rol === "moderador" || endpoint.rol === "superadmin",

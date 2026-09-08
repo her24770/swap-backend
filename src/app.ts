@@ -60,9 +60,9 @@ app.use(express.urlencoded({ extended: true }));
 // `autenticar + soloModerador` en vez de quitarlo por completo.
 if (process.env.NODE_ENV !== "production") {
     app.use("/api", swaggerRoutes);
+    app.use("/api/v1", swaggerRoutes);
 }
 app.use("/api", routes);
-app.use("/api/v1", swaggerRoutes);
 app.use("/api/v1", routes);
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
