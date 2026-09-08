@@ -404,5 +404,145 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
                 where: { id_publicacion: publicacion.id_publicacion },
             })).toBeNull();
         });
+
+        it("IT-07 / TEST-02: edita una publicación de material de forma atómica", async () => {
+            const propietario = await crearUsuarioTest({ nombre: "Vendedor Marketplace" });
+            const [etiquetaInicial, etiquetaNueva] = await Promise.all([
+                prisma.etiqueta.create({ data: { nombre: "Física", descripcion: "Material de física" } }),
+                prisma.etiqueta.create({ data: { nombre: "Cálculo", descripcion: "Material de cálculo" } }),
+            ]);
+            const publicacion = await crearPublicacionTest({
+                id_usuario: propietario.id_usuario,
+                titulo: "Libro de física",
+                descripcion: "Libro de física universitaria en buen estado.",
+                precio: "75.00",
+                estado: catalogos.estados.activo,
+                tipo_publicacion: catalogos.tipos.material,
+            });
+            await prisma.publicacionEtiqueta.create({
+                data: {
+                    id_publicacion: publicacion.id_publicacion,
+                    id_etiqueta: etiquetaInicial.id_etiqueta,
+                },
+            });
+
+            await request(app)
+                .patch(`/api/v1/publicacion/${publicacion.id_publicacion}`)
+                .set("Authorization", `Bearer ${propietario.token}`)
+                .send({
+                    precio: 60,
+                    estado: "inactivo",
+                    etiquetas: [etiquetaNueva.id_etiqueta],
+                })
+                .expect(200);
+
+            const despuesDeEdicion = await prisma.publicacion.findUniqueOrThrow({
+                where: { id_publicacion: publicacion.id_publicacion },
+                include: { etiquetas: true },
+            });
+            expect(despuesDeEdicion).toEqual(expect.objectContaining({
+                titulo: "Libro de física",
+                estado: catalogos.estados.inactivo,
+            }));
+            expect(despuesDeEdicion.precio.toNumber()).toBe(60);
+            expect(despuesDeEdicion.etiquetas.map(({ id_etiqueta }) => id_etiqueta))
+                .toEqual([etiquetaNueva.id_etiqueta]);
+
+            await request(app)
+                .patch(`/api/v1/publicacion/${publicacion.id_publicacion}`)
+                .set("Authorization", `Bearer ${propietario.token}`)
+                .send({
+                    titulo: "Este título tampoco debe guardarse",
+                    precio: -1,
+                    estado: "activo",
+                    etiquetas: [etiquetaInicial.id_etiqueta],
+                })
+                .expect(400);
+
+            const despuesDelRechazo = await prisma.publicacion.findUniqueOrThrow({
+                where: { id_publicacion: publicacion.id_publicacion },
+                include: { etiquetas: true },
+            });
+            expect(despuesDelRechazo).toEqual(despuesDeEdicion);
+        });
+
+        it("IT-51 / TEST-05: aplica las reglas de reseñas durante todo el flujo y recalcula reputación", async () => {
+            const [emisor, receptor, ajeno] = await Promise.all([
+                crearUsuarioTest({ nombre: "Comprador que reseña" }),
+                crearUsuarioTest({ nombre: "Vendedor reseñado" }),
+                crearUsuarioTest({ nombre: "Usuario ajeno a la reseña" }),
+            ]);
+            const resena = {
+                id_receptor: receptor.id_usuario,
+                tipo_resena: "vendedor",
+                calificacion: 5,
+                contenido: "Excelente atención y entrega puntual del material.",
+            };
+
+            await request(app)
+                .post("/api/v1/resenas")
+                .set("Authorization", `Bearer ${emisor.token}`)
+                .send({ ...resena, id_receptor: emisor.id_usuario })
+                .expect(400);
+            await request(app)
+                .post("/api/v1/resenas")
+                .set("Authorization", `Bearer ${emisor.token}`)
+                .send({ ...resena, calificacion: 6 })
+                .expect(400);
+            expect(await prisma.resena.count()).toBe(0);
+
+            const creacion = await request(app)
+                .post("/api/v1/resenas")
+                .set("Authorization", `Bearer ${emisor.token}`)
+                .send(resena)
+                .expect(201);
+            const idResena = creacion.body.data.id_resena as number;
+
+            await request(app)
+                .post("/api/v1/resenas")
+                .set("Authorization", `Bearer ${emisor.token}`)
+                .send(resena)
+                .expect(400);
+            await request(app)
+                .put(`/api/v1/resenas/${idResena}`)
+                .set("Authorization", `Bearer ${ajeno.token}`)
+                .send({ calificacion: 1, contenido: "Intento de edición por un tercero." })
+                .expect(403);
+            await request(app)
+                .delete(`/api/v1/resenas/${idResena}`)
+                .set("Authorization", `Bearer ${ajeno.token}`)
+                .expect(403);
+
+            await request(app)
+                .put(`/api/v1/resenas/${idResena}`)
+                .set("Authorization", `Bearer ${emisor.token}`)
+                .send({ calificacion: 3, contenido: "La entrega fue correcta, aunque llegó con retraso." })
+                .expect(200);
+
+            const historial = await request(app)
+                .get(`/api/v1/resenas/usuario/${receptor.id_usuario}`)
+                .query({ tipo: "vendedor" })
+                .expect(200);
+            expect(historial.body.data).toEqual([
+                expect.objectContaining({ id_resena: idResena, calificacion: 3 }),
+            ]);
+            const receptorEditado = await prisma.usuario.findUniqueOrThrow({
+                where: { id_usuario: receptor.id_usuario },
+            });
+            expect(receptorEditado.total_resenas).toBe(1);
+            expect(receptorEditado.calificacion?.toNumber()).toBe(3);
+
+            await request(app)
+                .delete(`/api/v1/resenas/${idResena}`)
+                .set("Authorization", `Bearer ${emisor.token}`)
+                .expect(200);
+
+            const receptorFinal = await prisma.usuario.findUniqueOrThrow({
+                where: { id_usuario: receptor.id_usuario },
+            });
+            expect(await prisma.resena.count()).toBe(0);
+            expect(receptorFinal.total_resenas).toBe(0);
+            expect(receptorFinal.calificacion?.toNumber()).toBe(0);
+        });
     },
 );
