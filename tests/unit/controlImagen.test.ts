@@ -104,6 +104,24 @@ describe("subirFotoPerfil", () => {
     expect(next).toHaveBeenCalled();
   });
 
+  it("si la foto anterior es el placeholder compartido por defecto, no lo borra de R2", async () => {
+    vi.mocked(buscarUsuarioPorId).mockResolvedValue({ url_foto_perfil: "https://r2.example.com/perfil/default.png" } as any);
+    vi.mocked(subirImagenR2).mockResolvedValue("https://r2.example.com/perfil/user_1_new.png");
+    vi.mocked(actualizarUsuario).mockResolvedValue({} as any);
+
+    const res: any = {};
+    await subirFotoPerfil(reqConArchivo(1), res, vi.fn());
+
+    // El placeholder default.png lo comparten todos los usuarios sin foto propia: nunca debe borrarse.
+    expect(eliminarImagenR2).not.toHaveBeenCalled();
+    expect(exitoResponse).toHaveBeenCalledWith(
+      res,
+      "https://r2.example.com/perfil/user_1_new.png",
+      "Foto de perfil actualizada",
+      201
+    );
+  });
+
   it("si el usuario no tenía foto anterior, no intenta borrar nada", async () => {
     vi.mocked(buscarUsuarioPorId).mockResolvedValue({ url_foto_perfil: null } as any);
     vi.mocked(subirImagenR2).mockResolvedValue("https://r2.example.com/perfil/user_1_new.png");

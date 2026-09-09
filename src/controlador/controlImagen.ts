@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { subirImagenR2, eliminarImagenR2 } from "../servicios/servicioR2.js";
+import { subirImagenR2, eliminarImagenR2, construirUrlR2 } from "../servicios/servicioR2.js";
 import { buscarUsuarioPorId, actualizarUsuario } from "../repository/repositorioUsuario.js";
 import { errorResponse, exitoResponse } from "../servicios/Response.js";
 
@@ -54,7 +54,9 @@ export async function subirFotoPerfil(
         }
 
         // 3. Solo ahora que la BD ya apunta a la imagen nueva, se borra la anterior.
-        if (urlAnterior) {
+        // Nunca borrar el placeholder por defecto: lo comparten todos los usuarios sin foto propia.
+        const urlPorDefecto = construirUrlR2("perfil", "default", "png");
+        if (urlAnterior && urlAnterior !== urlPorDefecto) {
             try {
                 await eliminarImagenR2(urlAnterior);
             } catch {
