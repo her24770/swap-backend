@@ -39,10 +39,20 @@ const SEED_NOW = new Date("2026-09-25T15:00:00.000Z");
 
 function assertSafeEnvironment() {
     const databaseUrl = process.env.DATABASE_URL ?? "";
-    const isProduction = process.env.NODE_ENV?.toLowerCase() === "production";
-    const looksProduction = /(?:prod|production)/i.test(databaseUrl);
+    if (!databaseUrl) {
+        throw new Error("DATABASE_URL no está configurada; se cancela la seed para evitar un destino ambiguo.");
+    }
 
-    if ((isProduction || looksProduction) && process.env.ALLOW_DEMO_SEED !== "true") {
+    let databaseTarget = databaseUrl;
+    try {
+        const parsed = new URL(databaseUrl);
+        databaseTarget = `${parsed.hostname}${parsed.pathname}`;
+    } catch {
+        // Prisma mostrará el error de formato; aquí solo aplicamos la guarda.
+    }
+    const looksProduction = /(?:^|[._/-])prod(?:uction)?(?:[._/-]|$)/i.test(databaseTarget);
+
+    if (looksProduction && process.env.ALLOW_DEMO_SEED !== "true") {
         throw new Error(
             "Seed de muestra bloqueado en producción. " +
             "Solo si la ejecución es deliberada define ALLOW_DEMO_SEED=true.",
@@ -50,29 +60,36 @@ function assertSafeEnvironment() {
     }
 }
 
-function assetUrl(path: string): string {
-    const base = (process.env.SEED_ASSET_BASE_URL ?? process.env.CLOUDFLARE_R2_PUBLIC_URL ?? "")
-        .replace(/\/$/, "");
-    if (!base || /xxxxxxxx|your_|\.invalid(?:\/|$)/i.test(base)) {
-        throw new Error(
-            "Configura CLOUDFLARE_R2_PUBLIC_URL (o SEED_ASSET_BASE_URL) con la URL pública real del bucket.",
-        );
-    }
-    return `${base}/${path.replace(/^\//, "")}`;
+const configuredAssetBase = (process.env.SEED_ASSET_BASE_URL ?? process.env.CLOUDFLARE_R2_PUBLIC_URL ?? "")
+    .replace(/\/$/, "");
+const hasConfiguredBucket = Boolean(configuredAssetBase)
+    && !/xxxxxxxx|your_|\.invalid(?:\/|$)/i.test(configuredAssetBase);
+
+function assetUrl(path: string, localFallback: string): string {
+    return hasConfiguredBucket
+        ? `${configuredAssetBase}/${path.replace(/^\//, "")}`
+        : localFallback;
 }
 
 // El placeholder es un objeto compartido del bucket y forma parte del flujo normal
 // de registro. Las rutas pueden reemplazarse sin cambiar el seed mediante variables.
 assertSafeEnvironment();
 const ASSETS = {
-    perfil: assetUrl(process.env.SEED_PROFILE_IMAGE_KEY ?? "perfil/default.png"),
-    publicacion: assetUrl(process.env.SEED_PUBLICATION_IMAGE_KEY ?? "perfil/default.png"),
-    anuncio: assetUrl(process.env.SEED_AD_IMAGE_KEY ?? "perfil/default.png"),
-    reporte: assetUrl(process.env.SEED_REPORT_IMAGE_KEY ?? "perfil/default.png"),
-    certificacion: assetUrl(process.env.SEED_CERTIFICATION_PDF_KEY ?? "certificaciones/seed-certificacion.pdf"),
+    perfil: assetUrl(process.env.SEED_PROFILE_IMAGE_KEY ?? "perfil/default.png", "https://i.pravatar.cc/300?u=swap-perfil"),
+    publicacion: assetUrl(process.env.SEED_PUBLICATION_IMAGE_KEY ?? "perfil/default.png", "https://i.pravatar.cc/800?u=swap-publicacion"),
+    anuncio: assetUrl(process.env.SEED_AD_IMAGE_KEY ?? "perfil/default.png", "https://i.pravatar.cc/800?u=swap-anuncio"),
+    reporte: assetUrl(process.env.SEED_REPORT_IMAGE_KEY ?? "perfil/default.png", "https://i.pravatar.cc/800?u=swap-reporte"),
+    certificacion: assetUrl(
+        process.env.SEED_CERTIFICATION_PDF_KEY ?? "certificaciones/seed-certificacion.pdf",
+        "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+    ),
 };
 
 async function validarAssets() {
+    if (!hasConfiguredBucket) {
+        console.warn("  ⚠️ R2 no configurado: se usarán recursos públicos de muestra para desarrollo local.");
+        return;
+    }
     if (process.env.SEED_VALIDATE_ASSETS === "false") return;
     const recursos = [
         ...[ASSETS.perfil, ASSETS.publicacion, ASSETS.anuncio, ASSETS.reporte]

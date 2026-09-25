@@ -90,7 +90,7 @@ desde el botón **Authorize**.
 
 > **El seed NO corre automáticamente con Docker.** Cada integrante lo ejecuta manualmente cuando lo necesita.
 
-El seed estructural crea los catálogos y el seed demo cubre todos los módulos:
+El seed estructural crea los catálogos y el seed de pruebas cubre todos los módulos:
 
 - 3 usuarios, 2 moderadores y contactos
 - Etiquetas de carrera y cursos (ICC, Biología, etc.)
@@ -113,11 +113,12 @@ docker compose exec api npx tsx prisma/backfillEmbeddings.ts
 
 > El backfill genera los vectores de búsqueda para todas las publicaciones. Debe correrse después de cada seed de pruebas.
 
-El seed demo usa la URL pública de `CLOUDFLARE_R2_PUBLIC_URL` y comprueba por
+El seed de pruebas usa la URL pública de `CLOUDFLARE_R2_PUBLIC_URL` y comprueba por
 `HEAD` que cada objeto configurado exista antes de escribir datos. Las claves se
-configuran con `SEED_*_KEY` (consulta `.env.example`). Es repetible, usa fechas y
-claves lógicas estables, y se bloquea cuando `NODE_ENV=production` o la URL de la
-base parece de producción. `ALLOW_DEMO_SEED=true` es el desbloqueo explícito.
+configuran con `SEED_*_KEY` (consulta `.env.example`). Cuando R2 conserva los
+valores placeholder, usa recursos públicos de muestra para desarrollo local. Es repetible, usa fechas y
+claves lógicas estables, y se bloquea cuando el host o nombre de la base en
+`DATABASE_URL` parece de producción. `ALLOW_DEMO_SEED=true` es el desbloqueo explícito.
 Al finalizar imprime una tabla de cobertura y aborta si falta alguna relación.
 
 ### Credenciales de prueba
