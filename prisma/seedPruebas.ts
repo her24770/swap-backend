@@ -13,7 +13,7 @@
  *
  * Crea, entre otros:
  *   - 2 moderadores y 3 usuarios de prueba
- *   - 8 publicaciones de material, 8 tutorías, 8 negocios
+ *   - 9 publicaciones de material, 9 tutorías, 9 negocios
  *   - Imágenes R2, contactos, horarios, certificaciones y anuncios
  *   - Conversaciones, mensajes, contextos, acuerdos y notificaciones
  *   - Reseñas, reportes, likes, guardados y preferencias
@@ -218,30 +218,30 @@ async function main() {
     // ─────────────────────────────────────────────
     // Leer catálogos de referencia (ya existen por seed.ts)
     // ─────────────────────────────────────────────
-    const eActivo     = await prisma.estado.findUniqueOrThrow({ where: { estado: "activo" } });
-    const ePendiente  = await prisma.estado.findUniqueOrThrow({ where: { estado: "pendiente" } });
+    const eActivo = await prisma.estado.findUniqueOrThrow({ where: { estado: "activo" } });
+    const ePendiente = await prisma.estado.findUniqueOrThrow({ where: { estado: "pendiente" } });
     const eCompletado = await prisma.estado.findUniqueOrThrow({ where: { estado: "completado" } });
-    const eEnviado    = await prisma.estado.findUniqueOrThrow({ where: { estado: "enviado" } });
-    const eLeido      = await prisma.estado.findUniqueOrThrow({ where: { estado: "leido" } });
+    const eEnviado = await prisma.estado.findUniqueOrThrow({ where: { estado: "enviado" } });
+    const eLeido = await prisma.estado.findUniqueOrThrow({ where: { estado: "leido" } });
     const eDisponible = await prisma.estado.findUniqueOrThrow({ where: { estado: "disponible" } });
-    const eInactivo   = await prisma.estado.findUniqueOrThrow({ where: { estado: "inactivo" } });
-    const eReservado  = await prisma.estado.findUniqueOrThrow({ where: { estado: "reservado" } });
-    const eVendido    = await prisma.estado.findUniqueOrThrow({ where: { estado: "vendido" } });
+    const eInactivo = await prisma.estado.findUniqueOrThrow({ where: { estado: "inactivo" } });
+    const eReservado = await prisma.estado.findUniqueOrThrow({ where: { estado: "reservado" } });
+    const eVendido = await prisma.estado.findUniqueOrThrow({ where: { estado: "vendido" } });
 
     const reportePendiente = await prisma.estado.findUniqueOrThrow({ where: { estado: "pendiente" } });
-    const reporteResuelto   = await prisma.estado.findUniqueOrThrow({ where: { estado: "resuelto" } });
-    const reporteRechazado  = await prisma.estado.findUniqueOrThrow({ where: { estado: "rechazado" } });
+    const reporteResuelto = await prisma.estado.findUniqueOrThrow({ where: { estado: "resuelto" } });
+    const reporteRechazado = await prisma.estado.findUniqueOrThrow({ where: { estado: "rechazado" } });
 
     const tMaterial = await prisma.tipoPerfil.findUniqueOrThrow({ where: { tipo_perfil: "material" } });
-    const tTutoria  = await prisma.tipoPerfil.findUniqueOrThrow({ where: { tipo_perfil: "tutoria" } });
-    const tNegocio  = await prisma.tipoPerfil.findUniqueOrThrow({ where: { tipo_perfil: "negocio" } });
+    const tTutoria = await prisma.tipoPerfil.findUniqueOrThrow({ where: { tipo_perfil: "tutoria" } });
+    const tNegocio = await prisma.tipoPerfil.findUniqueOrThrow({ where: { tipo_perfil: "negocio" } });
 
     const tcWa = await prisma.tipoContacto.findUniqueOrThrow({ where: { tipo_contacto: "whatsapp" } });
     const tcIg = await prisma.tipoContacto.findUniqueOrThrow({ where: { tipo_contacto: "instagram" } });
     const tcTel = await prisma.tipoContacto.findUniqueOrThrow({ where: { tipo_contacto: "telefono" } });
     const tcCo = await prisma.tipoContacto.findUniqueOrThrow({ where: { tipo_contacto: "correo_personal" } });
 
-    const tmModerador  = await prisma.tipoModerador.findUniqueOrThrow({ where: { tipo_moderador: "moderador" } });
+    const tmModerador = await prisma.tipoModerador.findUniqueOrThrow({ where: { tipo_moderador: "moderador" } });
     const tmSuperadmin = await prisma.tipoModerador.findUniqueOrThrow({ where: { tipo_moderador: "superadmin" } });
     const [trConsumidor, trVendedor, trTutor] = await Promise.all([
         prisma.tipoResena.findUniqueOrThrow({ where: { tipo_resena: "consumidor" } }),
@@ -298,19 +298,23 @@ async function main() {
         prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Presencial" } }),
         prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "En Línea" } }),
     ]);
-    const [eCalculo1, eCalculo2, eMatDiscreta, eFisica1, eEstadistica1, eIngles,
-        eArteDiseno, eTecnologia, eServicios, eComunicacion] = await Promise.all([
-        prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Cálculo Diferencial e Integral" } }),
-        prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Cálculo en Varias Variables" } }),
-        prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Matemática Discreta" } }),
-        prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Física 1" } }),
-        prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Estadística 1" } }),
-        prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Inglés Técnico" } }),
-        prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Arte y Diseño" } }),
-        prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Tecnología" } }),
-        prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Servicios" } }),
-        prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Comunicación Oral y Escrita" } }),
-    ]);
+    const [eCalculo1, eCalculo2, eMatDiscreta, eFisica1, eFisica2, eElectronica1,
+        eEstadistica1, eIngles, eArteDiseno, eTecnologia, eServicios, eComunicacion,
+        eReposteria] = await Promise.all([
+            prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Cálculo Diferencial e Integral" } }),
+            prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Cálculo en Varias Variables" } }),
+            prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Matemática Discreta" } }),
+            prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Física 1" } }),
+            prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Física 2" } }),
+            prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Electrónica 1" } }),
+            prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Estadística 1" } }),
+            prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Inglés Técnico" } }),
+            prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Arte y Diseño" } }),
+            prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Tecnología" } }),
+            prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Servicios" } }),
+            prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Comunicación Oral y Escrita" } }),
+            prisma.etiqueta.findUniqueOrThrow({ where: { nombre: "Repostería" } }),
+        ]);
 
     console.log("  ✅ Catálogos de referencia leídos");
 
@@ -318,20 +322,20 @@ async function main() {
     // Moderadores (dos niveles, para poder probar ambos)
     // ─────────────────────────────────────────────
     const moderador = await prisma.moderador.upsert({
-        where:  { usuario: "moderador1" },
+        where: { usuario: "moderador1" },
         update: {},
         create: {
-            usuario:           "moderador1",
-            password:          await bcrypt.hash("Moderador123!", SALT_ROUNDS),
+            usuario: "moderador1",
+            password: await bcrypt.hash("Moderador123!", SALT_ROUNDS),
             id_tipo_moderador: tmModerador.id_tipo_moderador,
         },
     });
     const superadmin = await prisma.moderador.upsert({
-        where:  { usuario: "superadmin1" },
+        where: { usuario: "superadmin1" },
         update: {},
         create: {
-            usuario:           "superadmin1",
-            password:          await bcrypt.hash("SuperAdmin123!", SALT_ROUNDS),
+            usuario: "superadmin1",
+            password: await bcrypt.hash("SuperAdmin123!", SALT_ROUNDS),
             id_tipo_moderador: tmSuperadmin.id_tipo_moderador,
         },
     });
@@ -341,7 +345,7 @@ async function main() {
     // Usuarios de prueba
     // ─────────────────────────────────────────────
     const vendedor = await prisma.usuario.upsert({
-        where:  { email_institucional: "vendedor@uvg.edu.gt" },
+        where: { email_institucional: "vendedor@uvg.edu.gt" },
         update: {
             nombre: "Carlos Méndez",
             url_foto_perfil: ASSETS.perfil,
@@ -349,13 +353,13 @@ async function main() {
             calificacion: 4.8,
         },
         create: {
-            nombre:              "Carlos Méndez",
-            carnet:              21002,
+            nombre: "Carlos Méndez",
+            carnet: 21002,
             email_institucional: "vendedor@uvg.edu.gt",
-            password:            await bcrypt.hash("Vendedor123!", SALT_ROUNDS),
-            url_foto_perfil:     ASSETS.perfil,
-            descripcion:         "Usuario de prueba — vende materiales, ofrece tutorías y servicios.",
-            calificacion:        4.8,
+            password: await bcrypt.hash("Vendedor123!", SALT_ROUNDS),
+            url_foto_perfil: ASSETS.perfil,
+            descripcion: "Usuario de prueba — vende materiales, ofrece tutorías y servicios.",
+            calificacion: 4.8,
         },
     });
 
@@ -367,7 +371,7 @@ async function main() {
     ]);
 
     const vendedor1 = await prisma.usuario.upsert({
-        where:  { email_institucional: "vendedor123@uvg.edu.gt" },
+        where: { email_institucional: "vendedor123@uvg.edu.gt" },
         update: {
             nombre: "Adriana Jiménez",
             url_foto_perfil: ASSETS.perfil,
@@ -375,13 +379,13 @@ async function main() {
             calificacion: 4.2,
         },
         create: {
-            nombre:              "Adriana Jiménez",
-            carnet:              21064,
+            nombre: "Adriana Jiménez",
+            carnet: 21064,
             email_institucional: "vendedor123@uvg.edu.gt",
-            password:            await bcrypt.hash("Vendedor123!", SALT_ROUNDS),
-            url_foto_perfil:     ASSETS.perfil,
-            descripcion:         "Usuario de prueba — vende materiales, ofrece tutorías y servicios.",
-            calificacion:        4.2,
+            password: await bcrypt.hash("Vendedor123!", SALT_ROUNDS),
+            url_foto_perfil: ASSETS.perfil,
+            descripcion: "Usuario de prueba — vende materiales, ofrece tutorías y servicios.",
+            calificacion: 4.2,
         },
     });
 
@@ -421,36 +425,39 @@ async function main() {
     // Publicaciones de prueba
     // ─────────────────────────────────────────────
     const materiales = await Promise.all([
-        findOrCreatePublicacion({ titulo: "Apuntes de AED — Árboles y Grafos",    descripcion: "Apuntes completos del tema 3, incluye ejercicios resueltos.",           precio: 15.00,  estado: eActivo.id_estado, tipo_publicacion: tMaterial.id_tipo_perfil, id_usuario: vendedor.id_usuario  }),
-        findOrCreatePublicacion({ titulo: "Libro: Clean Code — Robert Martin",    descripcion: "Libro físico en buen estado, ideal para IS1.",                          precio: 80.00,  estado: eActivo.id_estado, tipo_publicacion: tMaterial.id_tipo_perfil, id_usuario: vendedor.id_usuario  }),
-        findOrCreatePublicacion({ titulo: "Guías de BD1 — Semestre I 2024",       descripcion: "Todas las guías del curso con soluciones.",                             precio: 20.00,  estado: eActivo.id_estado, tipo_publicacion: tMaterial.id_tipo_perfil, id_usuario: vendedor.id_usuario  }),
-        findOrCreatePublicacion({ titulo: "Flashcards de Anatomía",               descripcion: "200 tarjetas de estudio de anatomía humana.",                           precio: 30.00,  estado: eActivo.id_estado, tipo_publicacion: tMaterial.id_tipo_perfil, id_usuario: vendedor1.id_usuario }),
-        findOrCreatePublicacion({ titulo: "Resúmenes de Bioquímica",              descripcion: "Resúmenes de todos los parciales con diagramas.",                       precio: 25.00,  estado: eActivo.id_estado, tipo_publicacion: tMaterial.id_tipo_perfil, id_usuario: vendedor1.id_usuario }),
-        findOrCreatePublicacion({ titulo: "Manual de Python para Data Science",   descripcion: "Guía completa de Python con ejercicios prácticos.",                     precio: 45.00,  estado: eActivo.id_estado, tipo_publicacion: tMaterial.id_tipo_perfil, id_usuario: vendedor.id_usuario  }),
-        findOrCreatePublicacion({ titulo: "Cuaderno de ejercicios de Cálculo 2",  descripcion: "100 problemas resueltos paso a paso.",                                  precio: 35.00,  estado: eActivo.id_estado, tipo_publicacion: tMaterial.id_tipo_perfil, id_usuario: vendedor1.id_usuario }),
-        findOrCreatePublicacion({ titulo: "Plantillas de tesis en LaTeX",         descripcion: "Plantilla lista para usar, incluye tutorial.",                          precio: 25.00,  estado: eActivo.id_estado, tipo_publicacion: tMaterial.id_tipo_perfil, id_usuario: vendedor.id_usuario  }),
+        findOrCreatePublicacion({ titulo: "Apuntes de AED — Árboles y Grafos", descripcion: "Apuntes completos del tema 3, incluye ejercicios resueltos.", precio: 15.00, estado: eActivo.id_estado, tipo_publicacion: tMaterial.id_tipo_perfil, id_usuario: vendedor.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Libro: Clean Code — Robert Martin", descripcion: "Libro físico en buen estado, ideal para IS1.", precio: 80.00, estado: eActivo.id_estado, tipo_publicacion: tMaterial.id_tipo_perfil, id_usuario: vendedor.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Guías de BD1 — Semestre I 2024", descripcion: "Todas las guías del curso con soluciones.", precio: 20.00, estado: eActivo.id_estado, tipo_publicacion: tMaterial.id_tipo_perfil, id_usuario: vendedor.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Flashcards de Anatomía", descripcion: "200 tarjetas de estudio de anatomía humana.", precio: 30.00, estado: eActivo.id_estado, tipo_publicacion: tMaterial.id_tipo_perfil, id_usuario: vendedor1.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Resúmenes de Bioquímica", descripcion: "Resúmenes de todos los parciales con diagramas.", precio: 25.00, estado: eActivo.id_estado, tipo_publicacion: tMaterial.id_tipo_perfil, id_usuario: vendedor1.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Manual de Python para Data Science", descripcion: "Guía completa de Python con ejercicios prácticos.", precio: 45.00, estado: eActivo.id_estado, tipo_publicacion: tMaterial.id_tipo_perfil, id_usuario: vendedor.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Cuaderno de ejercicios de Cálculo 2", descripcion: "100 problemas resueltos paso a paso.", precio: 35.00, estado: eActivo.id_estado, tipo_publicacion: tMaterial.id_tipo_perfil, id_usuario: vendedor1.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Plantillas de tesis en LaTeX", descripcion: "Plantilla lista para usar, incluye tutorial.", precio: 25.00, estado: eActivo.id_estado, tipo_publicacion: tMaterial.id_tipo_perfil, id_usuario: vendedor.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Calculadora científica Casio fx-991EX", descripcion: "Calculadora científica en alquiler para cursos de electrónica y laboratorios.", precio: 137.00, estado: eActivo.id_estado, tipo_publicacion: tMaterial.id_tipo_perfil, id_usuario: vendedor1.id_usuario }),
     ]);
 
     const tutorias = await Promise.all([
-        findOrCreatePublicacion({ titulo: "Tutoría de AED — Recursión y Grafos",  descripcion: "Sesiones personalizadas, 1 hora, virtual o presencial.",               precio: 50.00,  estado: eActivo.id_estado, tipo_publicacion: tTutoria.id_tipo_perfil, id_usuario: vendedor.id_usuario  }),
-        findOrCreatePublicacion({ titulo: "Tutoría de BD1 — SQL y Diseño",        descripcion: "Ayuda con consultas SQL, ER y normalización.",                          precio: 45.00,  estado: eActivo.id_estado, tipo_publicacion: tTutoria.id_tipo_perfil, id_usuario: vendedor.id_usuario  }),
-        findOrCreatePublicacion({ titulo: "Tutoría de Cálculo 1",                 descripcion: "Límites, derivadas e integrales.",                                      precio: 40.00,  estado: eActivo.id_estado, tipo_publicacion: tTutoria.id_tipo_perfil, id_usuario: vendedor.id_usuario  }),
-        findOrCreatePublicacion({ titulo: "Tutoría de Anatomía Humana",           descripcion: "Repaso de anatomía enfocado en exámenes.",                              precio: 55.00,  estado: eActivo.id_estado, tipo_publicacion: tTutoria.id_tipo_perfil, id_usuario: vendedor1.id_usuario }),
-        findOrCreatePublicacion({ titulo: "Tutoría de Inglés Técnico",            descripcion: "Preparación para el examen de Inglés Técnico UVG.",                    precio: 35.00,  estado: eActivo.id_estado, tipo_publicacion: tTutoria.id_tipo_perfil, id_usuario: vendedor1.id_usuario }),
-        findOrCreatePublicacion({ titulo: "Tutoría de Matemática Discreta",       descripcion: "Lógica, conjuntos, combinatoria y grafos.",                             precio: 50.00,  estado: eActivo.id_estado, tipo_publicacion: tTutoria.id_tipo_perfil, id_usuario: vendedor1.id_usuario }),
-        findOrCreatePublicacion({ titulo: "Tutoría de Física 1",                  descripcion: "Mecánica clásica, cinemática y dinámica.",                              precio: 45.00,  estado: eActivo.id_estado, tipo_publicacion: tTutoria.id_tipo_perfil, id_usuario: vendedor.id_usuario  }),
-        findOrCreatePublicacion({ titulo: "Tutoría de Estadística 1",             descripcion: "Probabilidad, distribuciones y análisis de datos.",                     precio: 40.00,  estado: eActivo.id_estado, tipo_publicacion: tTutoria.id_tipo_perfil, id_usuario: vendedor1.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Tutoría de AED — Recursión y Grafos", descripcion: "Sesiones personalizadas, 1 hora, virtual o presencial.", precio: 50.00, estado: eActivo.id_estado, tipo_publicacion: tTutoria.id_tipo_perfil, id_usuario: vendedor.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Tutoría de BD1 — SQL y Diseño", descripcion: "Ayuda con consultas SQL, ER y normalización.", precio: 45.00, estado: eActivo.id_estado, tipo_publicacion: tTutoria.id_tipo_perfil, id_usuario: vendedor.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Tutoría de Cálculo 1", descripcion: "Límites, derivadas e integrales.", precio: 40.00, estado: eActivo.id_estado, tipo_publicacion: tTutoria.id_tipo_perfil, id_usuario: vendedor.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Tutoría de Anatomía Humana", descripcion: "Repaso de anatomía enfocado en exámenes.", precio: 55.00, estado: eActivo.id_estado, tipo_publicacion: tTutoria.id_tipo_perfil, id_usuario: vendedor1.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Tutoría de Inglés Técnico", descripcion: "Preparación para el examen de Inglés Técnico UVG.", precio: 35.00, estado: eActivo.id_estado, tipo_publicacion: tTutoria.id_tipo_perfil, id_usuario: vendedor1.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Tutoría de Matemática Discreta", descripcion: "Lógica, conjuntos, combinatoria y grafos.", precio: 50.00, estado: eActivo.id_estado, tipo_publicacion: tTutoria.id_tipo_perfil, id_usuario: vendedor1.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Tutoría de Física 1", descripcion: "Mecánica clásica, cinemática y dinámica.", precio: 45.00, estado: eActivo.id_estado, tipo_publicacion: tTutoria.id_tipo_perfil, id_usuario: vendedor.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Tutoría de Estadística 1", descripcion: "Probabilidad, distribuciones y análisis de datos.", precio: 40.00, estado: eActivo.id_estado, tipo_publicacion: tTutoria.id_tipo_perfil, id_usuario: vendedor1.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Tutoría nocturna de Física 2", descripcion: "Tutoría virtual de electricidad y magnetismo, disponible los viernes por la noche.", precio: 65.00, estado: eActivo.id_estado, tipo_publicacion: tTutoria.id_tipo_perfil, id_usuario: vendedor1.id_usuario }),
     ]);
 
     const negocios = await Promise.all([
-        findOrCreatePublicacion({ titulo: "Diseño de logos universitarios",        descripcion: "Logo profesional para tu proyecto o startup. Entrega en 48h.",        precio: 100.00, estado: eActivo.id_estado, tipo_publicacion: tNegocio.id_tipo_perfil, id_usuario: vendedor.id_usuario  }),
-        findOrCreatePublicacion({ titulo: "Desarrollo de landing pages",           descripcion: "Landing pages con HTML/CSS/JS. Precio por página.",                   precio: 200.00, estado: eActivo.id_estado, tipo_publicacion: tNegocio.id_tipo_perfil, id_usuario: vendedor.id_usuario  }),
-        findOrCreatePublicacion({ titulo: "Impresión y encuadernación",            descripcion: "Servicio de impresión en campus, blanco/negro y color.",              precio: 5.00,   estado: eActivo.id_estado, tipo_publicacion: tNegocio.id_tipo_perfil, id_usuario: vendedor1.id_usuario }),
-        findOrCreatePublicacion({ titulo: "Fotografía para presentaciones",        descripcion: "Fotos profesionales para defensa de tesis o presentación.",           precio: 150.00, estado: eActivo.id_estado, tipo_publicacion: tNegocio.id_tipo_perfil, id_usuario: vendedor.id_usuario  }),
-        findOrCreatePublicacion({ titulo: "Traducción de documentos ES/EN",        descripcion: "Documentos técnicos y académicos. Precio por página.",                precio: 25.00,  estado: eActivo.id_estado, tipo_publicacion: tNegocio.id_tipo_perfil, id_usuario: vendedor1.id_usuario }),
-        findOrCreatePublicacion({ titulo: "Edición de videos promocionales",       descripcion: "Edición profesional para proyectos y presentaciones.",                precio: 120.00, estado: eActivo.id_estado, tipo_publicacion: tNegocio.id_tipo_perfil, id_usuario: vendedor.id_usuario  }),
-        findOrCreatePublicacion({ titulo: "Asesoría en Excel avanzado",            descripcion: "Macros, tablas dinámicas y automatización.",                          precio: 60.00,  estado: eActivo.id_estado, tipo_publicacion: tNegocio.id_tipo_perfil, id_usuario: vendedor1.id_usuario }),
-        findOrCreatePublicacion({ titulo: "Redacción de CV y carta de presentación", descripcion: "CV profesional adaptado a tu perfil.",                             precio: 50.00,  estado: eActivo.id_estado, tipo_publicacion: tNegocio.id_tipo_perfil, id_usuario: vendedor.id_usuario  }),
+        findOrCreatePublicacion({ titulo: "Diseño de logos universitarios", descripcion: "Logo profesional para tu proyecto o startup. Entrega en 48h.", precio: 100.00, estado: eActivo.id_estado, tipo_publicacion: tNegocio.id_tipo_perfil, id_usuario: vendedor.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Desarrollo de landing pages", descripcion: "Landing pages con HTML/CSS/JS. Precio por página.", precio: 200.00, estado: eActivo.id_estado, tipo_publicacion: tNegocio.id_tipo_perfil, id_usuario: vendedor.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Impresión y encuadernación", descripcion: "Servicio de impresión en campus, blanco/negro y color.", precio: 5.00, estado: eActivo.id_estado, tipo_publicacion: tNegocio.id_tipo_perfil, id_usuario: vendedor1.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Fotografía para presentaciones", descripcion: "Fotos profesionales para defensa de tesis o presentación.", precio: 150.00, estado: eActivo.id_estado, tipo_publicacion: tNegocio.id_tipo_perfil, id_usuario: vendedor.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Traducción de documentos ES/EN", descripcion: "Documentos técnicos y académicos. Precio por página.", precio: 25.00, estado: eActivo.id_estado, tipo_publicacion: tNegocio.id_tipo_perfil, id_usuario: vendedor1.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Edición de videos promocionales", descripcion: "Edición profesional para proyectos y presentaciones.", precio: 120.00, estado: eActivo.id_estado, tipo_publicacion: tNegocio.id_tipo_perfil, id_usuario: vendedor.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Asesoría en Excel avanzado", descripcion: "Macros, tablas dinámicas y automatización.", precio: 60.00, estado: eActivo.id_estado, tipo_publicacion: tNegocio.id_tipo_perfil, id_usuario: vendedor1.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Redacción de CV y carta de presentación", descripcion: "CV profesional adaptado a tu perfil.", precio: 50.00, estado: eActivo.id_estado, tipo_publicacion: tNegocio.id_tipo_perfil, id_usuario: vendedor.id_usuario }),
+        findOrCreatePublicacion({ titulo: "Caja de brownies artesanales", descripcion: "Caja de seis brownies artesanales, producto listo para entregar dentro del campus.", precio: 73.00, estado: eActivo.id_estado, tipo_publicacion: tNegocio.id_tipo_perfil, id_usuario: vendedor.id_usuario }),
     ]);
 
     await Promise.all([
@@ -461,7 +468,7 @@ async function main() {
         prisma.publicacion.update({ where: { id_publicacion: negocios[0].id_publicacion }, data: { is_pinned: true } }),
     ]);
 
-    console.log("  ✅ Publicaciones (8 materiales · 8 tutorías · 8 negocios)");
+    console.log("  ✅ Publicaciones (9 materiales · 9 tutorías · 9 negocios)");
 
     // Una imagen visible por publicación. Se reutiliza de forma deliberada un
     // objeto compartido de R2; la relación se identifica por publicación + URL.
@@ -573,19 +580,22 @@ async function main() {
         { id_publicacion: number },
         ...Array<{ id_etiqueta: number }>,
     ]> = [
-        [materiales[0], eAED, eCompra], [materiales[1], eIS1, eAlquiler],
-        [materiales[2], eBD1, eCompra], [materiales[3], eCiencias, eCompra],
-        [materiales[4], eBioquim, eCompra], [materiales[5], ePOO, eCompra],
-        [materiales[6], eCalculo2, eCompra], [materiales[7], eIS1, eCompra],
-        [tutorias[0], eAED, ePresencial], [tutorias[1], eBD1, eEnLinea],
-        [tutorias[2], eCalculo1, ePresencial], [tutorias[3], eCiencias, ePresencial, eEnLinea],
-        [tutorias[4], eIngles, eEnLinea], [tutorias[5], eMatDiscreta, ePresencial, eEnLinea],
-        [tutorias[6], eFisica1, ePresencial], [tutorias[7], eEstadistica1, eEnLinea],
-        [negocios[0], eArteDiseno, eServicio], [negocios[1], eTecnologia, eServicio],
-        [negocios[2], eServicios, eServicio], [negocios[3], eArteDiseno, eServicio],
-        [negocios[4], eComunicacion, eServicio], [negocios[5], eArteDiseno, eServicio],
-        [negocios[6], eTecnologia, eServicio], [negocios[7], eComunicacion, eServicio],
-    ];
+            [materiales[0], eAED, eCompra], [materiales[1], eIS1, eAlquiler],
+            [materiales[2], eBD1, eCompra], [materiales[3], eCiencias, eCompra],
+            [materiales[4], eBioquim, eCompra], [materiales[5], ePOO, eCompra],
+            [materiales[6], eCalculo2, eCompra], [materiales[7], eIS1, eCompra],
+            [materiales[8], eElectronica1, eAlquiler],
+            [tutorias[0], eAED, ePresencial], [tutorias[1], eBD1, eEnLinea],
+            [tutorias[2], eCalculo1, ePresencial], [tutorias[3], eCiencias, ePresencial, eEnLinea],
+            [tutorias[4], eIngles, eEnLinea], [tutorias[5], eMatDiscreta, ePresencial, eEnLinea],
+            [tutorias[6], eFisica1, ePresencial], [tutorias[7], eEstadistica1, eEnLinea],
+            [tutorias[8], eFisica2, eEnLinea],
+            [negocios[0], eArteDiseno, eServicio], [negocios[1], eTecnologia, eServicio],
+            [negocios[2], eServicios, eServicio], [negocios[3], eArteDiseno, eServicio],
+            [negocios[4], eComunicacion, eServicio], [negocios[5], eArteDiseno, eServicio],
+            [negocios[6], eTecnologia, eServicio], [negocios[7], eComunicacion, eServicio],
+            [negocios[8], eReposteria, eProducto],
+        ];
     await prisma.publicacionEtiqueta.createMany({
         data: etiquetasPorPublicacion.flatMap(([publicacion, ...etiquetas]) =>
             etiquetas.map((etiqueta) => ({
@@ -653,7 +663,7 @@ async function main() {
 
     console.log("  ✅ Mensajes de prueba");
 
-        // ─────────────────────────────────────────────
+    // ─────────────────────────────────────────────
     // Reportes de prueba
     // ─────────────────────────────────────────────
     await Promise.all([
@@ -730,14 +740,14 @@ async function main() {
         upsertReportePrueba({
             id_emisor: vendedor1.id_usuario,
             id_receptor: vendedor.id_usuario,
-            id_publicacion: null,           
+            id_publicacion: null,
             id_mensaje: mensaje2.id_mensaje,
             motivo: motivosReporte[2].id_motivo,
             observaciones: "El mensaje enviado durante la tutoría contiene lenguaje inapropiado.",
             estado: reportePendiente.id_estado,
-    }),
+        }),
 
-        
+
     ]);
 
     console.log("  ✅ Reportes de prueba");
@@ -746,17 +756,17 @@ async function main() {
     // Acuerdos de ejemplo
     // ─────────────────────────────────────────────
     await Promise.all([
-        upsertAcuerdoPrueba({ id_usuario: vendedor1.id_usuario, id_publicacion: negocios[1].id_publicacion, observaciones:"Lleva tu lapiz y calculadora.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(SEED_NOW.getTime() - 20 * DAY), id_ofertante: vendedor1.id_usuario, lugar_entrega: "Plaza Paiz", estado: eCompletado.id_estado }),
-        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario, id_publicacion: negocios[4].id_publicacion, observaciones:"Encontrarnos en el carril bici.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(SEED_NOW.getTime() - 18 * DAY), id_ofertante: vendedor.id_usuario, lugar_entrega: "Plaza Isabel Gutierrez de Bosch", estado: eCompletado.id_estado }),
-        upsertAcuerdoPrueba({ id_usuario: vendedor1.id_usuario, id_publicacion: tutorias[2].id_publicacion, observaciones:"Trae tus libros de mate.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(SEED_NOW.getTime() - 15 * DAY), id_ofertante: vendedor1.id_usuario, lugar_entrega: "Plaza Isabel Gutierrez de Bosch", estado: eCompletado.id_estado }),
-        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario, id_publicacion: tutorias[4].id_publicacion, observaciones:"Hagamos un grupos de estudio.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(SEED_NOW.getTime() - 14 * DAY), id_ofertante: vendedor.id_usuario, lugar_entrega: "CIT", estado: eCompletado.id_estado }),
-        upsertAcuerdoPrueba({ id_usuario: vendedor1.id_usuario, id_publicacion: materiales[5].id_publicacion, observaciones:"Trae tus cuadernos viejos.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(SEED_NOW.getTime() + 2 * DAY), id_ofertante: vendedor1.id_usuario, lugar_entrega: "Campus Central", estado: ePendiente.id_estado }),
-        upsertAcuerdoPrueba({ id_usuario: vendedor1.id_usuario, id_publicacion: negocios[5].id_publicacion, observaciones:"Seria ideal vernos un fin de semana.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(SEED_NOW.getTime() + 7 * DAY), id_ofertante: vendedor1.id_usuario, lugar_entrega: "Plaza Cayalá", estado: eActivo.id_estado }),
-        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario, id_publicacion: tutorias[5].id_publicacion, observaciones:"Quizás a media semana sea mejor para ambos.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(SEED_NOW.getTime() - 3 * DAY), id_ofertante: vendedor.id_usuario, lugar_entrega: "Biblioteca Central", estado: eCompletado.id_estado }),
-        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario, id_publicacion: materiales[6].id_publicacion, observaciones:"Lleva tus apuntes de clase.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(SEED_NOW.getTime() - 8 * DAY), id_ofertante: vendedor.id_usuario, lugar_entrega: "Plaza Paiz", estado: eCompletado.id_estado }),
-        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario, id_publicacion: materiales[3].id_publicacion, observaciones:"Historial consumidor vendedor - compra de material.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(SEED_NOW.getTime() - 10 * DAY), id_ofertante: vendedor.id_usuario, lugar_entrega: "Cafetería Central", estado: eCompletado.id_estado }),
-        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario, id_publicacion: negocios[2].id_publicacion, observaciones:"Historial consumidor vendedor - producto comprado.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(SEED_NOW.getTime() - 6 * DAY), id_ofertante: vendedor.id_usuario, lugar_entrega: "Edificio CIT", estado: eCompletado.id_estado }),
-        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario, id_publicacion: tutorias[7].id_publicacion, observaciones:"Historial consumidor vendedor - tutoría tomada.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(SEED_NOW.getTime() - 3 * DAY), id_ofertante: vendedor.id_usuario, lugar_entrega: "Biblioteca UVG", estado: eCompletado.id_estado }),
+        upsertAcuerdoPrueba({ id_usuario: vendedor1.id_usuario, id_publicacion: negocios[1].id_publicacion, observaciones: "Lleva tu lapiz y calculadora.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(SEED_NOW.getTime() - 20 * DAY), id_ofertante: vendedor1.id_usuario, lugar_entrega: "Plaza Paiz", estado: eCompletado.id_estado }),
+        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario, id_publicacion: negocios[4].id_publicacion, observaciones: "Encontrarnos en el carril bici.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(SEED_NOW.getTime() - 18 * DAY), id_ofertante: vendedor.id_usuario, lugar_entrega: "Plaza Isabel Gutierrez de Bosch", estado: eCompletado.id_estado }),
+        upsertAcuerdoPrueba({ id_usuario: vendedor1.id_usuario, id_publicacion: tutorias[2].id_publicacion, observaciones: "Trae tus libros de mate.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(SEED_NOW.getTime() - 15 * DAY), id_ofertante: vendedor1.id_usuario, lugar_entrega: "Plaza Isabel Gutierrez de Bosch", estado: eCompletado.id_estado }),
+        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario, id_publicacion: tutorias[4].id_publicacion, observaciones: "Hagamos un grupos de estudio.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(SEED_NOW.getTime() - 14 * DAY), id_ofertante: vendedor.id_usuario, lugar_entrega: "CIT", estado: eCompletado.id_estado }),
+        upsertAcuerdoPrueba({ id_usuario: vendedor1.id_usuario, id_publicacion: materiales[5].id_publicacion, observaciones: "Trae tus cuadernos viejos.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(SEED_NOW.getTime() + 2 * DAY), id_ofertante: vendedor1.id_usuario, lugar_entrega: "Campus Central", estado: ePendiente.id_estado }),
+        upsertAcuerdoPrueba({ id_usuario: vendedor1.id_usuario, id_publicacion: negocios[5].id_publicacion, observaciones: "Seria ideal vernos un fin de semana.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(SEED_NOW.getTime() + 7 * DAY), id_ofertante: vendedor1.id_usuario, lugar_entrega: "Plaza Cayalá", estado: eActivo.id_estado }),
+        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario, id_publicacion: tutorias[5].id_publicacion, observaciones: "Quizás a media semana sea mejor para ambos.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(SEED_NOW.getTime() - 3 * DAY), id_ofertante: vendedor.id_usuario, lugar_entrega: "Biblioteca Central", estado: eCompletado.id_estado }),
+        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario, id_publicacion: materiales[6].id_publicacion, observaciones: "Lleva tus apuntes de clase.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(SEED_NOW.getTime() - 8 * DAY), id_ofertante: vendedor.id_usuario, lugar_entrega: "Plaza Paiz", estado: eCompletado.id_estado }),
+        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario, id_publicacion: materiales[3].id_publicacion, observaciones: "Historial consumidor vendedor - compra de material.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(SEED_NOW.getTime() - 10 * DAY), id_ofertante: vendedor.id_usuario, lugar_entrega: "Cafetería Central", estado: eCompletado.id_estado }),
+        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario, id_publicacion: negocios[2].id_publicacion, observaciones: "Historial consumidor vendedor - producto comprado.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(SEED_NOW.getTime() - 6 * DAY), id_ofertante: vendedor.id_usuario, lugar_entrega: "Edificio CIT", estado: eCompletado.id_estado }),
+        upsertAcuerdoPrueba({ id_usuario: vendedor.id_usuario, id_publicacion: tutorias[7].id_publicacion, observaciones: "Historial consumidor vendedor - tutoría tomada.", id_conversacion: c1.id_conversacion, fecha_entrega: new Date(SEED_NOW.getTime() - 3 * DAY), id_ofertante: vendedor.id_usuario, lugar_entrega: "Biblioteca UVG", estado: eCompletado.id_estado }),
     ]);
 
     const lugaresHistorial = [
@@ -806,6 +816,7 @@ async function main() {
         { id_usuario: vendedor.id_usuario, dia: "miercoles" as const, inicio: "14:00:00", fin: "18:00:00" },
         { id_usuario: vendedor1.id_usuario, dia: "martes" as const, inicio: "09:00:00", fin: "12:00:00" },
         { id_usuario: vendedor1.id_usuario, dia: "jueves" as const, inicio: "13:00:00", fin: "16:00:00" },
+        { id_usuario: vendedor1.id_usuario, dia: "viernes" as const, inicio: "18:00:00", fin: "20:00:00" },
     ];
     for (const horario of horarios) {
         const hora_inicio = new Date(`1970-01-01T${horario.inicio}.000Z`);
@@ -937,8 +948,8 @@ async function main() {
     await Promise.all(anuncios.map(([idUsuario, titulo, descripcion], index) =>
         upsertAnuncio(idUsuario, titulo, descripcion, ASSETS.anuncio, new Date(SEED_NOW.getTime() - index * DAY)),
     ));
-    
-    
+
+
     console.log("  ✅ Etiquetas de usuario y anuncios vinculados");
 
     // Evidencia reproducible de cobertura. Estas consultas usan las mismas
@@ -964,8 +975,8 @@ async function main() {
         anuncios: await prisma.anuncio.count({ where: { id_usuario: { in: [vendedor.id_usuario, vendedor1.id_usuario] } } }),
     };
     const minimos: Record<keyof typeof evidencia, number> = {
-        usuarios: 3, contactos: 10, horarios: 4, certificaciones: 2,
-        publicaciones: 24, publicacionesConImagen: 24, publicacionesConEtiqueta: 24,
+        usuarios: 3, contactos: 10, horarios: 5, certificaciones: 2,
+        publicaciones: 27, publicacionesConImagen: 27, publicacionesConEtiqueta: 27,
         conversaciones: 2, mensajes: 3, contextos: 2, acuerdos: 11,
         resenas: 3, reportes: 7, notificaciones: 3, interacciones: 3, anuncios: 4,
     };

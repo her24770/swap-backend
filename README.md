@@ -94,7 +94,7 @@ El seed estructural crea los catálogos y el seed de pruebas cubre todos los mó
 
 - 3 usuarios, 2 moderadores y contactos
 - Etiquetas de carrera y cursos (ICC, Biología, etc.)
-- 24 publicaciones (8 materiales · 8 tutorías · 8 negocios), con etiquetas e imágenes R2
+- 27 publicaciones (9 materiales · 9 tutorías · 9 negocios), con etiquetas e imágenes R2
 - Horarios, certificaciones, anuncios, conversaciones, mensajes y acuerdos
 - Reseñas, reportes, notificaciones, likes y guardados
 - Catálogos base: estados, tipos de perfil, tipos de contacto, motivos de reporte, palabras restringidas
@@ -120,6 +120,20 @@ valores placeholder, usa recursos públicos de muestra para desarrollo local. Es
 claves lógicas estables, y se bloquea cuando el host o nombre de la base en
 `DATABASE_URL` parece de producción. `ALLOW_DEMO_SEED=true` es el desbloqueo explícito.
 Al finalizar imprime una tabla de cobertura y aborta si falta alguna relación.
+
+### Casos identificables para pruebas de filtros UX/UI
+
+Estas publicaciones tienen combinaciones deliberadamente específicas. Después de ejecutar la seed pueden localizarse así:
+
+| Vista | Publicación esperada | Propietario | Filtros |
+| --- | --- | --- | --- |
+| `/es/materiales` | `Calculadora científica Casio fx-991EX` | Adriana Jiménez | Tipo `Alquiler`, etiqueta `Electrónica 1`, precio `Q137–Q137`, calificación `4–4` |
+| `/es/negocios` | `Caja de brownies artesanales` | Carlos Méndez | Tipo `Producto`, etiqueta `Repostería`, precio `Q73–Q73`, calificación `5–5` |
+| `/es/tutorias` | `Tutoría nocturna de Física 2` | Adriana Jiménez | Etiqueta `Física 2`, precio `Q65–Q65`, calificación `4–4`, viernes, horario `18:00–20:00` |
+
+Si el control deslizante dificulta seleccionar un valor exacto, puede usarse un
+rango de cinco quetzales alrededor del precio; las demás condiciones mantienen
+el caso identificable.
 
 ### Credenciales de prueba
 
