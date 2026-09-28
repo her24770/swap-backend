@@ -1,0 +1,114 @@
+# Copia aislada de Swap para pruebas dinámicas con OWASP ZAP.
+# Reutiliza las imágenes ya construidas de producción (misma versión desplegada),
+# pero con base de datos, Redis, red y secretos propios. No comparte nada con
+# el stack real: ni volúmenes, ni red, ni credenciales, ni servicios externos.
+name: swap-zap
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: swap-zap-postgres
+    restart: "no"
+    environment:
+      POSTGRES_USER: swap_zap
+      POSTGRES_PASSWORD: swap_zap
+      POSTGRES_DB: swap_zap
+    volumes:
+      - swap_zap_postgres_data:/var/lib/postgresql/data
+    networks: [swap_zap_net]
+    mem_limit: 384m
+    cpus: 0.5
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U swap_zap -d swap_zap"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    container_name: swap-zap-redis
+    restart: "no"
+    command: redis-server --save "" --appendonly no --maxmemory 48mb --maxmemory-policy allkeys-lru
+    networks: [swap_zap_net]
+    mem_limit: 64m
+    cpus: 0.25
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  embeddings:
+    image: ${ZAP_EMBEDDINGS_IMAGE:-swap-backend-embeddings:latest}
+    container_name: swap-zap-embeddings
+    restart: "no"
+    networks: [swap_zap_net]
+    mem_limit: 900m
+    cpus: 0.5
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  api:
+    image: ${ZAP_API_IMAGE:-swap-backend-api:latest}
+    container_name: swap-zap-api
+    restart: "no"
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      JWT_SECRET: zap-copia-aislada-secreto-no-reutilizar-8f3a91c2
+      JWT_EXPIRACION: 12h
+      DATABASE_URL: postgresql://swap_zap:swap_zap@postgres:5432/swap_zap?schema=public
+      REDIS_URL: redis://redis:6379
+      EMBEDDINGS_SERVICE_URL: http://embeddings:8000
+      FRONTEND_URL: http://localhost:3000
+      # Servicios externos deshabilitados a propósito: ningún escaneo debe
+      # subir archivos al bucket real, enviar correos reales ni consumir APIs pagadas.
+      OPENAI_API_KEY: zap-deshabilitado
+      AWS_ACCESS_KEY_ID: zap-deshabilitado
+      AWS_SECRET_ACCESS_KEY: zap-deshabilitado
+      AWS_REGION: us-east-1
+      RESEND_API_KEY: zap-deshabilitado
+      SMTP_FROM: zap@invalid.local
+      CLOUDFLARE_R2_ACCOUNT_ID: zap-deshabilitado
+      CLOUDFLARE_R2_ACCESS_KEY_ID: zap-deshabilitado
+      CLOUDFLARE_R2_SECRET_ACCESS_KEY: zap-deshabilitado
+      CLOUDFLARE_R2_BUCKET_NAME: zap-deshabilitado
+      CLOUDFLARE_R2_PUBLIC_URL: https://r2.zap.invalid
+    networks: [swap_zap_net]
+    mem_limit: 512m
+    cpus: 1.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      embeddings:
+        condition: service_healthy
+
+  # Réplica del bloque nginx de producción (/etc/nginx/sites-enabled/swap),
+  # sin TLS. Necesaria para que la copia reciba el tráfico igual que producción
+  # (a través de un proxy), que es lo que determina req.ip en Express.
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: swap-zap-nginx
+    restart: "no"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "127.0.0.1:${ZAP_PORT:-3220}:80"
+    networks: [swap_zap_net]
+    mem_limit: 32m
+    cpus: 0.25
+    depends_on:
+      - api
+
+volumes:
+  swap_zap_postgres_data:
+    name: swap_zap_postgres_data
+
+networks:
+  swap_zap_net:
+    name: swap_zap_net

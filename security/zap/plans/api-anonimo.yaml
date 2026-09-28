@@ -1,0 +1,62 @@
+# Escaneo de la API sin sesión (atacante anónimo) contra la copia aislada.
+# Variables: ZAP_TARGET, ZAP_MAX_MINS, ZAP_DELAY_MS, ZAP_OUT
+env:
+  contexts:
+    - name: swap-api
+      urls:
+        - ${ZAP_TARGET}/api/v1
+      includePaths:
+        - "${ZAP_TARGET}/api/.*"
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+  - type: openapi
+    parameters:
+      apiFile: /zap/wrk/openapi.json
+      context: swap-api
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 5
+
+  # La importación envía una petición por operación casi de golpe; se espera a
+  # que se vacíe la ventana de 60 s del rate limit antes del escaneo activo.
+  - type: delay
+    parameters:
+      time: "00:01:05"
+
+  - type: activeScan
+    parameters:
+      context: swap-api
+      maxScanDurationInMins: ${ZAP_MAX_MINS}
+      maxRuleDurationInMins: 4
+      threadPerHost: 1
+      delayInMs: ${ZAP_DELAY_MS}
+      addQueryParam: false
+    policyDefinition:
+      defaultStrength: medium
+      defaultThreshold: medium
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 5
+
+  - type: report
+    parameters:
+      template: traditional-html
+      reportDir: /zap/wrk/${ZAP_OUT}
+      reportFile: reporte
+      reportTitle: "Swap API - escaneo anónimo (copia aislada)"
+  - type: report
+    parameters:
+      template: traditional-json
+      reportDir: /zap/wrk/${ZAP_OUT}
+      reportFile: reporte
+  - type: report
+    parameters:
+      template: traditional-md
+      reportDir: /zap/wrk/${ZAP_OUT}
+      reportFile: reporte
