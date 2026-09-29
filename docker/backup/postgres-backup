@@ -1,0 +1,110 @@
+#!/bin/sh
+
+set -eu
+
+: "${POSTGRES_HOST:?POSTGRES_HOST es requerido}"
+: "${POSTGRES_DB:?POSTGRES_DB es requerido}"
+: "${POSTGRES_USER:?POSTGRES_USER es requerido}"
+: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD es requerido}"
+: "${BACKUP_R2_ACCOUNT_ID:?BACKUP_R2_ACCOUNT_ID es requerido}"
+: "${BACKUP_R2_ACCESS_KEY_ID:?BACKUP_R2_ACCESS_KEY_ID es requerido}"
+: "${BACKUP_R2_SECRET_ACCESS_KEY:?BACKUP_R2_SECRET_ACCESS_KEY es requerido}"
+: "${BACKUP_R2_BUCKET_NAME:?BACKUP_R2_BUCKET_NAME es requerido}"
+
+export PGPASSWORD="$POSTGRES_PASSWORD"
+export RCLONE_CONFIG_R2_TYPE=s3
+export RCLONE_CONFIG_R2_PROVIDER=Cloudflare
+export RCLONE_CONFIG_R2_ACCESS_KEY_ID="$BACKUP_R2_ACCESS_KEY_ID"
+export RCLONE_CONFIG_R2_SECRET_ACCESS_KEY="$BACKUP_R2_SECRET_ACCESS_KEY"
+export RCLONE_CONFIG_R2_ENDPOINT="https://${BACKUP_R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+export RCLONE_CONFIG_R2_ACL=private
+export RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true
+
+prefix="${BACKUP_R2_PREFIX:-postgresql}"
+remote="r2:${BACKUP_R2_BUCKET_NAME}/${prefix#/}"
+
+list() {
+    rclone lsf "$remote" --include '*.dump'
+}
+
+backup() {
+    keep_days="${BACKUP_KEEP_DAYS:-7}"
+    case "$keep_days" in
+        ''|*[!0-9]*) echo "[ERROR] BACKUP_KEEP_DAYS debe ser un entero." >&2; exit 1 ;;
+    esac
+
+    lock=/tmp/postgres-backup.lock
+    mkdir "$lock" 2>/dev/null || {
+        echo "[ERROR] Ya hay un backup en ejecución." >&2
+        exit 1
+    }
+
+    tmp_dir="$(mktemp -d)"
+    trap 'rm -r "$tmp_dir"; rmdir "$lock"' EXIT INT TERM
+    filename="${POSTGRES_DB}_$(date -u +'%Y%m%dT%H%M%SZ').dump"
+    dump="$tmp_dir/$filename"
+
+    echo "[Backup] Generando $filename..."
+    pg_dump \
+        --host="$POSTGRES_HOST" \
+        --port="${POSTGRES_PORT:-5432}" \
+        --username="$POSTGRES_USER" \
+        --dbname="$POSTGRES_DB" \
+        --format=custom \
+        --compress=9 \
+        --no-owner \
+        --no-acl \
+        --file="$dump"
+
+    pg_restore --list "$dump" >/dev/null
+    rclone copyto "$dump" "$remote/$filename"
+
+    case "$keep_days" in
+        0) ;;
+        *) rclone delete "$remote" --include '*.dump' --min-age "${keep_days}d" ;;
+    esac
+
+    echo "[Backup] Completado: $remote/$filename"
+}
+
+restore() {
+    filename="${1:-$(list | sort | tail -n 1)}"
+    if [ -z "$filename" ]; then
+        echo "[ERROR] No hay backups en $remote." >&2
+        exit 1
+    fi
+
+    printf "Restaurar '%s' sobre '%s'. Escribe el nombre de la base para confirmar: " "$filename" "$POSTGRES_DB"
+    read -r confirmation
+    if [ "$confirmation" != "$POSTGRES_DB" ]; then
+        echo "[CANCELADO] La confirmación no coincide." >&2
+        exit 1
+    fi
+
+    tmp_dir="$(mktemp -d)"
+    trap 'rm -r "$tmp_dir"' EXIT INT TERM
+    dump="$tmp_dir/restore.dump"
+
+    rclone copyto "$remote/$filename" "$dump"
+    pg_restore --list "$dump" >/dev/null
+    pg_restore \
+        --host="$POSTGRES_HOST" \
+        --port="${POSTGRES_PORT:-5432}" \
+        --username="$POSTGRES_USER" \
+        --dbname="$POSTGRES_DB" \
+        --clean \
+        --if-exists \
+        --exit-on-error \
+        --no-owner \
+        --no-acl \
+        "$dump"
+
+    echo "[Restore] Completado sobre '$POSTGRES_DB'."
+}
+
+case "${1:-}" in
+    backup) backup ;;
+    list) list ;;
+    restore) restore "${2:-}" ;;
+    *) echo "Uso: postgres-backup {backup|list|restore [archivo.dump]}" >&2; exit 1 ;;
+esac

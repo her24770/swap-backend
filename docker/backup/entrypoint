@@ -1,0 +1,19 @@
+#!/bin/sh
+
+set -eu
+
+case "${1:-}" in
+    backup|list|restore)
+        exec postgres-backup "$@"
+        ;;
+esac
+
+BACKUP_SCHEDULE="${BACKUP_SCHEDULE:-0 3 * * *}"
+printf '%s postgres-backup backup\n' "$BACKUP_SCHEDULE" > /etc/crontabs/root
+
+if [ "${BACKUP_ON_START:-false}" = true ]; then
+    postgres-backup backup
+fi
+
+echo "[Backup] Programado: $BACKUP_SCHEDULE"
+exec crond -f -l 2

@@ -20,6 +20,28 @@ services:
       timeout: 5s
       retries: 5
 
+  postgres-backup:
+    build:
+      context: ./docker/backup
+    image: swap-postgres-backup:16
+    container_name: postgres-backup
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 3 * * *}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-7}
+      BACKUP_R2_ACCOUNT_ID: ${BACKUP_R2_ACCOUNT_ID:?Falta definir BACKUP_R2_ACCOUNT_ID en .env}
+      BACKUP_R2_ACCESS_KEY_ID: ${BACKUP_R2_ACCESS_KEY_ID:?Falta definir BACKUP_R2_ACCESS_KEY_ID en .env}
+      BACKUP_R2_SECRET_ACCESS_KEY: ${BACKUP_R2_SECRET_ACCESS_KEY:?Falta definir BACKUP_R2_SECRET_ACCESS_KEY en .env}
+      BACKUP_R2_BUCKET_NAME: ${BACKUP_R2_BUCKET_NAME:?Falta definir BACKUP_R2_BUCKET_NAME en .env}
+      BACKUP_R2_PREFIX: ${BACKUP_R2_PREFIX:-postgresql}
+
   # ─────────────────────────────────────────────
   # Redis
   # ─────────────────────────────────────────────
