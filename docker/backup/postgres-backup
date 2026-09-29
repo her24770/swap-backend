@@ -1,7 +1,12 @@
 #!/bin/sh
 
+# Crea, lista y restaura dumps PostgreSQL almacenados en un bucket privado de R2.
+# Flujo de backup: pg_dump -> validación -> subida -> eliminación por antigüedad.
+# Flujo de restore: descarga -> validación -> confirmación -> pg_restore destructivo.
+
 set -eu
 
+# Fallar antes de crear archivos o abrir conexiones si falta configuración crítica.
 : "${POSTGRES_HOST:?POSTGRES_HOST es requerido}"
 : "${POSTGRES_DB:?POSTGRES_DB es requerido}"
 : "${POSTGRES_USER:?POSTGRES_USER es requerido}"
@@ -18,6 +23,7 @@ export RCLONE_CONFIG_R2_ACCESS_KEY_ID="$BACKUP_R2_ACCESS_KEY_ID"
 export RCLONE_CONFIG_R2_SECRET_ACCESS_KEY="$BACKUP_R2_SECRET_ACCESS_KEY"
 export RCLONE_CONFIG_R2_ENDPOINT="https://${BACKUP_R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
 export RCLONE_CONFIG_R2_ACL=private
+# El bucket debe existir; evita CreateBucket para tokens limitados a objetos.
 export RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true
 
 prefix="${BACKUP_R2_PREFIX:-postgresql}"
@@ -33,6 +39,7 @@ backup() {
         ''|*[!0-9]*) echo "[ERROR] BACKUP_KEEP_DAYS debe ser un entero." >&2; exit 1 ;;
     esac
 
+    # Evita solapar una ejecución manual con la iniciada por cron.
     lock=/tmp/postgres-backup.lock
     mkdir "$lock" 2>/dev/null || {
         echo "[ERROR] Ya hay un backup en ejecución." >&2
@@ -56,9 +63,11 @@ backup() {
         --no-acl \
         --file="$dump"
 
+    # No subir un dump que pg_restore no pueda leer.
     pg_restore --list "$dump" >/dev/null
     rclone copyto "$dump" "$remote/$filename"
 
+    # La limpieza ocurre sólo después de confirmar una subida exitosa.
     case "$keep_days" in
         0) ;;
         *) rclone delete "$remote" --include '*.dump' --min-age "${keep_days}d" ;;
@@ -68,12 +77,14 @@ backup() {
 }
 
 restore() {
+    # Sin argumento se usa el dump más reciente; los timestamps UTC ordenan por nombre.
     filename="${1:-$(list | sort | tail -n 1)}"
     if [ -z "$filename" ]; then
         echo "[ERROR] No hay backups en $remote." >&2
         exit 1
     fi
 
+    # La confirmación explícita protege contra restaurar accidentalmente producción.
     printf "Restaurar '%s' sobre '%s'. Escribe el nombre de la base para confirmar: " "$filename" "$POSTGRES_DB"
     read -r confirmation
     if [ "$confirmation" != "$POSTGRES_DB" ]; then
@@ -87,6 +98,7 @@ restore() {
 
     rclone copyto "$remote/$filename" "$dump"
     pg_restore --list "$dump" >/dev/null
+    # --clean reemplaza los objetos actuales; la base destino debe existir.
     pg_restore \
         --host="$POSTGRES_HOST" \
         --port="${POSTGRES_PORT:-5432}" \

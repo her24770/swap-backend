@@ -1,7 +1,11 @@
 #!/bin/sh
 
+# Punto de entrada del contenedor de backups.
+# Delega comandos manuales o deja crond en primer plano para el backup programado.
+
 set -eu
 
+# Permite: docker compose exec postgres-backup postgres-backup {backup|list|restore}.
 case "${1:-}" in
     backup|list|restore)
         exec postgres-backup "$@"
@@ -9,8 +13,10 @@ case "${1:-}" in
 esac
 
 BACKUP_SCHEDULE="${BACKUP_SCHEDULE:-0 3 * * *}"
+# BusyBox crond lee este archivo; el proceso permanece en primer plano como PID 1.
 printf '%s postgres-backup backup\n' "$BACKUP_SCHEDULE" > /etc/crontabs/root
 
+# Útil al desplegar por primera vez; por defecto se espera al siguiente cron.
 if [ "${BACKUP_ON_START:-false}" = true ]; then
     postgres-backup backup
 fi
