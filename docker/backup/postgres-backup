@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Crea, lista y restaura dumps PostgreSQL almacenados en un bucket privado de R2.
-# Flujo de backup: pg_dump -> validación -> subida -> eliminación por antigüedad.
+# Flujo de backup: pg_dump -> validación -> subida -> SHA-256 remoto -> manifiesto.
 # Flujo de restore: descarga -> validación -> confirmación -> pg_restore destructivo.
 
 set -eu
@@ -46,10 +46,50 @@ backup() {
         exit 1
     }
 
+    # Variables de estado para el manifiesto JSON.
+    started_epoch="$(date +%s)"
+    started_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+    execution_id="$(date -u +'%Y%m%dT%H%M%SZ')"
+    filename="${POSTGRES_DB}_${execution_id}.dump"
+    manifest_filename="${filename}.manifest.json"
     tmp_dir="$(mktemp -d)"
-    trap 'rm -r "$tmp_dir"; rmdir "$lock"' EXIT INT TERM
-    filename="${POSTGRES_DB}_$(date -u +'%Y%m%dT%H%M%SZ').dump"
     dump="$tmp_dir/$filename"
+    manifest="$tmp_dir/$manifest_filename"
+    size_bytes=0
+    local_sha256=""
+    remote_sha256=""
+    dump_validated=false
+    stage=pg_dump
+
+    write_manifest() {
+        status="$1"
+        completed_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+        duration_seconds="$(($(date +%s) - started_epoch))"
+        sha256_match=false
+        [ -n "$local_sha256" ] && [ "$local_sha256" = "$remote_sha256" ] && sha256_match=true
+
+        printf '{\n  "schema_version": 1,\n  "execution_id": "%s",\n  "status": "%s",\n  "stage": "%s",\n  "database": "%s",\n  "postgres_host": "%s",\n  "backup_file": "%s",\n  "size_bytes": %s,\n  "dump_validated": %s,\n  "sha256_local": "%s",\n  "sha256_r2": "%s",\n  "sha256_match": %s,\n  "started_at": "%s",\n  "completed_at": "%s",\n  "duration_seconds": %s,\n  "destination": "r2://%s/%s/%s"\n}\n' \
+            "$execution_id" "$status" "$stage" "$POSTGRES_DB" "$POSTGRES_HOST" \
+            "$filename" "$size_bytes" "$dump_validated" "$local_sha256" "$remote_sha256" \
+            "$sha256_match" "$started_at" "$completed_at" "$duration_seconds" \
+            "$BACKUP_R2_BUCKET_NAME" "${prefix#/}" "$filename" > "$manifest"
+    }
+
+    cleanup() {
+        exit_code="$?"
+        trap - EXIT INT TERM
+        if [ "$exit_code" -ne 0 ]; then
+            write_manifest failed
+            echo "[Backup] Falló en etapa '$stage' (ejecución $execution_id)." >&2
+            rclone copyto "$manifest" "$remote/$manifest_filename" >/dev/null 2>&1 || true
+        fi
+        rm -r "$tmp_dir"
+        rmdir "$lock"
+        exit "$exit_code"
+    }
+    trap cleanup EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
 
     echo "[Backup] Generando $filename..."
     pg_dump \
@@ -64,16 +104,43 @@ backup() {
         --file="$dump"
 
     # No subir un dump que pg_restore no pueda leer.
+    stage=validate_dump
     pg_restore --list "$dump" >/dev/null
+    dump_validated=true
+
+    size_bytes="$(wc -c < "$dump" | tr -d ' ')"
+    local_sha256="$(sha256sum "$dump" | awk '{print $1}')"
+
+    stage=upload_dump
     rclone copyto "$dump" "$remote/$filename"
 
+    # Releer el objeto completo detecta truncamiento o corrupción en el destino.
+    stage=verify_remote_sha256
+    remote_sha256="$(rclone cat "$remote/$filename" | sha256sum | awk '{print $1}')"
+    if [ "$local_sha256" != "$remote_sha256" ]; then
+        echo "[ERROR] SHA-256 remoto no coincide para $filename." >&2
+        exit 1
+    fi
+
+    stage=completed
+    write_manifest success
+    rclone copyto "$manifest" "$remote/$manifest_filename"
+
     # La limpieza ocurre sólo después de confirmar una subida exitosa.
+    stage=retention
     case "$keep_days" in
         0) ;;
-        *) rclone delete "$remote" --include '*.dump' --min-age "${keep_days}d" ;;
+        *)
+            rclone delete "$remote" \
+                --include '*.dump' \
+                --include '*.manifest.json' \
+                --min-age "${keep_days}d"
+            ;;
     esac
 
-    echo "[Backup] Completado: $remote/$filename"
+    echo "[Backup] Completado y verificado: $remote/$filename"
+    echo "[Backup] SHA-256: $local_sha256"
+    echo "[Backup] Manifiesto: $remote/$manifest_filename"
 }
 
 restore() {

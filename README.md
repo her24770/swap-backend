@@ -146,7 +146,9 @@ docker compose exec api npx prisma generate
 ### Backups de PostgreSQL
 
 `postgres-backup` crea diariamente un dump validado y lo guarda en el bucket
-R2 configurado con las variables `BACKUP_R2_*`. Operaciones manuales:
+R2 configurado con las variables `BACKUP_R2_*`. Después de subirlo, relee el
+objeto completo, compara su SHA-256 y guarda un manifiesto JSON con metadatos,
+duración, hashes, etapa y resultado de la ejecución. Operaciones manuales:
 
 ```bash
 docker compose exec postgres-backup postgres-backup backup
