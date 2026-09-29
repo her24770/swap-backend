@@ -1,5 +1,8 @@
 # Escaneo de la API sin sesión (atacante anónimo) contra la copia aislada.
 # Variables: ZAP_TARGET, ZAP_MAX_MINS, ZAP_DELAY_MS, ZAP_OUT
+# Se excluyen las rutas multipart/form-data (multer): un envío malformado
+# tumba el proceso completo de Node (crash confirmado el 2026-09-28 en
+# /publicacion/:id, ver docs/seguridad/informe-zap.md).
 env:
   contexts:
     - name: swap-api
@@ -7,6 +10,13 @@ env:
         - ${ZAP_TARGET}/api/v1
       includePaths:
         - "${ZAP_TARGET}/api/.*"
+      excludePaths:
+        - ".*/publicacion(/[^/]+)?$"
+        - ".*/anuncio(/[^/]+)?$"
+        - ".*/certificacion$"
+        - ".*/imagen/upload.*"
+        - ".*/imagen/perfil/.*"
+        - ".*/reporte$"
   parameters:
     failOnError: true
     failOnWarning: false

@@ -2,6 +2,14 @@
 # El token se inyecta en todas las peticiones con el Replacer.
 # Se excluyen las rutas que invalidarían la propia sesión a mitad del escaneo
 # (logout revoca el token en Redis). Se documenta como limitación del alcance.
+#
+# También se excluyen TODAS las rutas que reciben multipart/form-data (multer):
+# un envío malformado a cualquiera de ellas tumba el proceso completo de Node
+# (busboy emite 'error' en un stream sin listener -> excepción no capturada ->
+# crash). Confirmado el 2026-09-28 en /publicacion/:id (PATCH), documentado
+# como el hallazgo principal en docs/seguridad/informe-zap.md. Se excluyen acá
+# para poder cubrir el resto de la superficie de cada rol sin repetir el mismo
+# crash una y otra vez.
 # Variables: ZAP_TARGET, ZAP_TOKEN, ZAP_ROL, ZAP_MAX_MINS, ZAP_DELAY_MS, ZAP_OUT
 env:
   contexts:
@@ -12,6 +20,12 @@ env:
         - "${ZAP_TARGET}/api/.*"
       excludePaths:
         - ".*/auth/logout.*"
+        - ".*/publicacion(/[^/]+)?$"
+        - ".*/anuncio(/[^/]+)?$"
+        - ".*/certificacion$"
+        - ".*/imagen/upload.*"
+        - ".*/imagen/perfil/.*"
+        - ".*/reporte$"
   parameters:
     failOnError: true
     failOnWarning: false
