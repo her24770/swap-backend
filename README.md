@@ -90,12 +90,13 @@ desde el botón **Authorize**.
 
 > **El seed NO corre automáticamente con Docker.** Cada integrante lo ejecuta manualmente cuando lo necesita.
 
-El seed crea:
+El seed estructural crea los catálogos y el seed de pruebas cubre todos los módulos:
 
-- 1 usuario vendedor de prueba (`vendedor@uvg.edu.gt`)
-- 1 moderador de prueba (`moderador1`)
+- 3 usuarios, 2 moderadores y contactos
 - Etiquetas de carrera y cursos (ICC, Biología, etc.)
-- 15 publicaciones de muestra (5 materiales · 5 tutorías · 5 negocios)
+- 27 publicaciones (9 materiales · 9 tutorías · 9 negocios), con etiquetas e imágenes R2
+- Horarios, certificaciones, anuncios, conversaciones, mensajes y acuerdos
+- Reseñas, reportes, notificaciones, likes y guardados
 - Catálogos base: estados, tipos de perfil, tipos de contacto, motivos de reporte, palabras restringidas
 
 ### Correr el seed (primera vez o cuando se necesiten datos frescos)
@@ -112,12 +113,37 @@ docker compose exec api npx tsx prisma/backfillEmbeddings.ts
 
 > El backfill genera los vectores de búsqueda para todas las publicaciones. Debe correrse después de cada seed de pruebas.
 
+El seed de pruebas usa la URL pública de `CLOUDFLARE_R2_PUBLIC_URL` y comprueba por
+`HEAD` que cada objeto configurado exista antes de escribir datos. Las claves se
+configuran con `SEED_*_KEY` (consulta `.env.example`). Cuando R2 conserva los
+valores placeholder, usa recursos públicos de muestra para desarrollo local. Es repetible, usa fechas y
+claves lógicas estables, y se bloquea cuando el host o nombre de la base en
+`DATABASE_URL` parece de producción. `ALLOW_DEMO_SEED=true` es el desbloqueo explícito.
+Al finalizar imprime una tabla de cobertura y aborta si falta alguna relación.
+
+### Casos identificables para pruebas de filtros UX/UI
+
+Estas publicaciones tienen combinaciones deliberadamente específicas. Después de ejecutar la seed pueden localizarse así:
+
+| Vista | Publicación esperada | Propietario | Filtros |
+| --- | --- | --- | --- |
+| `/es/materiales` | `Calculadora científica Casio fx-991EX` | Adriana Jiménez | Tipo `Alquiler`, etiqueta `Electrónica 1`, precio `Q137–Q137`, calificación `4–4` |
+| `/es/negocios` | `Caja de brownies artesanales` | Carlos Méndez | Tipo `Producto`, etiqueta `Repostería`, precio `Q73–Q73`, calificación `5–5` |
+| `/es/tutorias` | `Tutoría nocturna de Física 2` | Adriana Jiménez | Etiqueta `Física 2`, precio `Q65–Q65`, calificación `4–4`, viernes, horario `18:00–20:00` |
+
+Si el control deslizante dificulta seleccionar un valor exacto, puede usarse un
+rango de cinco quetzales alrededor del precio; las demás condiciones mantienen
+el caso identificable.
+
 ### Credenciales de prueba
 
 | Rol                | Email / Usuario       | Contraseña      |
 | ------------------ | --------------------- | --------------- |
 | Usuario (vendedor) | `vendedor@uvg.edu.gt` | `Vendedor123!`  |
+| Usuario (vendedor) | `vendedor123@uvg.edu.gt` | `Vendedor123!`  |
+| Usuario (comprador) | `estudiante@uvg.edu.gt` | `Estudiante123!` |
 | Moderador          | `moderador1`          | `Moderador123!` |
+| Superadmin         | `superadmin1`         | `SuperAdmin123!` |
 
 ---
 
