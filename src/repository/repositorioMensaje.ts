@@ -5,7 +5,7 @@ import prisma from "../persistencia/prismaClient";
 // Conversacion
 // ─────────────────────────────────────────────
 
-export async function buscarConversacionPorId(id: number): Promise<Conversacion | null> {
+export async function buscarConversacionPorId(id: number): Promise<(Conversacion & { mensajes: Mensaje[] }) | null> {
     return prisma.conversacion.findUnique({
         where: { id_conversacion: id },
         include: { mensajes: { orderBy: { fecha_enviado: "asc" } } },
@@ -15,7 +15,7 @@ export async function buscarConversacionPorId(id: number): Promise<Conversacion 
 export async function buscarConversacionEntreDosUsuarios(
     idUsuario1: number,
     idUsuario2: number
-): Promise<Conversacion | null> {
+): Promise<(Conversacion & { mensajes: Mensaje[] }) | null> {
     return prisma.conversacion.findFirst({
         where: {
             OR: [
@@ -27,16 +27,56 @@ export async function buscarConversacionEntreDosUsuarios(
     });
 }
 
-export async function buscarConversacionesPorUsuario(idUsuario: number): Promise<Conversacion[]> {
+const conversacionConUltimoMensaje = Prisma.validator<Prisma.ConversacionDefaultArgs>()({
+    include: {
+        usuario1: { select: { id_usuario: true, nombre: true, url_foto_perfil: true } },
+        usuario2: { select: { id_usuario: true, nombre: true, url_foto_perfil: true } },
+        mensajes: { orderBy: { fecha_enviado: "desc" }, take: 1 },
+        contextos: {
+            orderBy: { fecha_contexto: "desc" },
+            include: {
+                publicacion: {
+                    select: {
+                        id_publicacion: true,
+                        titulo: true,
+                        precio: true,
+                        id_usuario: true,
+                        imagenes: {
+                            select: {
+                                url_imagen: true,
+                            },
+                            take: 1,
+                        },
+                    },
+                },
+                usuario: {
+                    select: {
+                        id_usuario: true,
+                        nombre: true,
+                        },
+                    },
+                },
+            },
+    },
+});
+
+export type ConversacionConUltimoMensaje = Prisma.ConversacionGetPayload<typeof conversacionConUltimoMensaje>;
+
+export async function buscarConversacionCompletaPorId(
+    id: number
+): Promise<ConversacionConUltimoMensaje | null> {
+    return prisma.conversacion.findUnique({
+        where: { id_conversacion: id },
+        ...conversacionConUltimoMensaje,
+    });
+}
+
+export async function buscarConversacionesPorUsuario(idUsuario: number): Promise<ConversacionConUltimoMensaje[]> {
     return prisma.conversacion.findMany({
         where: {
             OR: [{ id_usuario_1: idUsuario }, { id_usuario_2: idUsuario }],
         },
-        include: {
-            usuario1: { select: { id_usuario: true, nombre: true, url_foto_perfil: true } },
-            usuario2: { select: { id_usuario: true, nombre: true, url_foto_perfil: true } },
-            mensajes: { orderBy: { fecha_enviado: "desc" }, take: 1 },
-        },
+        ...conversacionConUltimoMensaje,
         orderBy: { id_conversacion: "desc" },
     });
 }
@@ -75,6 +115,114 @@ export async function buscarMensajesPorConversacion(idConversacion: number): Pro
 
 export async function guardarMensaje(data: Prisma.MensajeCreateInput): Promise<Mensaje> {
     return prisma.mensaje.create({ data });
+}
+
+interface MensajeConNotificacionInput {
+    idConversacion: number;
+    idEmisor: number;
+    idReceptor: number;
+    texto: string;
+    idEstadoEnviado: number;
+    idPublicacion?: number;
+}
+
+export async function guardarMensajeConNotificacion(input: MensajeConNotificacionInput) {
+    return prisma.$transaction(async (tx) => {
+        if (input.idPublicacion !== undefined) {
+            await tx.contextoConversacion.upsert({
+                where: {
+                    id_conversacion_id_publicacion: {
+                        id_conversacion: input.idConversacion,
+                        id_publicacion: input.idPublicacion,
+                    },
+                },
+                update: {},
+                create: {
+                    id_conversacion: input.idConversacion,
+                    id_publicacion: input.idPublicacion,
+                    id_usuario: input.idEmisor,
+                },
+            });
+        }
+
+        const mensaje = await tx.mensaje.create({
+            data: {
+                id_conversacion: input.idConversacion,
+                id_emisor: input.idEmisor,
+                mensaje: input.texto,
+                estado_mensaje: input.idEstadoEnviado,
+            },
+        });
+        const notificacion = await tx.notificacion.create({
+            data: {
+                id_usuario: input.idReceptor,
+                mensaje: "Tienes un nuevo mensaje",
+                id_estado: input.idEstadoEnviado,
+            },
+            include: { estado: { select: { estado: true } } },
+        });
+        const conversacion = await tx.conversacion.findUnique({
+            where: { id_conversacion: input.idConversacion },
+            ...conversacionConUltimoMensaje,
+        });
+
+        return { mensaje, notificacion, conversacion };
+    });
+}
+
+interface ConversacionInicialInput {
+    idEmisor: number;
+    idReceptor: number;
+    texto: string;
+    idEstadoPendiente: number;
+    idEstadoEnviado: number;
+    idPublicacion?: number;
+}
+
+export async function guardarConversacionConMensajeInicial(input: ConversacionInicialInput) {
+    return prisma.$transaction(async (tx) => {
+        const creada = await tx.conversacion.create({
+            data: {
+                id_usuario_1: input.idEmisor,
+                id_usuario_2: input.idReceptor,
+                estado_conversacion: input.idEstadoPendiente,
+            },
+        });
+
+        if (input.idPublicacion !== undefined) {
+            await tx.contextoConversacion.create({
+                data: {
+                    id_conversacion: creada.id_conversacion,
+                    id_publicacion: input.idPublicacion,
+                    id_usuario: input.idEmisor,
+                },
+            });
+        }
+
+        const mensaje = await tx.mensaje.create({
+            data: {
+                id_conversacion: creada.id_conversacion,
+                id_emisor: input.idEmisor,
+                mensaje: input.texto,
+                estado_mensaje: input.idEstadoEnviado,
+            },
+        });
+        const notificacion = await tx.notificacion.create({
+            data: {
+                id_usuario: input.idReceptor,
+                mensaje: "Tienes un nuevo mensaje",
+                id_estado: input.idEstadoEnviado,
+            },
+            include: { estado: { select: { estado: true } } },
+        });
+        const conversacion = await tx.conversacion.findUnique({
+            where: { id_conversacion: creada.id_conversacion },
+            ...conversacionConUltimoMensaje,
+        });
+        if (!conversacion) throw new Error("No se pudo recuperar la conversación creada");
+
+        return { conversacion, mensaje, notificacion };
+    });
 }
 
 export async function actualizarMensaje(

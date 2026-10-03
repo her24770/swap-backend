@@ -5,12 +5,7 @@ FROM node:20-alpine AS builder
 
 RUN apk add --no-cache \
     openssl \
-    openssl-dev \
-    libc6-compat \
-    python3 \
-    make \
-    g++ \
-    build-base
+    libc6-compat
 WORKDIR /app
 
 COPY package*.json ./
@@ -47,11 +42,11 @@ COPY --from=builder /app/prisma ./prisma
 
 # Seguridad: Usuario no root
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-# Ajustamos permisos para que appuser pueda ejecutar npx prisma db push
+# Ajustamos permisos para que appuser pueda ejecutar npx prisma migrate deploy
 RUN chown -R appuser:appgroup /app
 USER appuser
 
 EXPOSE 3001
 
-# Run migrations then start the server
-CMD ["sh", "-c", "npx prisma db push && node dist/index.js"]
+# Aplica migraciones versionadas (sin pérdida de datos) y luego arranca el servidor
+CMD ["sh", "-c", "npx prisma db execute --file ./prisma/setup.sql && npx prisma migrate deploy && npx prisma db execute --file ./prisma/add_embedding.sql && node dist/index.js"]

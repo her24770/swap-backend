@@ -1,0 +1,70 @@
+# Escaneo PASIVO contra el sitio real (swap.jhgo.online). No envía ataques:
+# solo solicita páginas públicas y analiza las respuestas (cabeceras, cookies,
+# TLS, divulgación de información).
+# /api/ y /socket.io/ se excluyen a propósito: el rate limit de la API es
+# compartido por todos los usuarios detrás del proxy, y cualquier ráfaga
+# contra /api/ podría afectar a usuarios reales.
+# Variables: ZAP_PROD_URL, ZAP_OUT
+env:
+  contexts:
+    - name: swap-produccion
+      urls:
+        - ${ZAP_PROD_URL}
+      includePaths:
+        - "${ZAP_PROD_URL}.*"
+      excludePaths:
+        - ".*/api/.*"
+        - ".*/socket\\.io/.*"
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+  - type: requestor
+    parameters:
+      user: ""
+    requests:
+      - url: ${ZAP_PROD_URL}/
+        method: GET
+      - url: ${ZAP_PROD_URL}/login
+        method: GET
+      - url: ${ZAP_PROD_URL}/registro
+        method: GET
+      - url: ${ZAP_PROD_URL}/forgot-password
+        method: GET
+      - url: ${ZAP_PROD_URL}/robots.txt
+        method: GET
+      - url: ${ZAP_PROD_URL}/sitemap.xml
+        method: GET
+      - url: http://swap.jhgo.online/
+        method: GET
+
+  - type: spider
+    parameters:
+      context: swap-produccion
+      maxDuration: 1
+      maxDepth: 3
+      maxChildren: 15
+      threadCount: 1
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 5
+
+  - type: report
+    parameters:
+      template: traditional-html
+      reportDir: /zap/wrk/${ZAP_OUT}
+      reportFile: reporte
+      reportTitle: "Swap produccion - escaneo pasivo (sin /api)"
+  - type: report
+    parameters:
+      template: traditional-json
+      reportDir: /zap/wrk/${ZAP_OUT}
+      reportFile: reporte
+  - type: report
+    parameters:
+      template: traditional-md
+      reportDir: /zap/wrk/${ZAP_OUT}
+      reportFile: reporte

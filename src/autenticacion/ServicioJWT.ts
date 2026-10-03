@@ -6,6 +6,7 @@ export interface PayloadToken {
   sub: string;       // ID del usuario
   email: string;
   rol?: string;
+  ver: number;        // sesion_version — fix BG-04, ver servicioSesionVersion.ts
   [key: string]: unknown;
 }
 

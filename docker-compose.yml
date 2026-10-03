@@ -4,22 +4,45 @@ services:
   # PostgreSQL
   # ─────────────────────────────────────────────
   postgres:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
     container_name: postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-admin}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret}
-      POSTGRES_DB: ${POSTGRES_DB:-appdb}
+      POSTGRES_USER: ${POSTGRES_USER:?Falta definir POSTGRES_USER en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta definir POSTGRES_PASSWORD en .env}
+      POSTGRES_DB: ${POSTGRES_DB:?Falta definir POSTGRES_DB en .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # Sin mapeo de puertos al host: solo accesible dentro de la red interna de Docker (servicio "api").
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-appdb}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
       interval: 10s
       timeout: 5s
       retries: 5
+# ─────────────────────────────────────────────
+# Backups de PostgreSQL
+# ─────────────────────────────────────────────
+  postgres-backup:
+    build:
+      context: ./docker/backup
+    image: swap-postgres-backup:16
+    container_name: postgres-backup
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 3 * * *}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-7}
+      BACKUP_R2_ACCOUNT_ID: ${BACKUP_R2_ACCOUNT_ID:?Falta definir BACKUP_R2_ACCOUNT_ID en .env}
+      BACKUP_R2_ACCESS_KEY_ID: ${BACKUP_R2_ACCESS_KEY_ID:?Falta definir BACKUP_R2_ACCESS_KEY_ID en .env}
+      BACKUP_R2_SECRET_ACCESS_KEY: ${BACKUP_R2_SECRET_ACCESS_KEY:?Falta definir BACKUP_R2_SECRET_ACCESS_KEY en .env}
+      BACKUP_R2_BUCKET_NAME: ${BACKUP_R2_BUCKET_NAME:?Falta definir BACKUP_R2_BUCKET_NAME en .env}
+      BACKUP_R2_PREFIX: ${BACKUP_R2_PREFIX:-postgresql}
 
   # ─────────────────────────────────────────────
   # Redis
@@ -28,16 +51,31 @@ services:
     image: redis:7-alpine
     container_name: redis
     restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD:-redissecret} --appendonly yes
+    command: redis-server --requirepass ${REDIS_PASSWORD:?Falta definir REDIS_PASSWORD en .env} --appendonly yes
     volumes:
       - redis_data:/data
-    ports:
-      - "6379:6379"
+    # Sin mapeo de puertos al host: solo accesible dentro de la red interna de Docker (servicio "api").
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redissecret}", "ping"]
+      test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # ─────────────────────────────────────────────
+  # Embeddings (Python FastAPI)
+  # ─────────────────────────────────────────────
+  embeddings:
+    # platform: linux/amd64 ---- sí se utiliza ARM
+    build:
+      context: ./embeddings
+      dockerfile: Dockerfile
+    container_name: embeddings
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # ─────────────────────────────────────────────
   # Back-end API
@@ -53,18 +91,17 @@ services:
       - .env
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-secret}@postgres:5432/${POSTGRES_DB:-appdb}?schema=public
-      REDIS_URL: redis://:${REDIS_PASSWORD:-redissecret}@redis:6379
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      EMBEDDINGS_SERVICE_URL: http://embeddings:8000
     ports:
       - "3001:3001"
-    volumes:
-      - .:/app
-      - /app/node_modules
-      - /app/dist
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      embeddings:
         condition: service_healthy
 
 volumes:

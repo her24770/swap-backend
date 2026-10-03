@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from "express";
-import { subirImagenR2, eliminarImagenR2, imagenExisteR2, construirUrlR2 } from "../servicios/servicioR2.js";
+import { subirImagenR2, eliminarImagenR2, construirUrlR2 } from "../servicios/servicioR2.js";
+import { buscarUsuarioPorId, actualizarUsuario } from "../repository/repositorioUsuario.js";
+import { errorResponse, exitoResponse } from "../servicios/Response.js";
 
 export async function subirImagen(
     req: Request,
@@ -8,14 +10,14 @@ export async function subirImagen(
 ): Promise<void> {
     try {
         if (!req.file) {
-            res.status(400).json({ message: "No se recibió ninguna imagen." });
+            errorResponse(res, "No se recibio ninguna imagen", 400);
             return;
         }
 
         const carpeta = (req.query.carpeta as string) || "general";
         const url = await subirImagenR2(req.file.buffer, req.file.mimetype, carpeta);
 
-        res.status(201).json({ url });
+        exitoResponse(res, url, "Imagen subida exitosamente", 201);
     } catch (error) {
         next(error);
     }
@@ -28,62 +30,41 @@ export async function subirFotoPerfil(
 ): Promise<void> {
     try {
         if (!req.file) {
-            res.status(400).json({ message: "No se recibió ninguna imagen." });
+            errorResponse(res, "No se recibio ninguna imagen", 400);
             return;
         }
 
-        const idUsuario = req.params.id;
-        const ext = req.file.mimetype.split("/")[1];
+        const idUsuario = Number(req.params.id);
         const carpeta = "perfil";
 
-        // Validar si existe imagen anterior
-        const existe = await imagenExisteR2(carpeta, `user_${idUsuario}`, ext);
+        // Obtener la URL actual del perfil desde BD para borrar la imagen real (sin adivinar extensión)
+        const usuario = await buscarUsuarioPorId(idUsuario);
+        const urlAnterior = usuario?.url_foto_perfil ?? null;
 
-        if (existe) {
-            const urlAnterior = construirUrlR2(carpeta, `user_${idUsuario}`, ext);
-            await eliminarImagenR2(urlAnterior);
-        }
-
+        // 1. Subir la imagen nueva primero: nunca se borra la anterior hasta confirmar la nueva.
         const url = await subirImagenR2(req.file.buffer, req.file.mimetype, carpeta, `user_${idUsuario}`);
 
-        res.status(201).json({
-            message: existe ? "Foto de perfil actualizada." : "Foto de perfil agregada.",
-            url
-        });
-    } catch (error) {
-        next(error);
-    }
-}
-
-export async function subirFotoPublicacion(
-    req: Request,
-    res: Response,
-    next: NextFunction
-): Promise<void> {
-    try {
-        if (!req.file) {
-            res.status(400).json({ message: "No se recibió ninguna imagen." });
-            return;
+        // 2. Persistir la referencia en BD antes de responder éxito o borrar la anterior.
+        try {
+            await actualizarUsuario(idUsuario, { url_foto_perfil: url });
+        } catch (dbError) {
+            // La BD no confirmó: compensar borrando la imagen recién subida para no dejar un huérfano en R2.
+            try { await eliminarImagenR2(url); } catch { /* best-effort */ }
+            throw dbError;
         }
 
-        const idPublicacion = req.params.id;
-        const ext = req.file.mimetype.split("/")[1];
-        const carpeta = "publicaciones";
-
-        // Validar si existe imagen anterior
-        const existe = await imagenExisteR2(carpeta, `post_${idPublicacion}`, ext);
-
-        if (existe) {
-            const urlAnterior = construirUrlR2(carpeta, `post_${idPublicacion}`, ext);
-            await eliminarImagenR2(urlAnterior);
+        // 3. Solo ahora que la BD ya apunta a la imagen nueva, se borra la anterior.
+        // Nunca borrar el placeholder por defecto: lo comparten todos los usuarios sin foto propia.
+        const urlPorDefecto = construirUrlR2("perfil", "default", "png");
+        if (urlAnterior && urlAnterior !== urlPorDefecto) {
+            try {
+                await eliminarImagenR2(urlAnterior);
+            } catch {
+                // Si falla la eliminación en R2 se continúa de todas formas
+            }
         }
 
-        const url = await subirImagenR2(req.file.buffer, req.file.mimetype, carpeta, `post_${idPublicacion}`);
-
-        res.status(201).json({
-            message: existe ? "Imagen de publicación actualizada." : "Imagen de publicación agregada.",
-            url
-        });
+        exitoResponse(res, url, urlAnterior ? "Foto de perfil actualizada" : "Foto de perfil agregada", 201);
     } catch (error) {
         next(error);
     }

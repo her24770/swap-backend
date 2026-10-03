@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  # Solo se cancelan corridas viejas de PRs; un push a main nunca corta un deploy a la mitad.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint-y-typecheck:
+    name: Lint y typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run lint
+      - run: npm run build
+
+  pruebas-unitarias:
+    name: Pruebas unitarias
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run test:unit
+
+  pruebas-integracion:
+    name: Pruebas de integración (Docker)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # No se necesita Node en el runner: todo corre dentro de docker compose
+      # (postgres-integration, redis-integration e integration-tests).
+      - run: sh scripts/run-integration.sh
+
+  deploy:
+    name: Deploy a producción
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [lint-y-typecheck, pruebas-unitarias, pruebas-integracion]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-produccion-backend
+      cancel-in-progress: false
+    steps:
+      - name: Configurar SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+      # La llave solo puede ejecutar deploy/deploy-swap.sh en el servidor
+      # (forced command); "backend" es el destino que recibe ese script.
+      - name: Desplegar backend
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" backend

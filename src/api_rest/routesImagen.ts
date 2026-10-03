@@ -1,23 +1,16 @@
 import { Router } from "express";
-import { subirImagen, subirFotoPerfil, subirFotoPublicacion } from "../controlador/controlImagen.js";
-import { autenticar } from "../autenticacion/GestorPermisos.js";
+import { subirImagen, subirFotoPerfil } from "../controlador/controlImagen.js";
+import { autenticar, verificarPropietario } from "../autenticacion/GestorPermisos.js";
+import { soloUsuario } from "../autenticacion/permisosUsuario.js";
 import { uploadImagen } from "../servicios/middlewareMulter.js";
+import { moderarImagenes } from "../autenticacion/middlewareModeracion.js";
 
 const router = Router();
 
 // POST /api/imagen/upload?carpeta=general
-// Body: multipart/form-data con campo "imagen"
-// Para subidas genéricas con nombre aleatorio
-router.post("/upload", autenticar, uploadImagen.single("imagen"), subirImagen);
+router.post("/upload", autenticar, uploadImagen.single("imagen"), moderarImagenes, subirImagen);
 
 // PUT /api/imagen/perfil/:id
-// Sube/reemplaza foto de perfil (user_id.png)
-// Si existe, la elimina primero
-router.put("/perfil/:id", autenticar, uploadImagen.single("imagen"), subirFotoPerfil);
-
-// PUT /api/imagen/publicacion/:id
-// Sube/reemplaza foto de publicación (post_id.png)
-// Si existe, la elimina primero
-router.put("/publicacion/:id", autenticar, uploadImagen.single("imagen"), subirFotoPublicacion);
+router.put("/perfil/:id", autenticar, verificarPropietario, soloUsuario, uploadImagen.single("imagen"), moderarImagenes, subirFotoPerfil);
 
 export default router;
