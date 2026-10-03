@@ -1,0 +1,83 @@
+# Configuración de PRODUCCIÓN (servidor Contabo, swap.jhgo.online).
+# Es la que usa el deploy automático (deploy/deploy-swap.sh) al hacer push a main.
+# No reemplaza a docker-compose.yml (desarrollo local). Diferencias clave:
+#   - nombres de contenedor swap-* (el servidor aloja otros proyectos)
+#   - volúmenes con nombre fijo swap_postgres_data / swap_redis_data: NO renombrar,
+#     son los que contienen los datos reales; otro nombre crearía una base vacía
+#   - la API solo escucha en 127.0.0.1 (el tráfico entra por nginx/Cloudflare)
+# El servicio de backups (postgres-backup) no se incluye todavía: requiere las
+# variables BACKUP_R2_* en el .env del servidor.
+services:
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: swap-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Falta definir POSTGRES_USER en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta definir POSTGRES_PASSWORD en .env}
+      POSTGRES_DB: ${POSTGRES_DB:?Falta definir POSTGRES_DB en .env}
+    volumes:
+      - swap_postgres_data:/var/lib/postgresql/data
+    # Sin mapeo de puertos al host: solo accesible dentro de la red interna de Docker (servicio "api").
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: swap-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:?Falta definir REDIS_PASSWORD en .env} --appendonly yes
+    volumes:
+      - swap_redis_data:/data
+    # Sin mapeo de puertos al host: solo accesible dentro de la red interna de Docker (servicio "api").
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  embeddings:
+    build:
+      context: ./embeddings
+      dockerfile: Dockerfile
+    container_name: swap-embeddings
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: swap-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      EMBEDDINGS_SERVICE_URL: http://embeddings:8000
+    ports:
+      - "127.0.0.1:3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      embeddings:
+        condition: service_healthy
+
+volumes:
+  swap_postgres_data:
+    name: swap_postgres_data
+  swap_redis_data:
+    name: swap_redis_data
