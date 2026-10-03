@@ -40,9 +40,11 @@ function crearUpload(tipos: string[], limite: number, maxArchivos: number, mensa
         storage,
         limits: { fileSize: limite, files: maxArchivos },
         fileFilter: (_req, file, callback) => {
-            tipos.includes(file.mimetype)
-                ? callback(null, true)
-                : callback(new TipoArchivoError(mensaje));
+            if (tipos.includes(file.mimetype)) {
+                callback(null, true);
+            } else {
+                callback(new TipoArchivoError(mensaje));
+            }
         },
     });
 }

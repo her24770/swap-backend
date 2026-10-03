@@ -112,7 +112,7 @@ export async function buscarPublicacionPorIdDetallado(id: number, idUsuario?: nu
     if (!publicacion) return null;
 
     const relacion = idUsuario ? (publicacion.usuarioPublicacions?.[0] ?? null) : null;
-    const { usuarioPublicacions, ...resto } = publicacion;
+    const { usuarioPublicacions: _usuarioPublicacions, ...resto } = publicacion;
 
     return {
         ...resto,
@@ -194,7 +194,7 @@ export async function buscarPublicacionesPaginadas(options: PaginationOptionInpu
             ? (pub.usuarioPublicacions?.[0] ?? null)
             : null;
 
-        const { usuarioPublicacions, ...resto } = pub;
+        const { usuarioPublicacions: _usuarioPublicacions, ...resto } = pub;
 
         return {
             ...resto,

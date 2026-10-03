@@ -107,7 +107,7 @@ export async function crearAnuncioUsuario(req: Request, res: Response, next: Nex
                     `anuncio_${idUsuario}_${Date.now()}`
                 );
                 urlImagen = resultadoR2 || "";
-            } catch (error) {
+            } catch {
                 errorResponse(res, "Error subiendo imagen a R2", 500);
                 return;
             }
@@ -220,7 +220,7 @@ export async function editarAnuncioUsuario(req: Request, res: Response, next: Ne
                     `anuncio_${idAnuncio}_${Date.now()}`
                 );
                 urlImagen = resultadoR2 || "";
-            } catch (error) {
+            } catch {
                 errorResponse(res, "Error subiendo imagen a R2", 500);
                 return;
             }

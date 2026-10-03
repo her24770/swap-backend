@@ -122,7 +122,7 @@ export function registrarEventosConexion(socket: Socket): void {
                     }
                     socket.join(`conversacion:${conversacion.id_conversacion}`);
                     callback?.({ success: true });
-                } catch (error) {
+                } catch {
                     callback?.({ success: false, message: "Error al unirse a la conversación" });
                 }
             }

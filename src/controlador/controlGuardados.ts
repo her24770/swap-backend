@@ -72,7 +72,7 @@ export async function obtenerGuardados(req: Request, res: Response, next: NextFu
         // Aplanar la relación igual que hace buscarPublicacionesPaginadas
         const data = guardados.map((g: any) => {
             const relacion = g.publicacion.usuarioPublicacions?.[0] ?? null;
-            const { usuarioPublicacions, ...restoPublicacion } = g.publicacion;
+            const { usuarioPublicacions: _usuarioPublicacions, ...restoPublicacion } = g.publicacion;
             return {
                 ...g,
                 publicacion: {
