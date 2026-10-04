@@ -63,6 +63,8 @@ services:
       - .env
     environment:
       NODE_ENV: production
+      # La IP real del cliente llega por nginx y Cloudflare (ver src/autenticacion/proxyConfiable.ts).
+      TRUST_PROXY: cloudflare
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       EMBEDDINGS_SERVICE_URL: http://embeddings:8000

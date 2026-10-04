@@ -17,6 +17,7 @@ import { obtenerEstadoPorNombre } from "../../src/repository/repositorioEstado";
 import { crearConversacionConPrimerMensaje, crearMensajeYNotificar } from "../../src/servicios/servicioMensajeria";
 import { errorResponse, exitoResponse } from "../../src/servicios/Response";
 import { ErrorServicio } from "../../src/servicios/ErrorServicio";
+import { buscarUsuarioPorId } from "../../src/repository/repositorioUsuario";
 
 vi.mock("../../src/repository/repositorioMensaje", () => ({
   buscarConversacionEntreDosUsuarios: vi.fn(),
@@ -41,6 +42,10 @@ vi.mock("../../src/servicios/Response", () => ({
   exitoResponse: vi.fn(),
 }));
 
+vi.mock("../../src/repository/repositorioUsuario", () => ({
+  buscarUsuarioPorId: vi.fn(async (id: number) => ({ id_usuario: id })),
+}));
+
 describe("iniciarConversacion", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -61,6 +66,18 @@ describe("iniciarConversacion", () => {
       "No puedes iniciar una conversación contigo mismo",
       400
     );
+    expect(crearConversacionConPrimerMensaje).not.toHaveBeenCalled();
+  });
+
+  it("responde 404 si el destinatario no existe, sin crear la conversacion (SWAP-614)", async () => {
+    vi.mocked(buscarUsuarioPorId).mockResolvedValueOnce(null);
+    const req: any = { usuario: { sub: "1" }, body: { id_usuario_2: 999999, mensaje: "hola" } };
+    const res: any = {};
+
+    await iniciarConversacion(req, res, vi.fn());
+
+    expect(errorResponse).toHaveBeenCalledWith(res, "El usuario destinatario no existe", 404);
+    expect(buscarConversacionEntreDosUsuarios).not.toHaveBeenCalled();
     expect(crearConversacionConPrimerMensaje).not.toHaveBeenCalled();
   });
 

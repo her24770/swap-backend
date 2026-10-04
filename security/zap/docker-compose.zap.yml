@@ -57,6 +57,7 @@ services:
     restart: "no"
     environment:
       NODE_ENV: production
+      TRUST_PROXY: cloudflare
       PORT: "3001"
       JWT_SECRET: zap-copia-aislada-secreto-no-reutilizar-8f3a91c2
       JWT_EXPIRACION: 12h

@@ -113,7 +113,9 @@ vi.mock("../../src/repository/repositorioAcuerdo", () => ({
   buscarAcuerdoPorId: vi.fn(),
   actualizarAcuerdo: vi.fn(),
 }));
-vi.mock("../../src/repository/repositorioUsuario", () => ({ buscarUsuarioPorId: vi.fn() }));
+vi.mock("../../src/repository/repositorioUsuario", () => ({
+  buscarUsuarioPorId: vi.fn(async (id: number) => ({ id_usuario: id })),
+}));
 vi.mock("../../src/servicios/servicioAcuerdo", () => ({ notificarActualizacionAcuerdo: vi.fn() }));
 vi.mock("../../src/sockets/ioInstance", () => ({ getIO: vi.fn(() => null), setIO: vi.fn() }));
 
