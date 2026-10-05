@@ -6,6 +6,7 @@ import {
     buscarImagenesPorPublicacion,
     buscarPublicacionPorId,
     buscarPublicacionPorIdDetallado,
+    contarAcuerdosDePublicacion,
     eliminarImagen,
     eliminarPublicacionConRelaciones,
     guardarImagen,
@@ -192,6 +193,10 @@ export async function eliminarPublicacionPropia(idPublicacion: number, idUsuario
     if (!publicacion) throw new ErrorServicio("Publicación no encontrada", 404);
     if (publicacion.id_usuario !== idUsuario) {
         throw new ErrorServicio("No tienes permiso para eliminar esta publicación", 403);
+    }
+    // Se verifica antes de tocar R2: los acuerdos son historial de ambas partes y no se borran.
+    if (await contarAcuerdosDePublicacion(idPublicacion) > 0) {
+        throw new ErrorServicio("La publicación tiene acuerdos asociados y no puede eliminarse; puedes desactivarla en su lugar", 409);
     }
 
     for (const imagen of publicacion.imagenes ?? []) {
