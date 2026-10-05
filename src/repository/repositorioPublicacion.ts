@@ -377,10 +377,18 @@ export async function reemplazarEtiquetasPublicacion(
     });
 }
 
+export async function contarAcuerdosDePublicacion(idPublicacion: number): Promise<number> {
+    return prisma.acuerdo.count({ where: { id_publicacion: idPublicacion } });
+}
+
 export async function eliminarPublicacionConRelaciones(idPublicacion: number): Promise<void> {
     await prisma.$transaction(async (tx) => {
         await tx.imagenPublicacion.deleteMany({ where: { id_publicacion: idPublicacion } });
         await tx.publicacionEtiqueta.deleteMany({ where: { id_publicacion: idPublicacion } });
+        // Likes/guardados y contextos solo tienen sentido mientras exista la publicación;
+        // las conversaciones y sus mensajes se conservan.
+        await tx.usuarioPublicacion.deleteMany({ where: { id_publicacion: idPublicacion } });
+        await tx.contextoConversacion.deleteMany({ where: { id_publicacion: idPublicacion } });
         await tx.publicacion.delete({ where: { id_publicacion: idPublicacion } });
     });
 }

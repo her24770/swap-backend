@@ -38,7 +38,7 @@ La política esperada es manual e independiente de los routers. `Propiedad esper
 | EP-024 | DELETE | `/certificacion/:id` | usuario | usuario | propietario del recurso | ✅ | `deleteCertification` | `autorizacion-endpoints.test.ts` |
 | EP-025 | GET | `/certificacion/:id` | autenticado | autenticado | no aplica | ✅ | `getCertification` | `autorizacion-endpoints.test.ts` |
 | EP-026 | GET | `/certificacion/user/:id_usuario` | autenticado | autenticado | no aplica | ✅ | `getUserCertifications` | `tutorias-real.test.ts`, `autorizacion-endpoints.test.ts` |
-| EP-027 | POST | `/conversacion` | usuario | usuario | sesión propia | ✅ | `startConversation` | `mensajeria-coordinacion-real.test.ts`, `mensajeria-coordinacion.test.ts`, `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
+| EP-027 | POST | `/conversacion` | usuario | usuario | sesión propia | ✅ | `startConversation` | `errores-500-zap-real.test.ts`, `mensajeria-coordinacion-real.test.ts`, `mensajeria-coordinacion.test.ts`, `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-028 | PATCH | `/conversacion/:id/estado` | usuario | usuario | participante del recurso | ✅ | `updateConversationState` | `mensajeria-coordinacion-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-029 | PUT | `/conversacion/:id/estado` | usuario | usuario | participante del recurso | ✅ | `updateConversationStateLegacy` | `autorizacion-endpoints.test.ts` |
 | EP-030 | GET | `/conversacion/:id/mensajes` | usuario | usuario | participante del recurso | ✅ | `getConversationMessages` | `mensajeria-coordinacion-real.test.ts`, `transversal-seguridad-real.test.ts`, `mensajeria-coordinacion.test.ts`, `autorizacion-endpoints.test.ts` |
@@ -80,7 +80,7 @@ La política esperada es manual e independiente de los routers. `Propiedad esper
 | EP-066 | PATCH | `/notificacion/:id/estado` | usuario | usuario | propietario del recurso | ✅ | `updateNotificationState` | `autorizacion-endpoints.test.ts` |
 | EP-067 | GET | `/publicacion` | autenticado | autenticado | no aplica | ✅ | `listPublications` | `perfil-publicaciones-resenas-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-068 | POST | `/publicacion` | usuario | usuario | sesión propia | ✅ | `createPublication` | `moderacion-seguridad-real.test.ts`, `transversal-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
-| EP-069 | DELETE | `/publicacion/:id` | usuario | usuario | propietario del recurso | ✅ | `deletePublication` | `perfil-publicaciones-resenas-real.test.ts`, `transversal-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
+| EP-069 | DELETE | `/publicacion/:id` | usuario | usuario | propietario del recurso | ✅ | `deletePublication` | `errores-500-zap-real.test.ts`, `perfil-publicaciones-resenas-real.test.ts`, `transversal-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-070 | GET | `/publicacion/:id` | autenticado | autenticado | no aplica | ✅ | `getPublication` | `perfil-publicaciones-resenas-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-071 | PATCH | `/publicacion/:id` | usuario | usuario | propietario del recurso | ✅ | `updatePublication` | `perfil-publicaciones-resenas-real.test.ts`, `transversal-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-072 | PUT | `/publicacion/:id` | usuario | usuario | propietario del recurso | ✅ | `updatePublicationLegacy` | `contrato-rest.test.ts`, `autorizacion-endpoints.test.ts` |

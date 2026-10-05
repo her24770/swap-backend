@@ -12,6 +12,7 @@ import { errorResponse, exitoResponse } from "../servicios/Response.js";
 import { crearConversacionConPrimerMensaje, crearMensajeYNotificar, notificarActualizacionConversacion } from "../servicios/servicioMensajeria.js";
 import { IniciarConversacionInput } from "../modelo/schemaMensaje.js";
 import { buscarPublicacionPorId } from "../repository/repositorioPublicacion.js";
+import { buscarUsuarioPorId } from "../repository/repositorioUsuario.js";
 import { ErrorServicio } from "../servicios/ErrorServicio.js";
 
 /*
@@ -139,6 +140,11 @@ export async function iniciarConversacion(req: Request, res: Response, next: Nex
 
         if (id_usuario_2 === idUsuario) {
             errorResponse(res, "No puedes iniciar una conversación contigo mismo", 400);
+            return;
+        }
+
+        if (!(await buscarUsuarioPorId(id_usuario_2))) {
+            errorResponse(res, "El usuario destinatario no existe", 404);
             return;
         }
 

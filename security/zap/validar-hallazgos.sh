@@ -2,8 +2,10 @@
 # Reproducción manual (SWAP-575) de hallazgos que ZAP no puede confirmar por sí
 # solo porque dependen de la lógica de negocio o de la topología del proxy.
 # Se ejecuta SOLO contra la copia aislada (red swap_zap_net). Requiere
-# "./run-zap.sh up" antes. Cada cliente es un contenedor distinto, con su
-# propia IP, para simular usuarios diferentes detrás del mismo nginx.
+# "./run-zap.sh up" antes. Cada cliente (A, B, C) es un contenedor que vive
+# durante toda la validación, así cada uno conserva su propia IP: si se creara
+# uno por petición, Docker reutilizaría la misma IP y "dos usuarios distintos"
+# serían en realidad el mismo cliente.
 set -uo pipefail
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -18,20 +20,28 @@ INEXISTENTE='{"email_institucional":"no-existe-zap@uvg.edu.gt","password":"incor
 mkdir -p "$(dirname "$OUT")"
 exec > >(tee "$OUT") 2>&1
 
+CLIENTES="A B C"
+quitar_clientes() { for c in $CLIENTES; do docker rm -f "zap-cliente-$c" >/dev/null 2>&1 || true; done; }
+quitar_clientes
+trap quitar_clientes EXIT
+for c in $CLIENTES; do
+    docker run -d --rm --network "$RED" --name "zap-cliente-$c" --entrypoint sleep "$CURL_IMG" 3600 >/dev/null
+done
+
 cliente() {
     # $1 = nombre del cliente, resto = argumentos de curl
     local nombre="$1"; shift
-    docker run --rm --network "$RED" --name "zap-cliente-$nombre-$RANDOM" "$CURL_IMG" -s "$@"
+    docker exec "zap-cliente-$nombre" curl -s "$@"
 }
 
 rafaga() {
-    # $1 = nombre del cliente, $2 = cantidad, $3 = URL, resto = cabeceras extra. Todo desde UNA misma IP.
-    local nombre="$1" n="$2" url="$3"; shift 3
-    docker run --rm --network "$RED" --entrypoint sh "$CURL_IMG" -c \
-        "for i in \$(seq 1 $n); do curl -s -o /dev/null -w '%{http_code}\\n' $* '$url'; done"
+    # $1 = nombre del cliente, $2 = cantidad, $3 = URL. Todo desde la IP de ese cliente.
+    local nombre="$1" n="$2" url="$3"
+    docker exec "zap-cliente-$nombre" sh -c \
+        "for i in \$(seq 1 $n); do curl -s -o /dev/null -w '%{http_code}\\n' '$url'; done"
 }
 
-ip_de() { docker run --rm --network "$RED" "$CURL_IMG" sh -c "hostname -i" 2>/dev/null; }
+ip_de() { docker exec "zap-cliente-$1" hostname -i 2>/dev/null; }
 
 limpiar_limites() {
     # Limpia el bloqueo de login/códigos (Redis, con TTL propio) entre escenarios.
@@ -50,10 +60,10 @@ echo "Destino: copia aislada ($API)"
 echo
 
 echo "== V1. ¿Con qué IP ve Express a clientes distintos? =="
-echo "IPs de dos contenedores cliente distintos en la red: $(ip_de) / $(ip_de)"
-echo "Últimas IPs de origen registradas por nginx (remote_addr):"
-docker logs swap-zap-nginx 2>/dev/null | awk '{print $1}' | sort | uniq -c | sort -rn | head -5
-echo "Express no configura 'trust proxy', así que para él todas llegan desde la IP del proxy."
+echo "IPs de los clientes: A=$(ip_de A) B=$(ip_de B) C=$(ip_de C)"
+echo "TRUST_PROXY en la API: '$(docker exec swap-zap-api printenv TRUST_PROXY 2>/dev/null)'"
+echo "Sin trust proxy, Express ve a todos con la IP del proxy (V2/V3 compartidos)."
+echo "Con TRUST_PROXY=cloudflare, cada cliente se identifica por su propia IP."
 echo
 
 echo "== V2. Rate limit global compartido entre usuarios (DoS por un solo cliente) =="
@@ -111,6 +121,7 @@ echo "== V6. ¿Se puede evadir el límite falsificando X-Forwarded-For? =="
 limpiar_limites
 rafaga A 125 "$API/auth/me" >/dev/null
 cliente A -o /dev/null -w 'Con X-Forwarded-For falso -> HTTP %{http_code}\n' -H 'X-Forwarded-For: 203.0.113.9' "$API/auth/me"
-echo "429 aquí es lo correcto hoy (la cabecera se ignora). Al corregir V2/V3 con 'trust proxy' hay que confiar SOLO en el proxy propio."
+cliente A -o /dev/null -w 'Fingiendo venir de Cloudflare -> HTTP %{http_code}\n' -H 'X-Forwarded-For: 203.0.113.9, 104.16.0.1' "$API/auth/me"
+echo "429 en ambos es lo correcto: una cabecera falsificada no cambia la IP con la que se identifica al cliente."
 echo
 echo "Fin. Evidencia guardada en $OUT"

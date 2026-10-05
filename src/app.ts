@@ -7,8 +7,12 @@ import cookieParser from "cookie-parser";
 import express, { NextFunction, Request, Response } from "express";
 import { rateLimitGlobal } from "./autenticacion/rateLimiter.js";
 import { TipoArchivoError } from "./servicios/middlewareMulter.js";
+import { configuracionTrustProxy } from "./autenticacion/proxyConfiable.js";
 
 const app = express();
+
+// Debe ir antes de cualquier middleware que use req.ip (rate limiting, login).
+app.set("trust proxy", configuracionTrustProxy());
 
 app.use((_req, res, next) => {
     res.setHeader("X-API-Version", "1");
