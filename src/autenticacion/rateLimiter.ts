@@ -1,51 +1,23 @@
 import redis from "../persistencia/redisClient.js";
 import { Request, Response, NextFunction } from "express";
 
-// ─── Rate limiting global de API y de eventos de socket (en memoria) ─────────
+const MENSAJE_LIMITE = "Demasiadas solicitudes. Intenta nuevamente más tarde.";
+export const MENSAJE_RATE_LIMITER_NO_DISPONIBLE =
+    "Servicio de control de solicitudes temporalmente no disponible. Intenta nuevamente más tarde.";
 
-const LIMITE_API_GLOBAL = 120;
-const VENTANA_API_MS = 60_000;
-const LIMITE_SOCKET_EVENTOS = 60;
-const VENTANA_SOCKET_MS = 60_000;
-const apiVentanas = new Map<string, { inicio: number; cantidad: number }>();
-const socketVentanas = new Map<string, { inicio: number; cantidad: number }>();
+export class RateLimiterNoDisponibleError extends Error {
+    readonly cause?: unknown;
 
-function permitir(ventanas: Map<string, { inicio: number; cantidad: number }>, clave: string, limite: number, ventanaMs: number): boolean {
-    const ahora = Date.now();
-    const actual = ventanas.get(clave);
-    if (!actual || ahora - actual.inicio >= ventanaMs) {
-        ventanas.set(clave, { inicio: ahora, cantidad: 1 });
-        return true;
+    constructor(cause?: unknown) {
+        super(MENSAJE_RATE_LIMITER_NO_DISPONIBLE);
+        this.name = "RateLimiterNoDisponibleError";
+        this.cause = cause;
     }
-    if (actual.cantidad >= limite) return false;
-    actual.cantidad += 1;
-    return true;
 }
-
-export function rateLimitGlobal(req: Request, res: Response, next: NextFunction): void {
-    if (!permitir(apiVentanas, req.ip || "desconocida", LIMITE_API_GLOBAL, VENTANA_API_MS)) {
-        res.status(429).json({ success: false, message: "Demasiadas solicitudes. Intenta nuevamente más tarde." });
-        return;
-    }
-    next();
-}
-
-export function permitirEventoSocket(idUsuario: number, evento: string): boolean {
-    return permitir(socketVentanas, `${idUsuario}:${evento}`, LIMITE_SOCKET_EVENTOS, VENTANA_SOCKET_MS);
-}
-
-/**
- * Vacía el estado en memoria de los limitadores. El entorno de integración
- * la usa entre casos para que una prueba no consuma la cuota de la siguiente.
- */
-export function reiniciarRateLimiters(): void {
-    apiVentanas.clear();
-    socketVentanas.clear();
-}
-
-// ─── Rate limiting por identificador (login y códigos de verificación) — Redis ──
 
 type Bucket =
+    | "api_global"
+    | "socket_evento"
     | "login"
     | "solicitar_codigo_registro"
     | "verificar_codigo_registro"
@@ -53,6 +25,8 @@ type Bucket =
     | "verificar_codigo_recuperacion";
 
 const LIMITES: Record<Bucket, { maxIntentos: number; ventanaSegundos: number }> = {
+    api_global: { maxIntentos: 120, ventanaSegundos: 60 },
+    socket_evento: { maxIntentos: 60, ventanaSegundos: 60 },
     login: { maxIntentos: 5, ventanaSegundos: 60 * 15 },
     solicitar_codigo_registro: { maxIntentos: 3, ventanaSegundos: 60 * 15 },
     verificar_codigo_registro: { maxIntentos: 5, ventanaSegundos: 60 * 10 },
@@ -60,8 +34,71 @@ const LIMITES: Record<Bucket, { maxIntentos: number; ventanaSegundos: number }> 
     verificar_codigo_recuperacion: { maxIntentos: 5, ventanaSegundos: 60 * 10 },
 };
 
+const INCREMENTAR_CON_TTL = `
+local intentos = redis.call("INCR", KEYS[1])
+if intentos == 1 then
+    redis.call("EXPIRE", KEYS[1], ARGV[1])
+end
+return intentos
+`;
+
 function construirClave(bucket: Bucket, identificador: string): string {
     return `rate:${bucket}:${identificador}`;
+}
+
+async function ejecutarRedis<T>(operacion: () => Promise<T>): Promise<T> {
+    try {
+        return await operacion();
+    } catch (error) {
+        throw new RateLimiterNoDisponibleError(error);
+    }
+}
+
+/**
+ * INCR y EXPIRE se ejecutan en un único script para que ninguna instancia
+ * pueda dejar un contador sin TTL si termina entre ambas operaciones.
+ */
+async function incrementarContador(bucket: Bucket, identificador: string): Promise<number> {
+    const resultado = await ejecutarRedis(() => redis.eval(INCREMENTAR_CON_TTL, {
+        keys: [construirClave(bucket, identificador)],
+        arguments: [String(LIMITES[bucket].ventanaSegundos)],
+    }));
+    return Number(resultado);
+}
+
+/**
+ * Límite distribuido para todas las rutas HTTP. Ante una caída de Redis se
+ * aplica fail-closed: no se ejecuta la ruta y se responde 503.
+ */
+export async function rateLimitGlobal(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const intentos = await incrementarContador("api_global", req.ip || "desconocida");
+        if (intentos > LIMITES.api_global.maxIntentos) {
+            res.status(429).json({ success: false, message: MENSAJE_LIMITE });
+            return;
+        }
+        next();
+    } catch (error) {
+        console.error("Rate limiter no disponible:", error);
+        res.status(503).json({ success: false, message: MENSAJE_RATE_LIMITER_NO_DISPONIBLE });
+    }
+}
+
+/**
+ * Límite distribuido para eventos sensibles de Socket.IO. Los consumidores
+ * deben rechazar el evento si esta función lanza RateLimiterNoDisponibleError.
+ */
+export async function permitirEventoSocket(idUsuario: number, evento: string): Promise<boolean> {
+    const intentos = await incrementarContador("socket_evento", `${idUsuario}:${evento}`);
+    return intentos <= LIMITES.socket_evento.maxIntentos;
+}
+
+/**
+ * Conservado por compatibilidad con las suites existentes. Ya no elimina
+ * contadores: al residir en Redis, estos sobreviven reinicios del proceso.
+ */
+export function reiniciarRateLimiters(): void {
+    // Sin estado local que reiniciar.
 }
 
 /**
@@ -74,16 +111,14 @@ export function construirIdentificadorLogin(ip: string, correoObjetivo: string):
 }
 
 export async function registrarIntento(bucket: Bucket, identificador: string): Promise<void> {
-    const key = construirClave(bucket, identificador);
-    const intentos = await redis.incr(key);
-    if (intentos === 1) await redis.expire(key, LIMITES[bucket].ventanaSegundos);
+    await incrementarContador(bucket, identificador);
 }
 
 export async function estaBloqueado(bucket: Bucket, identificador: string): Promise<boolean> {
-    const intentos = await redis.get(construirClave(bucket, identificador));
+    const intentos = await ejecutarRedis(() => redis.get(construirClave(bucket, identificador)));
     return parseInt(intentos ?? "0") >= LIMITES[bucket].maxIntentos;
 }
 
 export async function limpiarIntentos(bucket: Bucket, identificador: string): Promise<void> {
-    await redis.del(construirClave(bucket, identificador));
+    await ejecutarRedis(() => redis.del(construirClave(bucket, identificador)));
 }

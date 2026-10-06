@@ -1,6 +1,11 @@
 import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("../../src/autenticacion/rateLimiter", () => ({
+    rateLimitGlobal: (_req: unknown, _res: unknown, next: () => void) => next(),
+    RateLimiterNoDisponibleError: class RateLimiterNoDisponibleError extends Error {},
+}));
+
 describe("regresiones de seguridad HTTP", () => {
     afterEach(() => {
         vi.unstubAllEnvs();

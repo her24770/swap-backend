@@ -5,7 +5,7 @@ import routes from "./api_rest/routes";
 import swaggerRoutes from "./openapi/swagger";
 import cookieParser from "cookie-parser";
 import express, { NextFunction, Request, Response } from "express";
-import { rateLimitGlobal } from "./autenticacion/rateLimiter.js";
+import { RateLimiterNoDisponibleError, rateLimitGlobal } from "./autenticacion/rateLimiter.js";
 import { TipoArchivoError } from "./servicios/middlewareMulter.js";
 import { configuracionTrustProxy } from "./autenticacion/proxyConfiable.js";
 
@@ -70,6 +70,10 @@ app.use("/api", routes);
 app.use("/api/v1", routes);
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+    if (err instanceof RateLimiterNoDisponibleError) {
+        res.status(503).json({ success: false, message: err.message });
+        return;
+    }
     if (err instanceof TipoArchivoError) {
         res.status(400).json({ success: false, message: err.message });
         return;
