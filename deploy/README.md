@@ -18,7 +18,9 @@ en el servidor de Contabo:
    - aborta si el servidor tiene cambios locales en archivos versionados;
    - hace `git merge --ff-only origin/main`;
    - construye las imágenes (si el build falla, los contenedores actuales siguen
-     corriendo) y luego `up -d`;
+     corriendo) y luego `up -d`. En el backend, `embeddings` solo se reconstruye
+     si cambió `embeddings/`: cada build genera un ID de imagen nuevo y eso haría
+     que compose lo recree y que la API espere a que vuelva a estar sano;
    - espera hasta 3 minutos a que el health check responda
      (`/api/health` del backend, `/` del frontend). Si no responde, el job queda
      en rojo y el log muestra el comando exacto para volver a la versión anterior.
