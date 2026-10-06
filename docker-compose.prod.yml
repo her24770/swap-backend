@@ -51,6 +51,10 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      # Mientras arranca se revisa cada 2 s: la API espera a que esté sano, y con
+      # solo `interval` el primer chequeo llegaba a los 30 s (SWAP-634).
+      start_period: 90s
+      start_interval: 2s
 
   api:
     build:

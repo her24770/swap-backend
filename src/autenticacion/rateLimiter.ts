@@ -64,6 +64,15 @@ function construirClave(bucket: Bucket, identificador: string): string {
     return `rate:${bucket}:${identificador}`;
 }
 
+/**
+ * Identifica de forma estable los intentos de login contra una cuenta concreta.
+ * El arreglo serializado evita ambigüedades entre los separadores de una IPv6
+ * y los caracteres válidos del correo.
+ */
+export function construirIdentificadorLogin(ip: string, correoObjetivo: string): string {
+    return JSON.stringify([ip, correoObjetivo.trim().toLowerCase()]);
+}
+
 export async function registrarIntento(bucket: Bucket, identificador: string): Promise<void> {
     const key = construirClave(bucket, identificador);
     const intentos = await redis.incr(key);
