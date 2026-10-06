@@ -2,7 +2,12 @@ import { Request, Response, NextFunction } from "express";
 import { ServicioJWT, PayloadToken } from "../autenticacion/ServicioJWT.js";
 import { ServicioBcrypt } from "../autenticacion/ServicioBcrypt.js";
 import { revocarToken } from "../autenticacion/blacklist.js";
-import { registrarIntento, estaBloqueado, limpiarIntentos } from "../autenticacion/rateLimiter.js";
+import {
+    construirIdentificadorLogin,
+    registrarIntento,
+    estaBloqueado,
+    limpiarIntentos,
+} from "../autenticacion/rateLimiter.js";
 import {
     buscarUsuarioPorEmail,
     buscarUsuarioPorCarnet,
@@ -160,26 +165,27 @@ export async function cerrarSesion(req: Request, res: Response): Promise<void> {
 export async function iniciarSesion(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
         const ip = req.ip ?? "unknown";
+        const reqData = req.body;
+        const emailObjetivo = reqData.email_institucional.toLowerCase();
+        const identificadorLogin = construirIdentificadorLogin(ip, emailObjetivo);
 
-        if (await estaBloqueado("login", ip)) {
+        if (await estaBloqueado("login", identificadorLogin)) {
             errorResponse(res, "Demasiados intentos fallidos. Intenta de nuevo en 15 minutos.", 429);
             return;
         }
 
-        const reqData = req.body;
-
         // Verificar email
-        const usuario = await buscarUsuarioPorEmail(reqData.email_institucional);
+        const usuario = await buscarUsuarioPorEmail(emailObjetivo);
         if (usuario) {
             // Verificar contraseña
             const esPasswordCorrecta = await ServicioBcrypt.compararPassword(reqData.password, usuario.password);
             if (!esPasswordCorrecta) {
-                await registrarIntento("login", ip);
+                await registrarIntento("login", identificadorLogin);
                 errorResponse(res, "Credenciales invalidas", 401);
                 return;
             }
 
-            await limpiarIntentos("login", ip);
+            await limpiarIntentos("login", identificadorLogin);
 
             // Verificar estado de la cuenta (SWAP-422)
             const estadoCuenta = interpretarEstadoCuenta(usuario.tiempo_suspendido);
@@ -220,6 +226,7 @@ export async function iniciarSesion(req: Request, res: Response, next: NextFunct
             return;
         }
 
+        await registrarIntento("login", identificadorLogin);
         errorResponse(res, "Credenciales invalidas", 401);
         return;
     } catch (error) {

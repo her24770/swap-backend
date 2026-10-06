@@ -316,51 +316,62 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
             expect(acuerdosConversacionA[0].id_acuerdo).toBe(acuerdoAB.id_acuerdo);
         });
 
-        it("IT-35 (Escenario A - Auth / Redis): bloquea con 429 tras exceder intentos fallidos de login persistidos en Redis y restaura tras credenciales correctas", async () => {
-            const passwordValido = "PasswordValido123!";
-            const hash = await ServicioBcrypt.hashearPassword(passwordValido);
-            const usuario = await crearUsuarioTest({
-                nombre: "Usuario Rate Limit Auth",
-                email_institucional: "ratelimit-auth@uvg.edu.gt",
-                password: hash,
+        it("IT-35 (Escenario A - Auth / Redis, V4): un login propio no reinicia el bloqueo IP + correo objetivo", async () => {
+            const passwordObjetivo = "PasswordValido123!";
+            const passwordAtacante = "PasswordAtacante123!";
+            const usuarioObjetivo = await crearUsuarioTest({
+                nombre: "Usuario Objetivo Rate Limit",
+                email_institucional: "ratelimit-objetivo@uvg.edu.gt",
+                password: await ServicioBcrypt.hashearPassword(passwordObjetivo),
+            });
+            const usuarioAtacante = await crearUsuarioTest({
+                nombre: "Usuario Atacante Rate Limit",
+                email_institucional: "ratelimit-atacante@uvg.edu.gt",
+                password: await ServicioBcrypt.hashearPassword(passwordAtacante),
             });
 
-            // 1. Ejecutar 5 intentos fallidos (límite máximo permitido para bucket login)
-            for (let intento = 1; intento <= 5; intento++) {
+            // V4: 20 intentos contra la cuenta objetivo, cada uno seguido de un
+            // login propio exitoso desde la misma IP. Los primeros cinco fallos
+            // llenan el contador; desde el sexto la combinación debe seguir bloqueada.
+            for (let intento = 1; intento <= 20; intento++) {
                 const respuestaFallo = await request(app)
                     .post("/api/auth/login")
                     .send({
-                        email_institucional: usuario.email_institucional,
+                        email_institucional: usuarioObjetivo.email_institucional,
                         password: "PasswordErroneo!",
                     });
 
-                expect(respuestaFallo.status).toBe(401);
+                expect(respuestaFallo.status).toBe(intento <= 5 ? 401 : 429);
                 expect(respuestaFallo.body.success).toBe(false);
-                expect(respuestaFallo.body.message).toBe("Credenciales invalidas");
+                expect(respuestaFallo.body.message).toBe(
+                    intento <= 5
+                        ? "Credenciales invalidas"
+                        : "Demasiados intentos fallidos. Intenta de nuevo en 15 minutos."
+                );
+
+                const respuestaLoginPropio = await request(app)
+                    .post("/api/auth/login")
+                    .send({
+                        email_institucional: usuarioAtacante.email_institucional,
+                        password: passwordAtacante,
+                    });
+
+                expect(respuestaLoginPropio.status).toBe(200);
+                expect(respuestaLoginPropio.body.success).toBe(true);
             }
 
-            // 2. Comprobar que los intentos se registraron en Redis
+            // Solo persiste el contador de la cuenta objetivo; los logins propios
+            // limpian otra clave y no alteran sus cinco intentos acumulados.
             const clavesRateLimit = await redis.keys("rate:login:*");
-            expect(clavesRateLimit.length).toBeGreaterThanOrEqual(1);
+            expect(clavesRateLimit).toHaveLength(1);
+            expect(await redis.get(clavesRateLimit[0])).toBe("5");
 
-            // 3. Intento número 6 (excede el límite): bloqueado con 429 Too Many Requests
-            const respuestaBloqueada = await request(app)
-                .post("/api/auth/login")
-                .send({
-                    email_institucional: usuario.email_institucional,
-                    password: passwordValido, // Aunque la contraseña sea correcta, está bloqueado
-                });
-
-            expect(respuestaBloqueada.status).toBe(429);
-            expect(respuestaBloqueada.body.success).toBe(false);
-            expect(respuestaBloqueada.body.message).toContain("Demasiados intentos fallidos");
-
-            // 4. Limpieza del limitador y login exitoso posterior
+            // La limpieza del entorno elimina el bloqueo distribuido en Redis.
             await limpiarEntornoIntegracion();
             await asegurarEstadosIniciales(["activo"]);
 
             // Re-crear usuario tras limpiar entorno
-            const hash2 = await ServicioBcrypt.hashearPassword(passwordValido);
+            const hash2 = await ServicioBcrypt.hashearPassword(passwordObjetivo);
             const usuarioRestaurado = await crearUsuarioTest({
                 nombre: "Usuario Rate Limit Auth 2",
                 email_institucional: "ratelimit-auth-2@uvg.edu.gt",
@@ -371,7 +382,7 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
                 .post("/api/auth/login")
                 .send({
                     email_institucional: usuarioRestaurado.email_institucional,
-                    password: passwordValido,
+                    password: passwordObjetivo,
                 });
 
             expect(respuestaExitosa.status).toBe(200);
