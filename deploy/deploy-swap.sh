@@ -59,10 +59,23 @@ git merge --ff-only --quiet origin/main
 ACTUAL="$(git rev-parse --short HEAD)"
 log "Versión: $ANTERIOR -> $ACTUAL ($(git log -1 --format=%s))"
 
+# Docker genera un ID de imagen distinto en cada build aunque todo salga de la
+# caché, y compose recrea el contenedor si cambia el ID. Embeddings casi nunca
+# cambia y la API espera a que esté sano para arrancar, así que solo se
+# reconstruye cuando cambia su código o falta su imagen (SWAP-634).
+CONSTRUIR=()
+if [ "$DESTINO" = backend ]; then
+    CONSTRUIR=(api)
+    if ! git diff --quiet "$ANTERIOR" "$ACTUAL" -- embeddings/ \
+        || ! docker image inspect swap-backend-embeddings:latest >/dev/null 2>&1; then
+        CONSTRUIR+=(embeddings)
+    fi
+fi
+
 # Se construye primero: si el build falla, los contenedores actuales siguen
 # corriendo sin cambios.
-log "Construyendo imágenes"
-"${COMPOSE[@]}" build
+log "Construyendo imágenes: ${CONSTRUIR[*]:-todas}"
+"${COMPOSE[@]}" build "${CONSTRUIR[@]}"
 
 log "Levantando contenedores"
 "${COMPOSE[@]}" up -d
