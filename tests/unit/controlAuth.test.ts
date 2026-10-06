@@ -9,7 +9,9 @@ import {
   actualizarUsuario,
 } from "../../src/repository/repositorioUsuario";
 import {
+  construirIdentificadorLogin,
   estaBloqueado,
+  limpiarIntentos,
   registrarIntento,
 } from "../../src/autenticacion/rateLimiter";
 import { ServicioBcrypt } from "../../src/autenticacion/ServicioBcrypt";
@@ -50,6 +52,9 @@ vi.mock("../../src/persistencia/redisClient", () => ({
 }));
 
 vi.mock("../../src/autenticacion/rateLimiter", () => ({
+  construirIdentificadorLogin: vi.fn(
+    (ip: string, correo: string) => JSON.stringify([ip, correo.trim().toLowerCase()]),
+  ),
   estaBloqueado: vi.fn(),
   registrarIntento: vi.fn(),
   limpiarIntentos: vi.fn(),
@@ -99,6 +104,10 @@ describe("iniciarSesion", () => {
 
     expect(exitoResponse).toHaveBeenCalled();
 
+    const identificador = JSON.stringify(["127.0.0.1", "test@test.com"]);
+    expect(estaBloqueado).toHaveBeenCalledWith("login", identificador);
+    expect(limpiarIntentos).toHaveBeenCalledWith("login", identificador);
+
     expect(next).not.toHaveBeenCalled();
   });
 
@@ -132,6 +141,10 @@ describe("iniciarSesion", () => {
       "Credenciales invalidas",
       401,
     );
+    expect(registrarIntento).toHaveBeenCalledWith(
+      "login",
+      JSON.stringify(["127.0.0.1", "test@test.com"]),
+    );
   });
 
   it("rechaza usuario inexistente", async () => {
@@ -154,6 +167,46 @@ describe("iniciarSesion", () => {
       "Credenciales invalidas",
       401,
     );
+    expect(registrarIntento).toHaveBeenCalledWith(
+      "login",
+      JSON.stringify(["127.0.0.1", "no@test.com"]),
+    );
+  });
+
+  it("no limpia los intentos contra otra cuenta al intercalar un login propio exitoso", async () => {
+    const ip = "127.0.0.1";
+    const correoObjetivo = "victima@test.com";
+    const correoPropio = "atacante@test.com";
+
+    vi.mocked(buscarUsuarioPorEmail).mockImplementation(async (email) => ({
+      id_usuario: email === correoObjetivo ? 1 : 2,
+      email_institucional: email,
+      password: "hash",
+      tiempo_suspendido: 0,
+    }) as any);
+    vi.mocked(ServicioBcrypt.compararPassword)
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    vi.mocked(ServicioJWT.generarToken).mockReturnValue("jwt-token");
+
+    await iniciarSesion(
+      { ip, body: { email_institucional: correoObjetivo, password: "wrong" } } as any,
+      {} as any,
+      vi.fn(),
+    );
+    await iniciarSesion(
+      { ip, body: { email_institucional: correoPropio, password: "correct" } } as any,
+      { cookie: vi.fn() } as any,
+      vi.fn(),
+    );
+
+    const claveObjetivo = JSON.stringify([ip, correoObjetivo]);
+    const clavePropia = JSON.stringify([ip, correoPropio]);
+    expect(registrarIntento).toHaveBeenCalledWith("login", claveObjetivo);
+    expect(limpiarIntentos).toHaveBeenCalledWith("login", clavePropia);
+    expect(limpiarIntentos).not.toHaveBeenCalledWith("login", claveObjetivo);
+    expect(construirIdentificadorLogin).toHaveBeenCalledWith(ip, correoObjetivo);
+    expect(construirIdentificadorLogin).toHaveBeenCalledWith(ip, correoPropio);
   });
 
   it("rechaza el login de una cuenta bloqueada (SWAP-422)", async () => {
