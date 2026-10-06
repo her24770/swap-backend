@@ -65,6 +65,28 @@ docker compose up  --build
 
 Esto inicia PostgreSQL, Redis y el backend. El contenedor de la API corre automáticamente `prisma db push` al arrancar, así que el esquema ya queda creado.
 
+### Rate limiting distribuido
+
+Todos los contadores de solicitudes residen en Redis: cuota global HTTP por IP,
+eventos sensibles de Socket.IO por usuario y evento, login por IP + correo
+objetivo, verificación de cuenta y recuperación de contraseña. Los incrementos
+y el TTL se aplican atómicamente. Por ello, todas las instancias del backend
+comparten la misma cuota y reiniciar solamente la API no elimina los bloqueos.
+
+El despliegue debe configurar estas variables:
+
+| Variable | Obligatoria | Descripción |
+| --- | --- | --- |
+| `REDIS_PASSWORD` | Sí con Docker Compose | Contraseña con la que arranca el servicio Redis. |
+| `REDIS_URL` | Sí | URL accesible por todas las instancias, incluyendo credenciales y base lógica si corresponde. |
+| `REDIS_CONNECT_TIMEOUT_MS` | No | Tiempo máximo de conexión; por defecto `5000`. |
+
+Redis usa AOF y un volumen persistente en los Compose de desarrollo y
+producción. Si Redis no está disponible, el sistema aplica **fail-closed**:
+las rutas HTTP responden `503` y los eventos sensibles de Socket.IO se
+rechazan sin ejecutar la operación. Los comandos no se acumulan en memoria
+mientras la conexión está caída.
+
 ### 4. Verificar que todo corre
 
 ```bash
