@@ -12,6 +12,37 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  auditoria-dependencias:
+    name: Auditoría de dependencias
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Auditar vulnerabilidades altas y críticas
+        env:
+          NO_COLOR: "1"
+        run: |
+          set -o pipefail
+          {
+            echo "## Auditoría de dependencias — backend"
+            echo
+            npm run audit:security
+          } 2>&1 | tee npm-audit-backend.txt | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Publicar reporte de auditoría
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-backend-${{ github.run_id }}
+          path: npm-audit-backend.txt
+          if-no-files-found: error
+          retention-days: 14
+
   lint-y-typecheck:
     name: Lint y typecheck
     runs-on: ubuntu-latest
@@ -51,7 +82,7 @@ jobs:
   deploy:
     name: Deploy a producción
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [lint-y-typecheck, pruebas-unitarias, pruebas-integracion]
+    needs: [auditoria-dependencias, lint-y-typecheck, pruebas-unitarias, pruebas-integracion]
     runs-on: ubuntu-latest
     concurrency:
       group: deploy-produccion-backend
