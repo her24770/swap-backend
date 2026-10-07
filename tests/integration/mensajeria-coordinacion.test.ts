@@ -4,6 +4,13 @@ import { generarTokenSintetico } from "../helpers";
 import { registrarEventosConexion } from "../../src/sockets/socketServer";
 import app from "../../src/app";
 
+vi.mock("../../src/autenticacion/rateLimiter", () => ({
+  rateLimitGlobal: (_req: unknown, _res: unknown, next: () => void) => next(),
+  permitirEventoSocket: vi.fn().mockResolvedValue(true),
+  RateLimiterNoDisponibleError: class RateLimiterNoDisponibleError extends Error {},
+  MENSAJE_RATE_LIMITER_NO_DISPONIBLE: "Servicio de control no disponible.",
+}));
+
 const estado = vi.hoisted(() => ({
   conversacion: null as any,
   mensajes: [] as any[],

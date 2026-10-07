@@ -1,6 +1,11 @@
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import app from "../../src/app";
+
+vi.mock("../../src/autenticacion/rateLimiter", () => ({
+    rateLimitGlobal: (_req: unknown, _res: unknown, next: () => void) => next(),
+    RateLimiterNoDisponibleError: class RateLimiterNoDisponibleError extends Error {},
+}));
 
 describe("Documentación OpenAPI", () => {
     it("expone la especificación OpenAPI 3.2 completa", async () => {

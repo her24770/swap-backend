@@ -390,7 +390,7 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
             expect(respuestaExitosa.headers["set-cookie"]).toBeDefined();
         });
 
-        it("IT-35 (Escenario B - API Global / Express): limita solicitudes masivas con 429 por IP, previene efectos secundarios y se restaura al reiniciar limitadores", async () => {
+        it("IT-35 (Escenario B - API Global / Redis): conserva el límite tras reiniciar el backend y evita efectos secundarios", async () => {
             reiniciarRateLimiters();
 
             const usuario = await crearUsuarioTest({ nombre: "Usuario API Global" });
@@ -429,13 +429,26 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
             const conteoEtiquetasFinal = await prisma.etiqueta.count();
             expect(conteoEtiquetasFinal).toBe(conteoEtiquetasInicial);
 
-            // 4. Reiniciar rate limiters permite reanudar peticiones inmediatamente sin esperar la ventana de 60s
+            // 4. Simular un reinicio del proceso no borra la cuota: el contador
+            // distribuido continúa en Redis y la siguiente solicitud sigue bloqueada.
             reiniciarRateLimiters();
             const respuestaPostReinicio = await request(app)
                 .get("/api/v1/etiqueta")
                 .set("Authorization", `Bearer ${usuario.token}`);
-            expect(respuestaPostReinicio.status).toBe(200);
-            expect(respuestaPostReinicio.body.success).toBe(true);
+            expect(respuestaPostReinicio.status).toBe(429);
+
+            const clavesGlobales = await redis.keys("rate:api_global:*");
+            expect(clavesGlobales).toHaveLength(1);
+            expect(Number(await redis.get(clavesGlobales[0]))).toBeGreaterThan(120);
+
+            // Al eliminar explícitamente la cuota en Redis (equivalente a que
+            // expire su TTL), las solicitudes vuelven a admitirse.
+            await redis.del(clavesGlobales);
+            const respuestaTrasExpirar = await request(app)
+                .get("/api/v1/etiqueta")
+                .set("Authorization", `Bearer ${usuario.token}`);
+            expect(respuestaTrasExpirar.status).toBe(200);
+            expect(respuestaTrasExpirar.body.success).toBe(true);
         });
 
         it("IT-35 (Escenario C - Socket.IO): limita eventos masivos por usuario, no persiste mensajes bloqueados y conserva capacidad independiente para otros usuarios", async () => {

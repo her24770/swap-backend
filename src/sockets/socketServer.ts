@@ -7,7 +7,11 @@ import { schemaEnviarMensaje } from "../modelo/schemaMensaje.js";
 import { crearMensajeYNotificar } from "../servicios/servicioMensajeria.js";
 import { setIO } from "./ioInstance.js";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
-import { permitirEventoSocket } from "../autenticacion/rateLimiter.js";
+import {
+    MENSAJE_RATE_LIMITER_NO_DISPONIBLE,
+    permitirEventoSocket,
+    RateLimiterNoDisponibleError,
+} from "../autenticacion/rateLimiter.js";
 
 interface AckRespuesta {
     success: boolean;
@@ -91,7 +95,7 @@ export function registrarEventosConexion(socket: Socket): void {
             "conversacion:unirse",
             async (idConversacion: number, callback?: (respuesta: AckRespuesta) => void) => {
                 try {
-                    if (!permitirEventoSocket(idUsuario, "conversacion:unirse")) {
+                    if (!await permitirEventoSocket(idUsuario, "conversacion:unirse")) {
                         callback?.({ success: false, message: "Demasiadas solicitudes. Intenta nuevamente más tarde." });
                         return;
                     }
@@ -122,15 +126,20 @@ export function registrarEventosConexion(socket: Socket): void {
                     }
                     socket.join(`conversacion:${conversacion.id_conversacion}`);
                     callback?.({ success: true });
-                } catch {
-                    callback?.({ success: false, message: "Error al unirse a la conversación" });
+                } catch (error) {
+                    callback?.({
+                        success: false,
+                        message: error instanceof RateLimiterNoDisponibleError
+                            ? MENSAJE_RATE_LIMITER_NO_DISPONIBLE
+                            : "Error al unirse a la conversación",
+                    });
                 }
             }
         );
 
         socket.on("mensaje:enviar", async (payload: unknown, callback?: (respuesta: AckRespuesta) => void) => {
             try {
-                if (!permitirEventoSocket(idUsuario, "mensaje:enviar")) {
+                if (!await permitirEventoSocket(idUsuario, "mensaje:enviar")) {
                     callback?.({ success: false, message: "Demasiados mensajes. Intenta nuevamente más tarde." });
                     return;
                 }
@@ -162,7 +171,9 @@ export function registrarEventosConexion(socket: Socket): void {
                 const mensaje = await crearMensajeYNotificar(datos.id_conversacion, idUsuario, datos.mensaje);
                 callback?.({ success: true, data: mensaje });
             } catch (error) {
-                const mensaje = error instanceof Error ? error.message : "Error al enviar el mensaje";
+                const mensaje = error instanceof RateLimiterNoDisponibleError
+                    ? MENSAJE_RATE_LIMITER_NO_DISPONIBLE
+                    : error instanceof Error ? error.message : "Error al enviar el mensaje";
                 callback?.({ success: false, message: mensaje });
             }
         });
