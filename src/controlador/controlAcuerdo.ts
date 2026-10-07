@@ -168,12 +168,6 @@ export async function crearSolicitarAcuerdo(req: Request, res: Response, next: N
             errorResponse(res, "La conversacion no existe", 404);
             return;
         }
-        const esParticipante = conversacion.id_usuario_1 === idUsuarioSolicitante
-            || conversacion.id_usuario_2 === idUsuarioSolicitante;
-        if (!esParticipante) {
-            errorResponse(res, "No tienes permiso para asociar un acuerdo a esta conversacion", 403);
-            return;
-        }
 
         //Contar acuerdos activos de una conversacion
         const acuerdosActivos = await contarAcuerdosActivosConversacion(data.id_conversacion);
