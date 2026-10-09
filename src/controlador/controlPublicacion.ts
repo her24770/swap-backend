@@ -10,6 +10,7 @@ import { obtenerJustificanteModeracion, notificarAccionModeracion } from "../ser
 import { buscarReportesPorPublicacion } from "../repository/repositorioReporte.js";
 import { crearPublicacion, editarPublicacion as editarPublicacionServicio, eliminarPublicacionPropia } from "../servicios/servicioPublicacion.js";
 import { ErrorServicio } from "../servicios/ErrorServicio.js";
+import { escribirLog } from "../observabilidad/logger.js";
 
 function responderErrorServicio(res: Response, error: unknown): error is ErrorServicio {
     if (!(error instanceof ErrorServicio)) return false;
@@ -121,10 +122,12 @@ export async function obtenerPublicacionPorId(req: Request, res: Response, next:
         if (idUsuario !== publicacion.id_usuario) {
             //registrar evento de visualizacion
             registrarInteraccionPublicacion(idUsuario, publicacion.id_publicacion, "VER_PUBLICACION").catch((error) => {
-                console.error(
-                    "[Recomendacion] Error registrando visualizacion:",
-                    error
-                );
+                escribirLog("error", "recommendations.interaction_failed", {
+                    requestId: req.requestId,
+                    interaction: "view_publication",
+                    publicationId: publicacion.id_publicacion,
+                    error,
+                });
             });
         }
 

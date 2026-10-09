@@ -9,6 +9,8 @@ const redisMock = vi.hoisted(() => ({
 vi.mock("../../src/persistencia/redisClient", () => ({ default: redisMock }));
 
 import {
+    construirIdentificadoresRecuperacion,
+    consumirIntentos,
     estaBloqueado,
     MENSAJE_RATE_LIMITER_NO_DISPONIBLE,
     permitirEventoSocket,
@@ -55,6 +57,34 @@ describe("rate limiting distribuido", () => {
             keys: ["rate:login:ip+cuenta"],
             arguments: ["900"],
         });
+    });
+
+    it("consume en una sola operación las cuotas de cuenta e IP", async () => {
+        redisMock.eval.mockResolvedValue(1);
+        const identificadores = construirIdentificadoresRecuperacion(
+            "203.0.113.20",
+            " USUARIO@UVG.EDU.GT ",
+        );
+
+        await expect(consumirIntentos("verificar_codigo_recuperacion", identificadores))
+            .resolves.toBe(true);
+
+        expect(redisMock.eval).toHaveBeenCalledWith(expect.stringContaining("ipairs(KEYS)"), {
+            keys: [
+                "rate:verificar_codigo_recuperacion:usuario@uvg.edu.gt",
+                'rate:verificar_codigo_recuperacion:["ip","203.0.113.20"]',
+            ],
+            arguments: ["600", "5"],
+        });
+    });
+
+    it("rechaza la acción si cualquiera de las cuotas fue excedida", async () => {
+        redisMock.eval.mockResolvedValue(0);
+
+        await expect(consumirIntentos(
+            "solicitar_codigo_recuperacion",
+            construirIdentificadoresRecuperacion("203.0.113.21", "cuenta@uvg.edu.gt"),
+        )).resolves.toBe(false);
     });
 
     it("no pierde la cuota al reiniciar el proceso", async () => {

@@ -3,6 +3,7 @@ import { analizarImagen } from "./servicioModeracionImagen.js";
 import { eliminarImagenR2 } from "./servicioR2.js";
 import { crearNotificacion } from "../repository/repositorioNotificacion.js";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
+import { escribirLog } from "../observabilidad/logger.js";
 
 interface ImagenSubida {
     idImagen: number;
@@ -11,7 +12,7 @@ interface ImagenSubida {
 }
 
 export async function moderarImagenesEnBackground(
-    _idPublicacion: number,
+    idPublicacion: number,
     idUsuario: number,
     imagenes: ImagenSubida[]
 ): Promise<void> {
@@ -24,7 +25,13 @@ export async function moderarImagenesEnBackground(
             try {
                 const resultado = await analizarImagen(img.buffer);
                 return { ...img, flagged: resultado.flagged };
-            } catch {
+            } catch (error) {
+                escribirLog("error", "moderation.provider_failed", {
+                    providerType: "publication_image_background",
+                    publicationId: idPublicacion,
+                    userId: idUsuario,
+                    error,
+                });
                 // Si Rekognition falla en una imagen la dejamos pasar
                 return { ...img, flagged: false };
             }

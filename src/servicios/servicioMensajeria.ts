@@ -9,6 +9,7 @@ import {
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
 import { getIO } from "../sockets/ioInstance.js";
 import { ErrorServicio } from "./ErrorServicio.js";
+import { escribirLog } from "../observabilidad/logger.js";
 
 interface OpcionesMensaje {
     permitirMensajeInicialPendiente?: boolean;
@@ -38,7 +39,7 @@ function emitirMensajePersistido(
     } catch (error) {
         // El commit ya ocurrió. Un fallo del transporte en tiempo real no debe
         // convertir un mensaje persistido en un 500 ambiguo para el cliente.
-        console.error("[Mensajeria] No se pudieron emitir eventos de socket:", error);
+        escribirLog("error", "messaging.socket_emit_failed", { error });
     }
 }
 

@@ -2,11 +2,12 @@ import cron from "node-cron";
 import prisma from "../persistencia/prismaClient";
 import redisClient from "../persistencia/redisClient";
 import { obtenerPublicacionesPorPadre } from "../repository/repositorioRecomendacion";
+import { escribirLog } from "../observabilidad/logger.js";
 
 // Recalcula las listas de recomendaciones por carrera y las guarda en Redis.
 // Siempre sobreescribe la clave existente para mantener datos frescos.
 async function ejecutarBatch(): Promise<void> {
-    console.log("[Recomendaciones] Iniciando batch...");
+    escribirLog("info", "recommendations.batch_started");
 
     try {
         // Solo etiquetas raíz (carreras): las que no tienen padre
@@ -27,14 +28,14 @@ async function ejecutarBatch(): Promise<void> {
             );
         }
 
-        console.log(`[Recomendaciones] Batch completado — ${padres.length} grupos procesados`);
+        escribirLog("info", "recommendations.batch_completed", { processedGroups: padres.length });
     } catch (error) {
-        console.error("[Recomendaciones] Error en batch:", error);
+        escribirLog("error", "recommendations.batch_failed", { error });
     }
 }
 
 // Registra el cron: corre a las 12am y 12pm todos los días
 export function iniciarCronRecomendacion(): void {
     cron.schedule("0 0,12 * * *", ejecutarBatch);
-    console.log("[Recomendaciones] Cron registrado — 12am y 12pm");
+    escribirLog("info", "recommendations.cron_registered", { schedule: "0 0,12 * * *" });
 }

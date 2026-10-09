@@ -7,9 +7,22 @@ import cookieParser from "cookie-parser";
 import express, { NextFunction, Request, Response } from "express";
 import { RateLimiterNoDisponibleError, rateLimitGlobal } from "./autenticacion/rateLimiter.js";
 import { TipoArchivoError } from "./servicios/middlewareMulter.js";
+import { observabilidadHttp } from "./observabilidad/middlewareObservabilidad.js";
+import { escribirLog } from "./observabilidad/logger.js";
 import { configuracionTrustProxy } from "./autenticacion/proxyConfiable.js";
 
 const app = express();
+
+// Por defecto Express usa la IP de la conexión directa. En producción, el
+// dueño del servidor debe indicar cuántos proxies confiables hay delante de
+// la API; confiar indiscriminadamente en X-Forwarded-For permitiría evadir
+// los límites por IP.
+const trustProxyHops = Number.parseInt(process.env.TRUST_PROXY_HOPS ?? "0", 10);
+if (Number.isFinite(trustProxyHops) && trustProxyHops > 0) {
+    app.set("trust proxy", trustProxyHops);
+}
+
+app.use(observabilidadHttp);
 
 // Debe ir antes de cualquier middleware que use req.ip (rate limiting, login).
 app.set("trust proxy", configuracionTrustProxy());
@@ -69,7 +82,7 @@ if (process.env.NODE_ENV !== "production") {
 app.use("/api", routes);
 app.use("/api/v1", routes);
 
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof RateLimiterNoDisponibleError) {
         res.status(503).json({ success: false, message: err.message });
         return;
@@ -82,7 +95,14 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
         res.status(400).json({ success: false, message: `Error de archivo: ${err.message}` });
         return;
     }
-    console.error(err);
+    escribirLog("error", "http.unhandled_error", {
+        requestId: req.requestId,
+        userId: req.usuario?.sub,
+        ip: req.ip,
+        method: req.method,
+        route: req.originalUrl.split("?")[0],
+        error: err,
+    });
     res.status(500).json({ success: false, message: "Error interno del servidor" });
 });
 

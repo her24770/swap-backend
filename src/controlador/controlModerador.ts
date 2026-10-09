@@ -50,6 +50,8 @@ export async function iniciarSesionModerador(req: Request, res: Response, next: 
             return;
         }
 
+        req.auditUserId = String(moderador.id_moderador);
+
         const esPasswordCorrecta = await ServicioBcrypt.compararPassword(password, moderador.password);
         if (!esPasswordCorrecta) {
             await registrarIntento("login", ip);

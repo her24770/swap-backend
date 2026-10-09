@@ -1,6 +1,7 @@
 import prisma from "../persistencia/prismaClient";
 import redisClient from "../persistencia/redisClient";
 import { obtenerTop2PadresUsuario } from "../repository/repositorioRecomendacion";
+import { escribirLog } from "../observabilidad/logger.js";
 
 export type TipoEvento =
     | "VER_PUBLICACION"
@@ -39,10 +40,10 @@ export async function invalidarCacheRecomendacionesUsuario(
         );
 
     } catch (error) {
-        console.error(
-            "[Recomendacion] Error invalidando cache:",
-            error
-        );
+        escribirLog("error", "recommendations.cache_invalidation_failed", {
+            userId: idUsuario,
+            error,
+        });
     }
 }
 
@@ -76,7 +77,12 @@ export async function registrarEventoPublicacion(
             )
         );
     } catch (error) {
-        console.error("[Recomendacion] Error registrando evento:", error);
+        escribirLog("error", "recommendations.event_registration_failed", {
+            userId: idUsuario,
+            publicationId: idPublicacion,
+            interaction: tipoEvento,
+            error,
+        });
     }
 }
 
@@ -121,7 +127,11 @@ export async function registrarEventoFavorita(
             )
         );
     } catch (error) {
-        console.error("[Recomendacion] Error registrando favoritas:", error);
+        escribirLog("error", "recommendations.favorite_registration_failed", {
+            userId: idUsuario,
+            tagCount: idsEtiquetas.length,
+            error,
+        });
     }
 }
 
@@ -178,7 +188,11 @@ export async function quitarEventoFavorita(
             })
         );
     } catch (error) {
-        console.error("[Recomendacion] Error quitando favoritas:", error);
+        escribirLog("error", "recommendations.favorite_removal_failed", {
+            userId: idUsuario,
+            tagCount: idsEtiquetas.length,
+            error,
+        });
     }
 }
 
