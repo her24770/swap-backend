@@ -79,11 +79,33 @@ jobs:
       # (postgres-integration, redis-integration e integration-tests).
       - run: sh scripts/run-integration.sh
 
+  zap-baseline:
+    name: Escaneo DAST OWASP ZAP (Baseline)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Ejecutar escaneo OWASP ZAP baseline contra copia efímera
+        run: |
+          chmod +x security/zap/run-zap.sh
+          bash security/zap/run-zap.sh ci-baseline
+      - name: Publicar reporte de seguridad OWASP ZAP
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report-baseline-${{ github.run_id }}
+          path: security/zap/reports/ci-baseline/
+          if-no-files-found: ignore
+          retention-days: 14
+
   deploy:
     name: Deploy a producción
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [auditoria-dependencias, lint-y-typecheck, pruebas-unitarias, pruebas-integracion]
+    needs: [auditoria-dependencias, lint-y-typecheck, pruebas-unitarias, pruebas-integracion, zap-baseline]
     runs-on: ubuntu-latest
+
     concurrency:
       group: deploy-produccion-backend
       cancel-in-progress: false
