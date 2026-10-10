@@ -24,28 +24,45 @@ cd security/zap
 #    topología del proxy (rate limit compartido, fuerza bruta, timing, etc.)
 ./validar-hallazgos.sh
 
-# 3. Escaneos con ZAP: anónimo, autenticado por rol, y pasivo contra producción
+# 3. Escaneo rápido de CI (Baseline, ~1 min): anónimo + autenticado
+./run-zap.sh ci-baseline
+
+# 4. Escaneos exhaustivos con ZAP (manual/auditoría profunda): 
+#    anónimo, autenticado por rol y pasivo contra producción (~30-40 min por rol)
 ./run-zap.sh scan anonimo usuario moderador superadmin produccion
 
-# 4. Apagar la copia y borrar sus datos
+# 5. Apagar la copia y borrar sus datos
 ./run-zap.sh down
 ```
 
-Cada fase de `scan` puede correrse por separado (`./run-zap.sh scan anonimo`)
+## Escaneo rápido en CI (`ci-baseline`)
+
+Para el pipeline de integración continua (cubriendo la tarea **ST-TT-S9-08-3**), se incluye el comando `./run-zap.sh ci-baseline`, diseñado para correr de forma automatizada en cada Pull Request:
+
+1. **Efímero y ligero:** Levanta la copia aislada, construye automáticamente un mock ultra-ligero de embeddings (`mock-embeddings/`) para no descargar 500 MB de modelos de ML en el runner, y ejecuta los seeds.
+2. **Plan Baseline (`plans/api-baseline.yaml`):** Importa el OpenAPI vivo y realiza análisis pasivo tanto sin sesión como con el usuario de prueba (`vendedor@uvg.edu.gt`), omitiendo ataques agresivos para completar la auditoría en ~1 minuto.
+3. **Criterio de fallo:** Evalúa el `reporte.json`. Si detecta vulnerabilidades de severidad **Alta** (`riskcode == "3"` o `High`), el proceso finaliza con código de error `1`, fallando el check del PR y bloqueando el despliegue a producción. Si no hay alertas altas, finaliza con código `0`.
+4. **Artefactos:** Los resultados (`reporte.html`, `reporte.json` y `reporte.md`) se guardan en `reports/ci-baseline/` y en GitHub Actions se publican como artefacto descargable (`zap-report-baseline-<run_id>`).
+5. **Limpieza:** Al finalizar (incluso ante cancelaciones o fallos), apaga y elimina automáticamente los contenedores y volúmenes efímeros.
+
+Cada fase de `scan` exhaustivo puede correrse por separado (`./run-zap.sh scan anonimo`)
 y los reportes quedan en `reports/<fecha-hora>/<fase>/` (HTML, JSON y
 Markdown). `reports/` no se sube al repo — puede contener rutas, payloads y
 metadatos de la app real; se adjunta a mano en Jira (SWAP-574) como evidencia.
+
 
 ## Qué hace cada pieza
 
 | Archivo | Rol |
 |---|---|
 | `docker-compose.zap.yml` | Copia aislada: Postgres, Redis, embeddings, API y un nginx que replica el bloque real de producción (mismos `proxy_set_header`, para que `req.ip` se comporte igual). |
+| `mock-embeddings/` | Servidor HTTP mínimo en Python sin dependencias externas para simular el servicio de IA en pipelines de CI sin descargar modelos pesados. |
 | `nginx.conf` | El nginx de la copia (sin TLS). |
+| `plans/api-baseline.yaml` | Escaneo rápido para CI: importa OpenAPI, analiza tráfico pasivo anónimo y autenticado, omitiendo ataques agresivos. |
 | `plans/api-anonimo.yaml` | Escaneo activo sin sesión: importa el OpenAPI y ataca cada endpoint como visitante no autenticado. |
 | `plans/api-autenticado.yaml` | Igual, pero inyectando el JWT de un rol (usuario / moderador / superadmin) en cada petición vía Replacer. |
 | `plans/produccion-pasivo.yaml` | Solo lectura contra `swap.jhgo.online`: páginas públicas + spider superficial. Excluye `/api/` y `/socket.io/` a propósito (rate limit compartido con usuarios reales). |
-| `run-zap.sh` | Orquesta todo: levanta/apaga la copia, exporta el OpenAPI vivo, saca tokens por rol, corre ZAP con el plan correcto y guarda evidencia (reportes, códigos HTTP por nginx, entorno usado). |
+| `run-zap.sh` | Orquesta todo: levanta/apaga la copia, exporta el OpenAPI vivo, corre escaneo baseline (`ci-baseline`) o completo (`scan`) y evalúa alertas de severidad alta. |
 | `validar-hallazgos.sh` | Reproduce a mano, con contenedores `curl` como clientes separados, los hallazgos que un escaneo automático no puede confirmar solo (ver abajo). |
 
 ## Por qué existe `validar-hallazgos.sh`
