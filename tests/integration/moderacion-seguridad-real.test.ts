@@ -626,6 +626,7 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
             vi.spyOn(console, "error").mockImplementation(() => {});
             vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Conexión con OpenAI rechazada (503)"));
 
+            // SWAP-603 / ST-TT-S9-01-3: La publicación se crea retenida en estado 'pendiente' (fail-closed)
             const respuestaFalloProveedor = await request(app)
                 .post("/api/v1/publicacion")
                 .set("Authorization", `Bearer ${usuario.token}`)
@@ -633,16 +634,17 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
                 .field("descripcion", "Libro de texto universitario en excelente estado")
                 .field("precio", "75.00")
                 .field("tipo_publicacion", "material")
-                .expect(503);
+                .expect(201);
 
-            expect(respuestaFalloProveedor.body.success).toBe(false);
-            expect(respuestaFalloProveedor.body.message).toContain("No se pudo verificar el contenido");
+            expect(respuestaFalloProveedor.body.success).toBe(true);
+            expect(respuestaFalloProveedor.body.message).toContain("revisión manual");
 
-            // 3. Verificación de que NINGUNA publicación fue creada en PostgreSQL (comportamiento fail-closed)
+            // 3. Verificación de que la publicación quedó en estado 'pendiente' (no visible al público)
             const publicacionesEnDb = await prisma.publicacion.findMany({
                 where: { id_usuario: usuario.id_usuario },
             });
-            expect(publicacionesEnDb.length).toBe(0);
+            expect(publicacionesEnDb.length).toBe(1);
+            expect(publicacionesEnDb[0].estado).toBe(estados.pendiente);
         });
 
         it("IT-28 (Escenario B): falla la moderación externa de imágenes y la publicación no se crea de forma permisiva (BG-16)", async () => {
@@ -663,6 +665,7 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
             );
 
             // 3. El usuario intenta crear la publicación adjuntando una imagen
+            // SWAP-603 / ST-TT-S9-01-3: Ante fallo del proveedor, la publicación queda retenida en 'pendiente'
             const imagenBuffer = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
             const respuestaCreacion = await request(app)
                 .post("/api/v1/publicacion")
@@ -672,20 +675,17 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
                 .field("precio", "60.00")
                 .field("tipo_publicacion", "tutoria")
                 .attach("imagenes", imagenBuffer, "foto_tutoria.png")
-                .expect(503);
+                .expect(201);
 
-            expect(respuestaCreacion.body.success).toBe(false);
-            expect(respuestaCreacion.body.message).toContain("No se pudo verificar el contenido");
+            expect(respuestaCreacion.body.success).toBe(true);
+            expect(respuestaCreacion.body.message).toContain("revisión manual");
 
-            // 4. Verificación de que la publicación NO fue persistida en PostgreSQL antes de moderar las imágenes (BG-16)
+            // 4. Verificación de que la publicación quedó en estado 'pendiente' retenida para moderación
             const publicacionesEnDb = await prisma.publicacion.findMany({
                 where: { id_usuario: usuario.id_usuario },
             });
-            expect(publicacionesEnDb.length).toBe(0);
-
-            // Tampoco deben quedar imágenes huérfanas en la base de datos
-            const imagenesEnDb = await prisma.imagenPublicacion.findMany();
-            expect(imagenesEnDb.length).toBe(0);
+            expect(publicacionesEnDb.length).toBe(1);
+            expect(publicacionesEnDb[0].estado).toBe(estados.pendiente);
         });
 
         it("IT-28 (Escenario C): falla la moderación externa en certificaciones y el procesamiento en background aplica fail-closed", async () => {
