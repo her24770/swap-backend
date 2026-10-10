@@ -33,6 +33,7 @@ export interface CrearPublicacionParams {
     idUsuario: number;
     datos: CrearPublicacionInput;
     archivos: Express.Multer.File[];
+    requiereRevisionManual?: boolean;
 }
 
 export interface EditarPublicacionParams {
@@ -40,6 +41,7 @@ export interface EditarPublicacionParams {
     idUsuario: number;
     datos: EditarPublicacionInput;
     archivos: Express.Multer.File[];
+    requiereRevisionManual?: boolean;
 }
 
 async function subirImagenes(
@@ -86,18 +88,23 @@ function ejecutarTareasPosteriores(
 }
 
 export async function crearPublicacion(params: CrearPublicacionParams) {
-    const { idUsuario, datos, archivos } = params;
+    const { idUsuario, datos, archivos, requiereRevisionManual = false } = params;
     if (!idUsuario) throw new ErrorServicio("Usuario no autenticado", 401);
+
+    // OWASP Top 10 A10: Política Fail-Closed.
+    // Si la moderación externa no pudo verificar el contenido por caída o error,
+    // se fuerza el estado a 'pendiente' para retener la publicación de la vista pública.
+    const estadoDestino = requiereRevisionManual ? "pendiente" : (datos.estado ?? "disponible");
 
     const [usuario, tipoPerfil, estado] = await Promise.all([
         buscarUsuarioPorId(idUsuario),
         obtenerTipoPerfilPorNombre(datos.tipo_publicacion),
-        obtenerEstadoPorNombre(datos.estado ?? "disponible"),
+        obtenerEstadoPorNombre(estadoDestino),
     ]);
 
     if (!usuario) throw new ErrorServicio("Usuario no encontrado", 404);
     if (!tipoPerfil) throw new ErrorServicio("Tipo de publicacion no encontrado", 404);
-    if (!estado) throw new ErrorServicio(`Estado inválido: "${datos.estado ?? "disponible"}".`, 400);
+    if (!estado) throw new ErrorServicio(`Estado inválido: "${estadoDestino}".`, 400);
 
     const data: Prisma.PublicacionCreateInput = {
         titulo: datos.titulo,
@@ -122,7 +129,7 @@ export async function crearPublicacion(params: CrearPublicacionParams) {
 }
 
 export async function editarPublicacion(params: EditarPublicacionParams) {
-    const { idPublicacion, idUsuario, datos, archivos } = params;
+    const { idPublicacion, idUsuario, datos, archivos, requiereRevisionManual = false } = params;
     const publicacion = await buscarPublicacionPorId(idPublicacion);
     if (!publicacion) throw new ErrorServicio("Publicacion no encontrada", 404);
     if (publicacion.id_usuario !== idUsuario) {
@@ -149,7 +156,13 @@ export async function editarPublicacion(params: EditarPublicacionParams) {
     if (datos.descripcion !== undefined) updateData.descripcion = datos.descripcion;
     if (datos.precio !== undefined) updateData.precio = datos.precio;
 
-    if (datos.estado !== undefined) {
+    // Fail-Closed: si la edición no pudo moderarse externamente, se retiene en 'pendiente'
+    if (requiereRevisionManual) {
+        const estadoPendiente = await obtenerEstadoPorNombre("pendiente");
+        if (estadoPendiente) {
+            updateData.estadoRel = { connect: { id_estado: estadoPendiente.id_estado } };
+        }
+    } else if (datos.estado !== undefined) {
         const estado = await obtenerEstadoPorNombre(datos.estado);
         if (!estado) throw new ErrorServicio(`Estado inválido: "${datos.estado}".`, 400);
         updateData.estadoRel = { connect: { id_estado: estado.id_estado } };
