@@ -4,6 +4,7 @@ import { buscarPublicacionPorId } from "../repository/repositorioPublicacion";
 import { buscarRelacionUsuarioPublicacion } from "../repository/repositorioGuardados";
 import { registrarInteraccionPublicacion } from "../autenticacion/eventoRecomendacion";
 import { exitoResponse, errorResponse } from "../servicios/Response";
+import { escribirLog } from "../observabilidad/logger.js";
 
 export async function like(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -33,10 +34,12 @@ export async function like(req: Request, res: Response, next: NextFunction): Pro
         //registrar evento de like
         if(publicacion.id_usuario !== idUsuario) {
             registrarInteraccionPublicacion(idUsuario, idPublicacion, "LIKE_PUBLICACION").catch((error) => {
-                console.error(
-                    "[Recomendacion] Error registrando like:",
-                    error
-                );
+                escribirLog("error", "recommendations.interaction_failed", {
+                    requestId: req.requestId,
+                    interaction: "like_publication",
+                    publicationId: idPublicacion,
+                    error,
+                });
             });
         }
         exitoResponse(res, resultado, "Like agregado exitosamente.", 200);

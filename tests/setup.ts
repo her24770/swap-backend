@@ -1,6 +1,7 @@
 import { vi } from "vitest";
 
 process.env.NODE_ENV = "test";
+process.env.LOG_LEVEL ??= "silent";
 process.env.JWT_SECRET ??= "test-secret";
 process.env.DATABASE_URL ??= "postgresql://swap_test:swap_test@localhost:55432/swap_unit_test?schema=public";
 process.env.REDIS_URL ??= "redis://localhost:56379/15";

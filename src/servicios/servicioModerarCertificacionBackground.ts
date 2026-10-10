@@ -6,6 +6,7 @@ import {
     RechazoValidacionPdfError,
     RechazoModeracionPdfError,
 } from "./servicioModeracionCertificacion.js";
+import { escribirLog } from "../observabilidad/logger.js";
 
 /**
  * Estructura de datos para encolar la moderación de un certificado en background.
@@ -87,8 +88,8 @@ class PoolModeracionCertificaciones {
         if (siguienteTarea) {
             try {
                 await siguienteTarea();
-            } catch {
-                // Silenciar errores no controlados para evitar volcar datos sensibles en consola
+            } catch (error) {
+                escribirLog("error", "moderation.background_task_failed", { error });
             } finally {
                 this.concurrentesActivos--;
                 this.procesarSiguiente();
@@ -174,6 +175,11 @@ export async function procesarCertificacionEnBackground(tarea: TareaModeracionCe
         }
 
         // Si fue un error técnico temporal de servicios externos
+        escribirLog("error", "moderation.provider_failed", {
+            providerType: "certification",
+            userId: tarea.idUsuario,
+            error,
+        });
         await notificarAccionModeracion(
             tarea.idUsuario,
             `No fue posible procesar tu certificación "${tarea.datos.nombre}" por un error temporal. Por favor, intenta subirla nuevamente.`

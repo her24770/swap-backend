@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { analizarTexto } from "../servicios/servicioModeracionTexto.js";
 import { analizarImagen } from "../servicios/servicioModeracionImagen.js";
 import { errorResponse } from "../servicios/Response.js";
+import { escribirLog } from "../observabilidad/logger.js";
 
 // Factory: recibe los campos del body a analizar, retorna el middleware
 export function moderarTexto(campos: string[]) {
@@ -24,7 +25,12 @@ export function moderarTexto(campos: string[]) {
                 return;
             }
         } catch (error) {
-            console.error('[ModeracionTexto] Error al contactar API de moderación:', error);
+            escribirLog("error", "moderation.provider_failed", {
+                requestId: req.requestId,
+                providerType: "text",
+                route: req.originalUrl,
+                error,
+            });
             errorResponse(res, 'No se pudo verificar el contenido. Inténtalo de nuevo.', 503);
             return;
         }
@@ -48,7 +54,12 @@ export async function moderarImagenes(req: Request, res: Response, next: NextFun
         }
         next();
     } catch (error) {
-        console.error('[ModeracionImagen] Error al contactar API de moderación:', error);
+        escribirLog("error", "moderation.provider_failed", {
+            requestId: req.requestId,
+            providerType: "image",
+            route: req.originalUrl,
+            error,
+        });
         errorResponse(res, 'No se pudo verificar el contenido. Inténtalo de nuevo.', 503);
     }
 }

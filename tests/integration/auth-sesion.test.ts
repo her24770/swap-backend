@@ -4,6 +4,7 @@ import app from "../../src/app";
 import prisma from "../../src/persistencia/prismaClient";
 import redis from "../../src/persistencia/redisClient";
 import { ServicioBcrypt } from "../../src/autenticacion/ServicioBcrypt";
+import { limpiarIntentos } from "../../src/autenticacion/rateLimiter";
 import {
     construirClaveRecuperacionPassword,
     TIEMPO_EXPIRACION_CODIGO_SEGUNDOS,
@@ -148,6 +149,44 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
             expect(codigo).not.toBeNull();
             const codigoInexistente = await redis.get(construirClaveRecuperacionPassword("no-existe@uvg.edu.gt"));
             expect(codigoInexistente).toBeNull();
+        });
+
+        it("forgot-password: limita por cuenta y por IP con mensajes genéricos", async () => {
+            const mensajeGenerico = "Si el correo existe, recibirás un código.";
+
+            // La cuarta solicitud a una misma cuenta queda bloqueada.
+            for (let intento = 0; intento < 3; intento += 1) {
+                const respuesta = await request(app)
+                    .post("/api/v1/auth/forgot-password")
+                    .send({ email: "misma-cuenta@uvg.edu.gt" })
+                    .expect(200);
+                expect(respuesta.body.message).toBe(mensajeGenerico);
+            }
+            await request(app)
+                .post("/api/v1/auth/forgot-password")
+                .send({ email: "misma-cuenta@uvg.edu.gt" })
+                .expect(429);
+
+            // Limpiar solo la cuota de cuenta no permite eludir la cuota de IP.
+            await limpiarIntentos("solicitar_codigo_recuperacion", "misma-cuenta@uvg.edu.gt");
+            await request(app)
+                .post("/api/v1/auth/forgot-password")
+                .send({ email: "otra-cuenta@uvg.edu.gt" })
+                .expect(429);
+        });
+
+        it("verify-reset-code: limita por IP aunque se roten las cuentas objetivo", async () => {
+            for (let intento = 0; intento < 5; intento += 1) {
+                await request(app)
+                    .post("/api/v1/auth/verify-reset-code")
+                    .send({ email: `objetivo-${intento}@uvg.edu.gt`, code: "000000" })
+                    .expect(400);
+            }
+
+            await request(app)
+                .post("/api/v1/auth/verify-reset-code")
+                .send({ email: "objetivo-final@uvg.edu.gt", code: "000000" })
+                .expect(429);
         });
 
         it("reset-password: cambia la contraseña, consume el código, y la contraseña vieja deja de servir", async () => {
