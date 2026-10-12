@@ -6,7 +6,7 @@ Backend service for **Swap** — a platform for student tutoring, academic mater
 
 | Layer            | Technology              |
 | ---------------- | ----------------------- |
-| Runtime          | Node.js 20              |
+| Runtime          | Node.js 22              |
 | Framework        | Express.js              |
 | Language         | TypeScript              |
 | Real-time        | Socket.io               |
@@ -34,7 +34,7 @@ Backend service for **Swap** — a platform for student tutoring, academic mater
 
 | Container  | Image          | Port |
 | ---------- | -------------- | ---- |
-| `backend`  | node:20-alpine | 3001 |
+| `backend`  | node:22.22.3-alpine3.22 | 3001 |
 | `postgres` | postgres:16    | 5432 |
 | `redis`    | redis:7-alpine | 6379 |
 
@@ -278,7 +278,7 @@ tests/integration/health.test.ts
 Después de instalar las dependencias:
 
 ```bash
-npm install
+npm ci
 ```
 
 Ejecutar tests en modo desarrollo:
@@ -355,7 +355,7 @@ Esta separación permite importar la aplicación en los tests sin iniciar el ser
 ## Flujo de trabajo recomendado al integrarse al proyecto
 
 1. Clonar el repo y copiar `.env.example` → `.env`
-2. (Opcional) Instalar dependencias: `npm install` y ejecutar pruebas con `npm test`
+2. (Opcional) Instalar dependencias: `npm ci` y ejecutar pruebas con `npm test`
 3. `docker compose up -d --build`
 4. Verificar `curl http://localhost:3001/health`
 5. Correr los seeds si necesitas datos:
@@ -365,6 +365,10 @@ Esta separación permite importar la aplicación en los tests sin iniciar el ser
    docker compose exec api npx tsx prisma/backfillEmbeddings.ts
    ```
 6. (Opcional) Abrir Prisma Studio para explorar la BD: `docker compose exec backend npx prisma studio`
+
+La construcción determinista, la actualización de locks/digests y la
+comparación de dos imágenes se documentan en
+[`docs/builds-reproducibles.md`](docs/builds-reproducibles.md).
 
 ---
 

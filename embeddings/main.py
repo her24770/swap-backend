@@ -5,7 +5,10 @@ from typing import List
 
 app = FastAPI()
 
-modelo = TextEmbedding('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
+modelo = TextEmbedding(
+    'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',
+    local_files_only=True,
+)
 
 class TextoInput(BaseModel):
     texto: str

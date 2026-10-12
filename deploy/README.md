@@ -31,6 +31,10 @@ El backend en producción usa `docker-compose.prod.yml`, **no** `docker-compose.
 los datos reales). El frontend usa el `docker-compose.yml` y el `Dockerfile` que
 existen solo en el servidor (están en el `.gitignore` del repo).
 
+Antes del build manual, el dueño exporta `SOURCE_DATE_EPOCH` con la fecha del
+commit. El procedimiento y la verificación por digest están en
+[`docs/builds-reproducibles.md`](../docs/builds-reproducibles.md).
+
 ## Secrets de GitHub (en ambos repos)
 
 | Secret | Contenido |
