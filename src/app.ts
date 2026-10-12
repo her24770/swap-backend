@@ -6,7 +6,7 @@ import swaggerRoutes from "./openapi/swagger";
 import cookieParser from "cookie-parser";
 import express, { NextFunction, Request, Response } from "express";
 import { RateLimiterNoDisponibleError, rateLimitGlobal } from "./autenticacion/rateLimiter.js";
-import { TipoArchivoError } from "./servicios/middlewareMulter.js";
+import { esErrorCargaArchivo, TipoArchivoError } from "./servicios/middlewareMulter.js";
 import { observabilidadHttp } from "./observabilidad/middlewareObservabilidad.js";
 import { escribirLog } from "./observabilidad/logger.js";
 import { configuracionTrustProxy } from "./autenticacion/proxyConfiable.js";
@@ -89,6 +89,10 @@ app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
     }
     if (err instanceof TipoArchivoError) {
         res.status(400).json({ success: false, message: err.message });
+        return;
+    }
+    if (esErrorCargaArchivo(err)) {
+        res.status(400).json({ success: false, message: "Error al procesar el archivo." });
         return;
     }
     if (err instanceof multer.MulterError) {

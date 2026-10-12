@@ -2,6 +2,7 @@ import multer from "multer";
 
 const TAMANO_MAX = 5 * 1024 * 1024; // 5 MB
 const TAMANO_MAX_PDF = 10 * 1024 * 1024; // 10 MB
+const erroresCargaArchivo = new WeakSet<object>();
 
 const firmas: Record<string, (buffer: Buffer) => boolean> = {
     "image/jpeg": buffer => buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff,
@@ -12,6 +13,13 @@ const firmas: Record<string, (buffer: Buffer) => boolean> = {
 
 export class TipoArchivoError extends Error {}
 
+export function esErrorCargaArchivo(error: unknown): boolean {
+    return error instanceof Error && (
+        erroresCargaArchivo.has(error)
+        || error.message === "Unexpected end of form"
+    );
+}
+
 export function contenidoCoincideConMime(buffer: Buffer, mimetype: string): boolean {
     return firmas[mimetype]?.(buffer) ?? false;
 }
@@ -20,8 +28,20 @@ function crearUpload(tipos: string[], limite: number, maxArchivos: number, mensa
     const storage: multer.StorageEngine = {
         _handleFile: (_req, file, callback) => {
             const chunks: Buffer[] = [];
+            let finalizado = false;
+            const multerManejaError = file.stream.listenerCount("error") > 0;
             file.stream.on("data", chunk => chunks.push(chunk));
+            file.stream.on("error", error => {
+                if (finalizado) return;
+                finalizado = true;
+                chunks.length = 0;
+                erroresCargaArchivo.add(error);
+                // Multer propaga este mismo error y completa su callback interno.
+                if (!multerManejaError) callback(error);
+            });
             file.stream.on("end", () => {
+                if (finalizado) return;
+                finalizado = true;
                 const buffer = Buffer.concat(chunks);
                 if (!contenidoCoincideConMime(buffer, file.mimetype)) {
                     callback(new TipoArchivoError(mensaje));
