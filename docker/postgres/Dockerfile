@@ -5,10 +5,11 @@ FROM pgvector/pgvector:pg16@sha256:7b822b0aac60967beb1ea5e576b8602c94c300a157d18
 
 ARG SOURCE_DATE_EPOCH
 
-# pgBackRest realizará los respaldos físicos e incrementales en pasos posteriores.
+# pgBackRest y cron ejecutan el calendario de respaldos físicos dentro del contenedor.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates=20250419~deb12u1 \
+        cron=3.0pl1-162 \
         libssh2-1=1.10.0-3+deb12u1 \
         pgbackrest=2.59.3-1.pgdg12+1 \
     && install -d -o postgres -g postgres -m 750 /etc/pgbackrest \
@@ -19,3 +20,7 @@ RUN apt-get update \
         /var/log/dpkg.log
 
 COPY --chown=postgres:postgres --chmod=640 pgbackrest.conf /etc/pgbackrest/pgbackrest.conf
+COPY --chmod=644 pgbackrest.cron /etc/cron.d/pgbackrest
+COPY --chmod=755 scheduled-backups-entrypoint /usr/local/bin/scheduled-backups-entrypoint
+
+ENTRYPOINT ["scheduled-backups-entrypoint"]

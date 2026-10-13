@@ -1,0 +1,3 @@
+# El contenedor usa UTC: 09:00 UTC equivale a 03:00 en Guatemala.
+0 9 * * 0 postgres . /run/pgbackrest-schedule.env && pgbackrest --stanza=swap --type=full backup >> /proc/1/fd/1 2>&1
+0 9 * * 1-6 postgres . /run/pgbackrest-schedule.env && pgbackrest --stanza=swap --type=incr backup >> /proc/1/fd/1 2>&1
