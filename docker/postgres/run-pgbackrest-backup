@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+backup_type=${1:-}
+trigger=${2:-manual}
+
+case "$backup_type" in
+    full|diff|incr) ;;
+    *) echo "Uso: run-pgbackrest-backup <full|diff|incr> [scheduled|manual]" >&2; exit 64 ;;
+esac
+
+work_dir=$(mktemp -d)
+trap 'rm -rf -- "$work_dir"' EXIT
+
+started_epoch=$(date +%s)
+started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+execution_id="swap-backup-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+command_log="$work_dir/pgbackrest.log"
+report_file="$work_dir/report.json"
+
+set +e
+pgbackrest --stanza=swap --type="$backup_type" backup 2>&1 | tee "$command_log"
+command_exit=${PIPESTATUS[0]}
+set -e
+
+completed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+duration_seconds=$(($(date +%s) - started_epoch))
+status=failed
+backup_metadata=null
+metadata_status=unavailable
+error_tail=$(tail -n 20 "$command_log")
+
+if (( command_exit == 0 )); then
+    status=success
+    error_tail=
+    info_file="$work_dir/info.json"
+    if pgbackrest --stanza=swap --output=json info > "$info_file"; then
+        backup_metadata=$(jq -c '.[0].backup[-1] // null' "$info_file")
+        metadata_status=available
+    fi
+fi
+
+jq -n \
+    --arg operation backup \
+    --arg execution_id "$execution_id" \
+    --arg environment "${BACKUP_REPORT_ENVIRONMENT:-development}" \
+    --arg stanza swap \
+    --arg backup_type "$backup_type" \
+    --arg trigger "$trigger" \
+    --arg status "$status" \
+    --arg metadata_status "$metadata_status" \
+    --arg started_at "$started_at" \
+    --arg completed_at "$completed_at" \
+    --arg error "$error_tail" \
+    --argjson duration_seconds "$duration_seconds" \
+    --argjson exit_code "$command_exit" \
+    --argjson backup "$backup_metadata" \
+    '{
+        schema_version: 1,
+        operation: $operation,
+        execution_id: $execution_id,
+        environment: $environment,
+        stanza: $stanza,
+        backup_type: $backup_type,
+        trigger: $trigger,
+        status: $status,
+        metadata_status: $metadata_status,
+        started_at: $started_at,
+        completed_at: $completed_at,
+        duration_seconds: $duration_seconds,
+        pgbackrest_exit_code: $exit_code,
+        backup: (if $backup == null then null else {
+            label: $backup.label,
+            type: $backup.type,
+            database_size_bytes: $backup.info.size,
+            database_delta_bytes: $backup.info.delta,
+            repository_delta_bytes: $backup.info.repository.delta,
+            wal_start: $backup.archive.start,
+            wal_stop: $backup.archive.stop,
+            timestamp_start: $backup.timestamp.start,
+            timestamp_stop: $backup.timestamp.stop
+        } end),
+        error: (if $error == "" then null else $error end)
+    }' > "$report_file"
+
+set +e
+publish-pgbackrest-report "$report_file" backup "$execution_id"
+publish_exit=$?
+set -e
+
+(( command_exit != 0 )) && exit "$command_exit"
+exit "$publish_exit"

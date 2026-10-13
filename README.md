@@ -204,8 +204,8 @@ Operaciones manuales:
 
 ```bash
 docker compose exec -u postgres postgres pgbackrest --stanza=swap info
-docker compose exec -u postgres postgres pgbackrest --stanza=swap --type=full backup
-docker compose exec -u postgres postgres pgbackrest --stanza=swap --type=incr backup
+docker compose exec -u postgres postgres run-pgbackrest-backup full manual
+docker compose exec -u postgres postgres run-pgbackrest-backup incr manual
 ```
 
 Una restauración física requiere detener `api` y PostgreSQL antes de reemplazar

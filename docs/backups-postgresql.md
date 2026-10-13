@@ -23,6 +23,7 @@ BACKUP_R2_ACCESS_KEY_ID=
 BACKUP_R2_SECRET_ACCESS_KEY=
 BACKUP_R2_BUCKET_NAME=
 BACKUP_ENCRYPTION_KEY=
+BACKUP_REPORT_ENVIRONMENT=development
 ```
 
 La clave de cifrado puede generarse con:
@@ -60,15 +61,44 @@ docker compose exec -u postgres postgres pgbackrest --stanza=swap info
 Crear backups manuales:
 
 ```bash
-docker compose exec -u postgres postgres pgbackrest --stanza=swap --type=full backup
-docker compose exec -u postgres postgres pgbackrest --stanza=swap --type=incr backup
+docker compose exec -u postgres postgres run-pgbackrest-backup full manual
+docker compose exec -u postgres postgres run-pgbackrest-backup incr manual
 ```
+
+Usar los wrappers anteriores garantiza que la ejecución también genere su
+reporte. Invocar `pgbackrest backup` directamente no lo genera.
 
 Seguir la ejecución programada:
 
 ```bash
 docker compose logs -f postgres
 ```
+
+## Reportes
+
+Cada backup programado o manual genera una línea JSON en stdout y guarda el
+mismo documento en el bucket configurado:
+
+```text
+reports/backups/YYYY/MM/DD/<execution-id>.json
+```
+
+Las restauraciones ejecutadas con el wrapper generan:
+
+```text
+reports/restores/YYYY/MM/DD/<execution-id>.json
+```
+
+El reporte contiene ambiente, tipo, resultado, duración, código de salida,
+etiqueta, tamaños y rango WAL. Nunca incluye credenciales ni la clave de
+cifrado. `BACKUP_REPORT_ENVIRONMENT` permite distinguir `development`,
+`staging` y `production`.
+
+Si el backup termina correctamente pero falla la carga de su reporte, el JSON
+permanece en stdout y el wrapper devuelve un código distinto de cero. En una
+restauración, `status: success` confirma que los archivos fueron restaurados;
+`post_restore_validation: pending` recuerda que todavía deben validarse
+PostgreSQL y la API.
 
 ## Verificación no destructiva
 
@@ -104,7 +134,7 @@ Obtener `<ETIQUETA>` con el comando `info`.
    posteriores, por ejemplo el WAL que contiene el borrado usado en la prueba:
 
    ```bash
-   docker compose run --rm --no-deps --user postgres postgres pgbackrest --stanza=swap --set=<ETIQUETA> --type=immediate restore
+   docker compose run --rm --no-deps --user postgres postgres run-pgbackrest-restore --set=<ETIQUETA> --type=immediate
    ```
 
 5. Iniciar PostgreSQL, promover la copia restaurada y reactivar la API:
