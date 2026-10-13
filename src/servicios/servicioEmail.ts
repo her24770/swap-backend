@@ -16,7 +16,7 @@ function obtenerClienteResend(): Resend {
 }
 
 async function enviarCodigo(to: string, subject: string, titulo: string, code: string): Promise<void> {
-    await obtenerClienteResend().emails.send({
+    const { error } = await obtenerClienteResend().emails.send({
         from: process.env.SMTP_FROM ?? DEFAULT_FROM,
         to,
         subject,
@@ -26,7 +26,12 @@ async function enviarCodigo(to: string, subject: string, titulo: string, code: s
             <p>Este código es válido por <strong>10 minutos</strong>.</p>
             <p>Si no solicitaste esto, ignora este correo.</p>
         `,
+        text: `${titulo}\n\nTu código es: ${code}\n\nEste código es válido por 10 minutos.\n\nSi no solicitaste esto, ignora este correo.`,
     });
+
+    if (error) {
+        throw new Error(`Error al enviar correo con Resend: ${error.message}`);
+    }
 }
 
 export async function enviarCodigoRecuperacion(to: string, code: string): Promise<void> {
