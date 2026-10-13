@@ -1,0 +1,137 @@
+# Backups de PostgreSQL
+
+El proyecto usa pgBackRest para guardar respaldos físicos cifrados en un bucket
+privado de Cloudflare R2. PostgreSQL archiva los WAL continuamente y conserva
+las últimas cuatro cadenas de backups completos.
+
+## Calendario
+
+- Full: domingo a las 03:00, hora de Guatemala.
+- Incremental: lunes a sábado a las 03:00, hora de Guatemala.
+
+El calendario se ejecuta dentro del contenedor `postgres`. No depende del
+servicio antiguo `postgres-backup`.
+
+## Configuración inicial
+
+Crear un bucket privado de R2 y un token con acceso de lectura y escritura sobre
+ese bucket. Configurar en `.env`:
+
+```dotenv
+BACKUP_R2_ACCOUNT_ID=
+BACKUP_R2_ACCESS_KEY_ID=
+BACKUP_R2_SECRET_ACCESS_KEY=
+BACKUP_R2_BUCKET_NAME=
+BACKUP_ENCRYPTION_KEY=
+```
+
+La clave de cifrado puede generarse con:
+
+```bash
+openssl rand -base64 48
+```
+
+Guardar `BACKUP_ENCRYPTION_KEY` fuera del servidor. Sin ella no se pueden
+restaurar los backups.
+
+Construir e iniciar los servicios:
+
+```bash
+docker compose up -d --build --remove-orphans
+```
+
+Inicializar y validar la stanza una sola vez:
+
+```bash
+docker compose exec -u postgres postgres pgbackrest --stanza=swap stanza-create
+docker compose exec -u postgres postgres pgbackrest --stanza=swap check
+```
+
+En producción, agregar `-f docker-compose.prod.yml` a los comandos de Compose.
+
+## Uso
+
+Consultar los backups disponibles:
+
+```bash
+docker compose exec -u postgres postgres pgbackrest --stanza=swap info
+```
+
+Crear backups manuales:
+
+```bash
+docker compose exec -u postgres postgres pgbackrest --stanza=swap --type=full backup
+docker compose exec -u postgres postgres pgbackrest --stanza=swap --type=incr backup
+```
+
+Seguir la ejecución programada:
+
+```bash
+docker compose logs -f postgres
+```
+
+## Verificación no destructiva
+
+`check` valida la conexión con PostgreSQL, el repositorio R2 y el archivado WAL.
+`verify` relee el backup indicado y comprueba su integridad:
+
+```bash
+docker compose exec -u postgres postgres pgbackrest --stanza=swap check
+docker compose exec -u postgres postgres pgbackrest --stanza=swap --set=<ETIQUETA> verify
+```
+
+Obtener `<ETIQUETA>` con el comando `info`.
+
+## Prueba real de restauración
+
+> **Destructivo:** ejecutar únicamente en un entorno local desechable. Estos
+> pasos reemplazan por completo el volumen local de PostgreSQL.
+
+1. Crear un full y copiar su etiqueta desde `info`.
+2. Detener los procesos que escriben en la base:
+
+   ```bash
+   docker compose stop api postgres
+   ```
+
+3. Vaciar únicamente el volumen PostgreSQL:
+
+   ```bash
+   docker compose run --rm --no-deps --user postgres --entrypoint find postgres /var/lib/postgresql/data -mindepth 1 -delete
+   ```
+
+4. Restaurar el punto exacto del full. `immediate` evita reproducir WAL
+   posteriores, por ejemplo el WAL que contiene el borrado usado en la prueba:
+
+   ```bash
+   docker compose run --rm --no-deps --user postgres postgres pgbackrest --stanza=swap --set=<ETIQUETA> --type=immediate restore
+   ```
+
+5. Iniciar PostgreSQL, promover la copia restaurada y reactivar la API:
+
+   ```bash
+   docker compose up -d --wait postgres
+   docker compose exec -u postgres postgres sh -lc 'psql -U "$PGBACKREST_PG1_USER" -d postgres -c "select pg_wal_replay_resume();"'
+   docker compose up -d api
+   ```
+
+6. Confirmar el resultado:
+
+   ```bash
+   docker compose exec -u postgres postgres sh -lc 'psql -U "$PGBACKREST_PG1_USER" -d "$POSTGRES_DB" -Atc "select pg_is_in_recovery();"'
+   docker compose exec -u postgres postgres pgbackrest --stanza=swap check
+   curl --fail http://127.0.0.1:3001/api/health
+   ```
+
+La primera consulta debe devolver `f`, `check` debe finalizar correctamente y
+la API debe responder con `{"status":"ok"}`.
+
+## Fallos comunes
+
+- `no valid backups`: todavía no existe un backup full.
+- `ArchiveMismatchError`: el volumen pertenece a otro clúster; no crear una
+  stanza nueva sobre el repositorio existente.
+- Error al descifrar: `BACKUP_ENCRYPTION_KEY` no coincide con la usada al crear
+  el backup.
+- Error S3 o DNS: comprobar las credenciales, el bucket y la conectividad hacia
+  R2 antes de volver a ejecutar `check`.
