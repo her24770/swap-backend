@@ -15,3 +15,5 @@ RUN apt-get update \
         /var/lib/apt/lists/* \
         /var/log/apt/* \
         /var/log/dpkg.log
+
+COPY --chown=postgres:postgres --chmod=640 pgbackrest.conf /etc/pgbackrest/pgbackrest.conf
