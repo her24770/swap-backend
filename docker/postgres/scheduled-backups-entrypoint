@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+if [[ "${1:-}" == postgres ]]; then
+    environment_file=/run/pgbackrest-schedule.env
+    install -o postgres -g postgres -m 600 /dev/null "$environment_file"
+
+    for variable in \
+        PGBACKREST_PG1_USER \
+        PGBACKREST_REPO1_S3_BUCKET \
+        PGBACKREST_REPO1_S3_ENDPOINT \
+        PGBACKREST_REPO1_S3_KEY \
+        PGBACKREST_REPO1_S3_KEY_SECRET \
+        PGBACKREST_REPO1_CIPHER_PASS
+    do
+        [[ -v "$variable" ]] || { echo "Falta definir $variable" >&2; exit 1; }
+        printf 'export %s=%q\n' "$variable" "${!variable}" >> "$environment_file"
+    done
+
+    printf 'export BACKUP_REPORT_ENVIRONMENT=%q\n' "${BACKUP_REPORT_ENVIRONMENT:-development}" >> "$environment_file"
+
+    cron
+    echo "[pgBackRest] full: domingo 03:00; incremental: lunes a sábado 03:00 (America/Guatemala)"
+fi
+
+exec docker-entrypoint.sh "$@"

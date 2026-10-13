@@ -193,19 +193,24 @@ docker compose exec api npx prisma generate
 
 ### Backups de PostgreSQL
 
-`postgres-backup` crea diariamente un dump validado y lo guarda en el bucket
-R2 configurado con las variables `BACKUP_R2_*`. Después de subirlo, relee el
-objeto completo, compara su SHA-256 y guarda un manifiesto JSON con metadatos,
-duración, hashes, etapa y resultado de la ejecución. Operaciones manuales:
+PostgreSQL archiva continuamente los WAL y pgBackRest guarda respaldos físicos,
+cifrados, en el bucket R2 configurado con `BACKUP_R2_*`:
+
+- full cada domingo a las 03:00 de Guatemala;
+- incremental de lunes a sábado a las 03:00 de Guatemala;
+- retención de las últimas cuatro cadenas full.
+
+Operaciones manuales:
 
 ```bash
-docker compose exec postgres-backup postgres-backup backup
-docker compose exec postgres-backup postgres-backup list
-docker compose exec postgres-backup postgres-backup restore archivo.dump
+docker compose exec -u postgres postgres pgbackrest --stanza=swap info
+docker compose exec -u postgres postgres run-pgbackrest-backup full manual
+docker compose exec -u postgres postgres run-pgbackrest-backup incr manual
 ```
 
-La restauración elimina los objetos actuales de la base destino y exige escribir
-su nombre para confirmar. Detener `api` antes de restaurar producción.
+Una restauración física requiere detener `api` y PostgreSQL antes de reemplazar
+el contenido del volumen de datos. La configuración inicial y la prueba de
+restauración están en [`docs/backups-postgresql.md`](docs/backups-postgresql.md).
 
 ---
 

@@ -54,7 +54,10 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 El siguiente deploy vuelve a `main` automáticamente.
 
-## Pendiente
+## Backups
 
-- El servicio de backups (`postgres-backup`) no está en `docker-compose.prod.yml`
-  hasta que se agreguen las variables `BACKUP_R2_*` al `.env` del servidor.
+La imagen de PostgreSQL ejecuta pgBackRest con el mismo calendario en desarrollo
+y producción: full los domingos e incremental de lunes a sábado, siempre a las
+03:00 de Guatemala. El `.env` del servidor debe definir `BACKUP_R2_*` y
+`BACKUP_ENCRYPTION_KEY`. Ver la guía de
+[backups de PostgreSQL](../docs/backups-postgresql.md).
