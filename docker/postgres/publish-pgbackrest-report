@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+[[ $# -eq 3 ]] || {
+    echo "Uso: publish-pgbackrest-report <archivo-json> <backup|restore> <execution-id>" >&2
+    exit 64
+}
+
+report_file=$1
+operation=$2
+execution_id=$3
+
+case "$operation" in
+    backup|restore) ;;
+    *) echo "Operación de reporte inválida: $operation" >&2; exit 64 ;;
+esac
+
+: "${PGBACKREST_REPO1_S3_BUCKET:?Falta PGBACKREST_REPO1_S3_BUCKET}"
+: "${PGBACKREST_REPO1_S3_ENDPOINT:?Falta PGBACKREST_REPO1_S3_ENDPOINT}"
+: "${PGBACKREST_REPO1_S3_KEY:?Falta PGBACKREST_REPO1_S3_KEY}"
+: "${PGBACKREST_REPO1_S3_KEY_SECRET:?Falta PGBACKREST_REPO1_S3_KEY_SECRET}"
+
+jq empty "$report_file"
+
+report_date=$(date -u +%Y/%m/%d)
+remote_key="reports/${operation}s/${report_date}/${execution_id}.json"
+report_uri="r2://${PGBACKREST_REPO1_S3_BUCKET}/${remote_key}"
+updated_report="${report_file}.updated"
+
+jq --arg report_uri "$report_uri" '. + {report_uri: $report_uri}' "$report_file" > "$updated_report"
+mv "$updated_report" "$report_file"
+
+export RCLONE_CONFIG_R2_TYPE=s3
+export RCLONE_CONFIG_R2_PROVIDER=Cloudflare
+export RCLONE_CONFIG_R2_ACCESS_KEY_ID="$PGBACKREST_REPO1_S3_KEY"
+export RCLONE_CONFIG_R2_SECRET_ACCESS_KEY="$PGBACKREST_REPO1_S3_KEY_SECRET"
+export RCLONE_CONFIG_R2_ENDPOINT="https://${PGBACKREST_REPO1_S3_ENDPOINT}"
+export RCLONE_CONFIG_R2_ACL=private
+export RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true
+
+set +e
+rclone copyto "$report_file" "r2:${PGBACKREST_REPO1_S3_BUCKET}/${remote_key}" --stats=0 --log-level ERROR
+upload_exit=$?
+set -e
+
+# Una línea JSON facilita su ingestión en Docker, Loki y otros colectores.
+jq -c . "$report_file"
+
+if (( upload_exit != 0 )); then
+    jq -nc \
+        --arg event pgbackrest_report_upload_failed \
+        --arg operation "$operation" \
+        --arg execution_id "$execution_id" \
+        --arg report_uri "$report_uri" \
+        --argjson exit_code "$upload_exit" \
+        '{event: $event, operation: $operation, execution_id: $execution_id, report_uri: $report_uri, exit_code: $exit_code}' >&2
+fi
+
+exit "$upload_exit"

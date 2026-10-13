@@ -18,6 +18,8 @@ if [[ "${1:-}" == postgres ]]; then
         printf 'export %s=%q\n' "$variable" "${!variable}" >> "$environment_file"
     done
 
+    printf 'export BACKUP_REPORT_ENVIRONMENT=%q\n' "${BACKUP_REPORT_ENVIRONMENT:-development}" >> "$environment_file"
+
     cron
     echo "[pgBackRest] full: domingo 03:00; incremental: lunes a sábado 03:00 (America/Guatemala)"
 fi
