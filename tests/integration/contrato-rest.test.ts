@@ -1,7 +1,12 @@
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import app from "../../src/app";
 import { openApiDocument } from "../../src/openapi/openapi";
+
+vi.mock("../../src/autenticacion/rateLimiter", () => ({
+    rateLimitGlobal: (_req: unknown, _res: unknown, next: () => void) => next(),
+    RateLimiterNoDisponibleError: class RateLimiterNoDisponibleError extends Error {},
+}));
 
 describe("contrato REST v1", () => {
     it("expone /api/v1 como versión canónica y conserva /api", async () => {

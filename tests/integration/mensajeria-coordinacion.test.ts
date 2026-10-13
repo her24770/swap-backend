@@ -4,6 +4,13 @@ import { generarTokenSintetico } from "../helpers";
 import { registrarEventosConexion } from "../../src/sockets/socketServer";
 import app from "../../src/app";
 
+vi.mock("../../src/autenticacion/rateLimiter", () => ({
+  rateLimitGlobal: (_req: unknown, _res: unknown, next: () => void) => next(),
+  permitirEventoSocket: vi.fn().mockResolvedValue(true),
+  RateLimiterNoDisponibleError: class RateLimiterNoDisponibleError extends Error {},
+  MENSAJE_RATE_LIMITER_NO_DISPONIBLE: "Servicio de control no disponible.",
+}));
+
 const estado = vi.hoisted(() => ({
   conversacion: null as any,
   mensajes: [] as any[],
@@ -113,7 +120,9 @@ vi.mock("../../src/repository/repositorioAcuerdo", () => ({
   buscarAcuerdoPorId: vi.fn(),
   actualizarAcuerdo: vi.fn(),
 }));
-vi.mock("../../src/repository/repositorioUsuario", () => ({ buscarUsuarioPorId: vi.fn() }));
+vi.mock("../../src/repository/repositorioUsuario", () => ({
+  buscarUsuarioPorId: vi.fn(async (id: number) => ({ id_usuario: id })),
+}));
 vi.mock("../../src/servicios/servicioAcuerdo", () => ({ notificarActualizacionAcuerdo: vi.fn() }));
 vi.mock("../../src/sockets/ioInstance", () => ({ getIO: vi.fn(() => null), setIO: vi.fn() }));
 

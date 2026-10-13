@@ -10,6 +10,7 @@ import { obtenerJustificanteModeracion, notificarAccionModeracion } from "../ser
 import { buscarReportesPorPublicacion } from "../repository/repositorioReporte.js";
 import { crearPublicacion, editarPublicacion as editarPublicacionServicio, eliminarPublicacionPropia } from "../servicios/servicioPublicacion.js";
 import { ErrorServicio } from "../servicios/ErrorServicio.js";
+import { escribirLog } from "../observabilidad/logger.js";
 
 function responderErrorServicio(res: Response, error: unknown): error is ErrorServicio {
     if (!(error instanceof ErrorServicio)) return false;
@@ -121,10 +122,12 @@ export async function obtenerPublicacionPorId(req: Request, res: Response, next:
         if (idUsuario !== publicacion.id_usuario) {
             //registrar evento de visualizacion
             registrarInteraccionPublicacion(idUsuario, publicacion.id_publicacion, "VER_PUBLICACION").catch((error) => {
-                console.error(
-                    "[Recomendacion] Error registrando visualizacion:",
-                    error
-                );
+                escribirLog("error", "recommendations.interaction_failed", {
+                    requestId: req.requestId,
+                    interaction: "view_publication",
+                    publicationId: publicacion.id_publicacion,
+                    error,
+                });
             });
         }
 
@@ -202,11 +205,28 @@ export async function obtenerPublicacionesModeracion(req: Request, res: Response
 export async function crearPublicacionConImagen(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
         const idUsuario = Number(req.usuario?.sub);
+        const requiereRevisionManual = Boolean(req.moderacionPendiente);
+
         const resultado = await crearPublicacion({
             idUsuario,
             datos: req.body,
             archivos: (req.files as Express.Multer.File[]) ?? [],
+            requiereRevisionManual,
         });
+
+        // Criterio de aceptación ST-TT-S9-01-3 (SWAP-603):
+        // Si los servicios de moderación fallaron o no respondieron, la publicación queda
+        // retenida en estado 'pendiente' y el usuario recibe un mensaje claro de revisión manual.
+        if (requiereRevisionManual) {
+            exitoResponse(
+                res,
+                resultado,
+                "Tu contenido está en revisión manual antes de publicarse debido a una verificación de seguridad.",
+                201
+            );
+            return;
+        }
+
         exitoResponse(res, resultado, "Publicacion creada exitosamente", 201);
     } catch (error) {
         if (responderErrorServicio(res, error)) return;
@@ -226,12 +246,26 @@ export async function editarPublicacion(req: Request, res: Response, next: NextF
             errorResponse(res, "Debe enviar al menos un campo o una imagen para actualizar", 400);
             return;
         }
+
+        const requiereRevisionManual = Boolean(req.moderacionPendiente);
         const resultado = await editarPublicacionServicio({
             idPublicacion,
             idUsuario: Number(req.usuario?.sub),
             datos: req.body,
             archivos,
+            requiereRevisionManual,
         });
+
+        if (requiereRevisionManual) {
+            exitoResponse(
+                res,
+                resultado,
+                "Tu contenido editado está en revisión manual antes de publicarse debido a una verificación de seguridad.",
+                200
+            );
+            return;
+        }
+
         exitoResponse(res, resultado, "Publicacion actualizada exitosamente", 200);
     } catch (error) {
         if (responderErrorServicio(res, error)) return;

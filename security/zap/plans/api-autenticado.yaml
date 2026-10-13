@@ -1,0 +1,91 @@
+# Escaneo de la API autenticado con un rol concreto contra la copia aislada.
+# El token se inyecta en todas las peticiones con el Replacer.
+# Se excluyen las rutas que invalidarían la propia sesión a mitad del escaneo
+# (logout revoca el token en Redis). Se documenta como limitación del alcance.
+#
+# También se excluyen TODAS las rutas que reciben multipart/form-data (multer):
+# un envío malformado a cualquiera de ellas tumba el proceso completo de Node
+# (busboy emite 'error' en un stream sin listener -> excepción no capturada ->
+# crash). Confirmado el 2026-09-28 en /publicacion/:id (PATCH), documentado
+# como el hallazgo principal en docs/seguridad/informe-zap.md. Se excluyen acá
+# para poder cubrir el resto de la superficie de cada rol sin repetir el mismo
+# crash una y otra vez.
+# Variables: ZAP_TARGET, ZAP_TOKEN, ZAP_ROL, ZAP_MAX_MINS, ZAP_DELAY_MS, ZAP_OUT
+env:
+  contexts:
+    - name: swap-api
+      urls:
+        - ${ZAP_TARGET}/api/v1
+      includePaths:
+        - "${ZAP_TARGET}/api/.*"
+      excludePaths:
+        - ".*/auth/logout.*"
+        - ".*/publicacion(/[^/]+)?$"
+        - ".*/anuncio(/[^/]+)?$"
+        - ".*/certificacion$"
+        - ".*/imagen/upload.*"
+        - ".*/imagen/perfil/.*"
+        - ".*/reporte$"
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+  - type: replacer
+    parameters:
+      deleteAllRules: true
+    rules:
+      - description: "Token de sesion ${ZAP_ROL}"
+        matchType: req_header
+        matchString: Authorization
+        matchRegex: false
+        replacementString: "Bearer ${ZAP_TOKEN}"
+
+  - type: openapi
+    parameters:
+      apiFile: /zap/wrk/openapi.json
+      context: swap-api
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 5
+
+  # La importación envía una petición por operación casi de golpe; se espera a
+  # que se vacíe la ventana de 60 s del rate limit antes del escaneo activo.
+  - type: delay
+    parameters:
+      time: "00:01:05"
+
+  - type: activeScan
+    parameters:
+      context: swap-api
+      maxScanDurationInMins: ${ZAP_MAX_MINS}
+      maxRuleDurationInMins: 4
+      threadPerHost: 1
+      delayInMs: ${ZAP_DELAY_MS}
+      addQueryParam: false
+    policyDefinition:
+      defaultStrength: medium
+      defaultThreshold: medium
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 5
+
+  - type: report
+    parameters:
+      template: traditional-html
+      reportDir: /zap/wrk/${ZAP_OUT}
+      reportFile: reporte
+      reportTitle: "Swap API - escaneo autenticado como ${ZAP_ROL} (copia aislada)"
+  - type: report
+    parameters:
+      template: traditional-json
+      reportDir: /zap/wrk/${ZAP_OUT}
+      reportFile: reporte
+  - type: report
+    parameters:
+      template: traditional-md
+      reportDir: /zap/wrk/${ZAP_OUT}
+      reportFile: reporte

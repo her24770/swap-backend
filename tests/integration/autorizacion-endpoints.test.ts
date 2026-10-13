@@ -13,6 +13,7 @@ vi.mock("../../src/autenticacion/servicioSesionVersion", () => ({
 }));
 vi.mock("../../src/autenticacion/rateLimiter", () => ({
     rateLimitGlobal: (_req: unknown, _res: unknown, next: () => void) => next(),
+    RateLimiterNoDisponibleError: class RateLimiterNoDisponibleError extends Error {},
 }));
 
 const rutas = inventariarRutas();
@@ -54,4 +55,3 @@ describe("matriz de autorización de endpoints", () => {
         },
     );
 });
-

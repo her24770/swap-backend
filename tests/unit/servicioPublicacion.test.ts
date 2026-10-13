@@ -114,4 +114,36 @@ describe("servicioPublicacion", () => {
 
         expect(reemplazarEtiquetasPublicacion).not.toHaveBeenCalled();
     });
+
+    it("guarda la publicación con estado 'pendiente' cuando requiereRevisionManual es true (fail-closed)", async () => {
+        vi.mocked(buscarUsuarioPorId).mockResolvedValue({ id_usuario: 7 } as any);
+        vi.mocked(obtenerTipoPerfilPorNombre).mockResolvedValue({ id_tipo_perfil: 2 } as any);
+        vi.mocked(obtenerEstadoPorNombre).mockResolvedValue({ id_estado: 99 } as any);
+        vi.mocked(guardarPublicacion).mockResolvedValue({ id_publicacion: 30 } as any);
+
+        const resultado = await crearPublicacion({
+            idUsuario: 7,
+            datos: {
+                titulo: "Publicación con fallo de moderación",
+                descripcion: "Descripción para revisión",
+                precio: 10,
+                tipo_publicacion: "material",
+                estado: "disponible",
+                destacar: false,
+                imagenes: [],
+                etiquetas: [],
+            },
+            archivos: [],
+            requiereRevisionManual: true,
+        });
+
+        expect(obtenerEstadoPorNombre).toHaveBeenCalledWith("pendiente");
+        expect(guardarPublicacion).toHaveBeenCalledWith(
+            expect.objectContaining({
+                estadoRel: { connect: { id_estado: 99 } },
+            }),
+            []
+        );
+        expect(resultado.id_publicacion).toBe(30);
+    });
 });

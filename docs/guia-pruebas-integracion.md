@@ -6,7 +6,7 @@ Esta guía aplica al backend. Las pruebas frontend de chat se ejecutan desde
 ## Requisitos
 
 - Docker Desktop/Engine iniciado y Docker Compose disponible.
-- Dependencias instaladas en `Back/swap-backend` (`npm install`).
+- Dependencias instaladas en `Back/swap-backend` (`npm ci`).
 
 ## Ejecución recomendada
 

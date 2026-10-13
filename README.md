@@ -6,7 +6,7 @@ Backend service for **Swap** — a platform for student tutoring, academic mater
 
 | Layer            | Technology              |
 | ---------------- | ----------------------- |
-| Runtime          | Node.js 20              |
+| Runtime          | Node.js 22              |
 | Framework        | Express.js              |
 | Language         | TypeScript              |
 | Real-time        | Socket.io               |
@@ -34,7 +34,7 @@ Backend service for **Swap** — a platform for student tutoring, academic mater
 
 | Container  | Image          | Port |
 | ---------- | -------------- | ---- |
-| `backend`  | node:20-alpine | 3001 |
+| `backend`  | node:22.22.3-alpine3.22 | 3001 |
 | `postgres` | postgres:16    | 5432 |
 | `redis`    | redis:7-alpine | 6379 |
 
@@ -65,6 +65,28 @@ docker compose up  --build
 
 Esto inicia PostgreSQL, Redis y el backend. El contenedor de la API corre automáticamente `prisma db push` al arrancar, así que el esquema ya queda creado.
 
+### Rate limiting distribuido
+
+Todos los contadores de solicitudes residen en Redis: cuota global HTTP por IP,
+eventos sensibles de Socket.IO por usuario y evento, login por IP + correo
+objetivo, verificación de cuenta y recuperación de contraseña. Los incrementos
+y el TTL se aplican atómicamente. Por ello, todas las instancias del backend
+comparten la misma cuota y reiniciar solamente la API no elimina los bloqueos.
+
+El despliegue debe configurar estas variables:
+
+| Variable | Obligatoria | Descripción |
+| --- | --- | --- |
+| `REDIS_PASSWORD` | Sí con Docker Compose | Contraseña con la que arranca el servicio Redis. |
+| `REDIS_URL` | Sí | URL accesible por todas las instancias, incluyendo credenciales y base lógica si corresponde. |
+| `REDIS_CONNECT_TIMEOUT_MS` | No | Tiempo máximo de conexión; por defecto `5000`. |
+
+Redis usa AOF y un volumen persistente en los Compose de desarrollo y
+producción. Si Redis no está disponible, el sistema aplica **fail-closed**:
+las rutas HTTP responden `503` y los eventos sensibles de Socket.IO se
+rechazan sin ejecutar la operación. Los comandos no se acumulan en memoria
+mientras la conexión está caída.
+
 ### 4. Verificar que todo corre
 
 ```bash
@@ -90,12 +112,13 @@ desde el botón **Authorize**.
 
 > **El seed NO corre automáticamente con Docker.** Cada integrante lo ejecuta manualmente cuando lo necesita.
 
-El seed crea:
+El seed estructural crea los catálogos y el seed de pruebas cubre todos los módulos:
 
-- 1 usuario vendedor de prueba (`vendedor@uvg.edu.gt`)
-- 1 moderador de prueba (`moderador1`)
+- 3 usuarios, 2 moderadores y contactos
 - Etiquetas de carrera y cursos (ICC, Biología, etc.)
-- 15 publicaciones de muestra (5 materiales · 5 tutorías · 5 negocios)
+- 27 publicaciones (9 materiales · 9 tutorías · 9 negocios), con etiquetas e imágenes R2
+- Horarios, certificaciones, anuncios, conversaciones, mensajes y acuerdos
+- Reseñas, reportes, notificaciones, likes y guardados
 - Catálogos base: estados, tipos de perfil, tipos de contacto, motivos de reporte, palabras restringidas
 
 ### Correr el seed (primera vez o cuando se necesiten datos frescos)
@@ -112,12 +135,37 @@ docker compose exec api npx tsx prisma/backfillEmbeddings.ts
 
 > El backfill genera los vectores de búsqueda para todas las publicaciones. Debe correrse después de cada seed de pruebas.
 
+El seed de pruebas usa la URL pública de `CLOUDFLARE_R2_PUBLIC_URL` y comprueba por
+`HEAD` que cada objeto configurado exista antes de escribir datos. Las claves se
+configuran con `SEED_*_KEY` (consulta `.env.example`). Cuando R2 conserva los
+valores placeholder, usa recursos públicos de muestra para desarrollo local. Es repetible, usa fechas y
+claves lógicas estables, y se bloquea cuando el host o nombre de la base en
+`DATABASE_URL` parece de producción. `ALLOW_DEMO_SEED=true` es el desbloqueo explícito.
+Al finalizar imprime una tabla de cobertura y aborta si falta alguna relación.
+
+### Casos identificables para pruebas de filtros UX/UI
+
+Estas publicaciones tienen combinaciones deliberadamente específicas. Después de ejecutar la seed pueden localizarse así:
+
+| Vista | Publicación esperada | Propietario | Filtros |
+| --- | --- | --- | --- |
+| `/es/materiales` | `Calculadora científica Casio fx-991EX` | Adriana Jiménez | Tipo `Alquiler`, etiqueta `Electrónica 1`, precio `Q137–Q137`, calificación `4–4` |
+| `/es/negocios` | `Caja de brownies artesanales` | Carlos Méndez | Tipo `Producto`, etiqueta `Repostería`, precio `Q73–Q73`, calificación `5–5` |
+| `/es/tutorias` | `Tutoría nocturna de Física 2` | Adriana Jiménez | Etiqueta `Física 2`, precio `Q65–Q65`, calificación `4–4`, viernes, horario `18:00–20:00` |
+
+Si el control deslizante dificulta seleccionar un valor exacto, puede usarse un
+rango de cinco quetzales alrededor del precio; las demás condiciones mantienen
+el caso identificable.
+
 ### Credenciales de prueba
 
 | Rol                | Email / Usuario       | Contraseña      |
 | ------------------ | --------------------- | --------------- |
 | Usuario (vendedor) | `vendedor@uvg.edu.gt` | `Vendedor123!`  |
+| Usuario (vendedor) | `vendedor123@uvg.edu.gt` | `Vendedor123!`  |
+| Usuario (comprador) | `estudiante@uvg.edu.gt` | `Estudiante123!` |
 | Moderador          | `moderador1`          | `Moderador123!` |
+| Superadmin         | `superadmin1`         | `SuperAdmin123!` |
 
 ---
 
@@ -142,6 +190,22 @@ docker compose exec api npx prisma db push
 # Generar cliente Prisma después de cambiar el schema
 docker compose exec api npx prisma generate
 ```
+
+### Backups de PostgreSQL
+
+`postgres-backup` crea diariamente un dump validado y lo guarda en el bucket
+R2 configurado con las variables `BACKUP_R2_*`. Después de subirlo, relee el
+objeto completo, compara su SHA-256 y guarda un manifiesto JSON con metadatos,
+duración, hashes, etapa y resultado de la ejecución. Operaciones manuales:
+
+```bash
+docker compose exec postgres-backup postgres-backup backup
+docker compose exec postgres-backup postgres-backup list
+docker compose exec postgres-backup postgres-backup restore archivo.dump
+```
+
+La restauración elimina los objetos actuales de la base destino y exige escribir
+su nombre para confirmar. Detener `api` antes de restaurar producción.
 
 ---
 
@@ -214,7 +278,7 @@ tests/integration/health.test.ts
 Después de instalar las dependencias:
 
 ```bash
-npm install
+npm ci
 ```
 
 Ejecutar tests en modo desarrollo:
@@ -291,7 +355,7 @@ Esta separación permite importar la aplicación en los tests sin iniciar el ser
 ## Flujo de trabajo recomendado al integrarse al proyecto
 
 1. Clonar el repo y copiar `.env.example` → `.env`
-2. (Opcional) Instalar dependencias: `npm install` y ejecutar pruebas con `npm test`
+2. (Opcional) Instalar dependencias: `npm ci` y ejecutar pruebas con `npm test`
 3. `docker compose up -d --build`
 4. Verificar `curl http://localhost:3001/health`
 5. Correr los seeds si necesitas datos:
@@ -301,6 +365,10 @@ Esta separación permite importar la aplicación en los tests sin iniciar el ser
    docker compose exec api npx tsx prisma/backfillEmbeddings.ts
    ```
 6. (Opcional) Abrir Prisma Studio para explorar la BD: `docker compose exec backend npx prisma studio`
+
+La construcción determinista, la actualización de locks/digests y la
+comparación de dos imágenes se documentan en
+[`docs/builds-reproducibles.md`](docs/builds-reproducibles.md).
 
 ---
 

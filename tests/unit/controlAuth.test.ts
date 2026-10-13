@@ -1,6 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-import { iniciarSesion, registro, restablecerPassword } from "../../src/controlador/controlAuth";
+import {
+  iniciarSesion,
+  registro,
+  restablecerPassword,
+  solicitarRecuperacionPassword,
+  verificarCodigoRecuperacion,
+} from "../../src/controlador/controlAuth";
 
 import {
   buscarUsuarioPorEmail,
@@ -9,7 +15,11 @@ import {
   actualizarUsuario,
 } from "../../src/repository/repositorioUsuario";
 import {
+  construirIdentificadorLogin,
+  construirIdentificadoresRecuperacion,
+  consumirIntentos,
   estaBloqueado,
+  limpiarIntentos,
   registrarIntento,
 } from "../../src/autenticacion/rateLimiter";
 import { ServicioBcrypt } from "../../src/autenticacion/ServicioBcrypt";
@@ -45,15 +55,78 @@ vi.mock("../../src/servicios/Response", () => ({
 vi.mock("../../src/persistencia/redisClient", () => ({
   default: {
     get: vi.fn(),
+    set: vi.fn(),
     del: vi.fn(),
   },
 }));
 
+vi.mock("../../src/servicios/servicioEmail", () => ({
+  enviarCodigoRecuperacion: vi.fn(),
+  enviarCodigoVerificacionRegistro: vi.fn(),
+}));
+
 vi.mock("../../src/autenticacion/rateLimiter", () => ({
+  construirIdentificadorLogin: vi.fn(
+    (ip: string, correo: string) => JSON.stringify([ip, correo.trim().toLowerCase()]),
+  ),
+  construirIdentificadoresRecuperacion: vi.fn(
+    (ip: string, correo: string) => [correo.trim().toLowerCase(), JSON.stringify(["ip", ip])],
+  ),
+  consumirIntentos: vi.fn().mockResolvedValue(true),
   estaBloqueado: vi.fn(),
   registrarIntento: vi.fn(),
   limpiarIntentos: vi.fn(),
 }));
+
+describe("límites de recuperación de contraseña", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(consumirIntentos).mockResolvedValue(true);
+  });
+
+  it("bloquea solicitudes por las cuotas combinadas y conserva el mensaje genérico", async () => {
+    vi.mocked(consumirIntentos).mockResolvedValue(false);
+    const req: any = { ip: "203.0.113.40", body: { email: "NO-EXISTE@UVG.EDU.GT" } };
+    const res: any = {};
+
+    await solicitarRecuperacionPassword(req, res, vi.fn());
+
+    const identificadores = ["no-existe@uvg.edu.gt", JSON.stringify(["ip", "203.0.113.40"])];
+    expect(construirIdentificadoresRecuperacion).toHaveBeenCalledWith(
+      "203.0.113.40",
+      "no-existe@uvg.edu.gt",
+    );
+    expect(consumirIntentos).toHaveBeenCalledWith("solicitar_codigo_recuperacion", identificadores);
+    expect(buscarUsuarioPorEmail).not.toHaveBeenCalled();
+    expect(errorResponse).toHaveBeenCalledWith(
+      res,
+      "Demasiadas solicitudes. Intenta de nuevo más tarde.",
+      429,
+    );
+  });
+
+  it("aplica el límite por cuenta e IP antes de comprobar el código", async () => {
+    vi.mocked(consumirIntentos).mockResolvedValue(false);
+    const req: any = {
+      ip: "203.0.113.41",
+      body: { email: "usuario@uvg.edu.gt", code: "000000" },
+    };
+    const res: any = {};
+
+    await verificarCodigoRecuperacion(req, res, vi.fn());
+
+    expect(consumirIntentos).toHaveBeenCalledWith(
+      "verificar_codigo_recuperacion",
+      ["usuario@uvg.edu.gt", JSON.stringify(["ip", "203.0.113.41"])],
+    );
+    expect(redis.get).not.toHaveBeenCalled();
+    expect(errorResponse).toHaveBeenCalledWith(
+      res,
+      "Demasiados intentos. Solicita un nuevo código.",
+      429,
+    );
+  });
+});
 
 describe("iniciarSesion", () => {
   beforeEach(() => {
@@ -99,6 +172,10 @@ describe("iniciarSesion", () => {
 
     expect(exitoResponse).toHaveBeenCalled();
 
+    const identificador = JSON.stringify(["127.0.0.1", "test@test.com"]);
+    expect(estaBloqueado).toHaveBeenCalledWith("login", identificador);
+    expect(limpiarIntentos).toHaveBeenCalledWith("login", identificador);
+
     expect(next).not.toHaveBeenCalled();
   });
 
@@ -132,10 +209,15 @@ describe("iniciarSesion", () => {
       "Credenciales invalidas",
       401,
     );
+    expect(registrarIntento).toHaveBeenCalledWith(
+      "login",
+      JSON.stringify(["127.0.0.1", "test@test.com"]),
+    );
   });
 
   it("rechaza usuario inexistente", async () => {
     vi.mocked(buscarUsuarioPorEmail).mockResolvedValue(null);
+    vi.mocked(ServicioBcrypt.compararPassword).mockResolvedValue(false);
 
     const req: any = {
       ip: "127.0.0.1",
@@ -154,6 +236,51 @@ describe("iniciarSesion", () => {
       "Credenciales invalidas",
       401,
     );
+    expect(ServicioBcrypt.compararPassword).toHaveBeenCalledOnce();
+    expect(ServicioBcrypt.compararPassword).toHaveBeenCalledWith(
+      "123",
+      expect.stringMatching(/^\$2[aby]\$10\$/),
+    );
+    expect(registrarIntento).toHaveBeenCalledWith(
+      "login",
+      JSON.stringify(["127.0.0.1", "no@test.com"]),
+    );
+  });
+
+  it("no limpia los intentos contra otra cuenta al intercalar un login propio exitoso", async () => {
+    const ip = "127.0.0.1";
+    const correoObjetivo = "victima@test.com";
+    const correoPropio = "atacante@test.com";
+
+    vi.mocked(buscarUsuarioPorEmail).mockImplementation(async (email) => ({
+      id_usuario: email === correoObjetivo ? 1 : 2,
+      email_institucional: email,
+      password: "hash",
+      tiempo_suspendido: 0,
+    }) as any);
+    vi.mocked(ServicioBcrypt.compararPassword)
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    vi.mocked(ServicioJWT.generarToken).mockReturnValue("jwt-token");
+
+    await iniciarSesion(
+      { ip, body: { email_institucional: correoObjetivo, password: "wrong" } } as any,
+      {} as any,
+      vi.fn(),
+    );
+    await iniciarSesion(
+      { ip, body: { email_institucional: correoPropio, password: "correct" } } as any,
+      { cookie: vi.fn() } as any,
+      vi.fn(),
+    );
+
+    const claveObjetivo = JSON.stringify([ip, correoObjetivo]);
+    const clavePropia = JSON.stringify([ip, correoPropio]);
+    expect(registrarIntento).toHaveBeenCalledWith("login", claveObjetivo);
+    expect(limpiarIntentos).toHaveBeenCalledWith("login", clavePropia);
+    expect(limpiarIntentos).not.toHaveBeenCalledWith("login", claveObjetivo);
+    expect(construirIdentificadorLogin).toHaveBeenCalledWith(ip, correoObjetivo);
+    expect(construirIdentificadorLogin).toHaveBeenCalledWith(ip, correoPropio);
   });
 
   it("rechaza el login de una cuenta bloqueada (SWAP-422)", async () => {
@@ -326,6 +453,7 @@ describe("registro", () => {
 describe("restablecerPassword", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(consumirIntentos).mockResolvedValue(true);
   });
 
   it("actualiza la contraseña e invalida las sesiones en el mismo UPDATE", async () => {
