@@ -24,6 +24,7 @@ COPY tsconfig.json vitest.config.ts ./
 COPY src ./src/
 COPY scripts ./scripts/
 COPY tests ./tests/
+COPY docs ./docs/
 
 # Build TypeScript → JavaScript
 RUN npm run build
