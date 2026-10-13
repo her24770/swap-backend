@@ -100,11 +100,11 @@ cmd_up() {
     log "Levantando copia aislada en 127.0.0.1:${ZAP_PORT}"
     $COMPOSE up -d
     esperar_api
-    local opts='{"module":"commonjs","moduleResolution":"node"}'
     log "Cargando catálogos (seed.ts)"
-    docker exec -e TS_NODE_COMPILER_OPTIONS="$opts" swap-zap-api npx ts-node --transpile-only prisma/seed.ts | tail -1
+    docker exec -e HOME=/tmp swap-zap-api ./node_modules/.bin/tsx prisma/seed.ts | tail -1
     log "Cargando datos de prueba (seedPruebas.ts)"
-    docker exec -e TS_NODE_COMPILER_OPTIONS="$opts" swap-zap-api npx ts-node --transpile-only prisma/seedPruebas.ts | tail -1
+    docker exec -e HOME=/tmp swap-zap-api ./node_modules/.bin/tsx prisma/seedPruebas.ts | tail -1
+
 }
 
 cmd_down() {
