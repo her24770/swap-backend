@@ -209,7 +209,8 @@ docker compose exec -u postgres postgres pgbackrest --stanza=swap --type=incr ba
 ```
 
 Una restauración física requiere detener `api` y PostgreSQL antes de reemplazar
-el contenido del volumen de datos.
+el contenido del volumen de datos. La configuración inicial y la prueba de
+restauración están en [`docs/backups-postgresql.md`](docs/backups-postgresql.md).
 
 ---
 

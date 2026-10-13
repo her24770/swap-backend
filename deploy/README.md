@@ -59,4 +59,5 @@ El siguiente deploy vuelve a `main` automáticamente.
 La imagen de PostgreSQL ejecuta pgBackRest con el mismo calendario en desarrollo
 y producción: full los domingos e incremental de lunes a sábado, siempre a las
 03:00 de Guatemala. El `.env` del servidor debe definir `BACKUP_R2_*` y
-`BACKUP_ENCRYPTION_KEY`.
+`BACKUP_ENCRYPTION_KEY`. Ver la guía de
+[backups de PostgreSQL](../docs/backups-postgresql.md).
