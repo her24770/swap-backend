@@ -1,0 +1,71 @@
+# Escaneo OWASP ZAP Baseline para CI (copia efímera).
+# Importa OpenAPI de forma anónima y posteriormente autenticada con usuario de prueba.
+# Ejecuta únicamente análisis pasivo (inspección de cabeceras, CORS, cookies, contratos y respuestas),
+# omitiendo el activeScan agresivo para mantener la ejecución rápida y compatible con CI (~1-2 minutos).
+# Variables: ZAP_TARGET, ZAP_TOKEN, ZAP_OUT
+env:
+  contexts:
+    - name: swap-api
+      urls:
+        - ${ZAP_TARGET}/api/v1
+      includePaths:
+        - "${ZAP_TARGET}/api/.*"
+      excludePaths:
+        - ".*/auth/logout.*"
+        - ".*/publicacion(/[^/]+)?$"
+        - ".*/anuncio(/[^/]+)?$"
+        - ".*/certificacion$"
+        - ".*/imagen/upload.*"
+        - ".*/imagen/perfil/.*"
+        - ".*/reporte$"
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+  # 1. Peticiones de exploración iniciales anónimas contra las operaciones de la API
+  - type: openapi
+    parameters:
+      apiFile: /zap/wrk/openapi.json
+      context: swap-api
+
+  # 2. Inyección de cabecera de autenticación para el usuario de prueba
+  - type: replacer
+    parameters:
+      deleteAllRules: true
+    rules:
+      - description: "Token de sesion usuario CI"
+        matchType: req_header
+        matchString: Authorization
+        matchRegex: false
+        replacementString: "Bearer ${ZAP_TOKEN}"
+
+  # 3. Peticiones de exploración autenticadas contra las operaciones de la API
+  - type: openapi
+    parameters:
+      apiFile: /zap/wrk/openapi.json
+      context: swap-api
+
+  # 4. Esperar a que el escáner pasivo procese todas las solicitudes y respuestas
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 5
+
+  # 5. Generación de reportes
+  - type: report
+    parameters:
+      template: traditional-html
+      reportDir: /zap/wrk/${ZAP_OUT}
+      reportFile: reporte
+      reportTitle: "Swap API - OWASP ZAP Baseline Scan (CI)"
+  - type: report
+    parameters:
+      template: traditional-json
+      reportDir: /zap/wrk/${ZAP_OUT}
+      reportFile: reporte
+  - type: report
+    parameters:
+      template: traditional-md
+      reportDir: /zap/wrk/${ZAP_OUT}
+      reportFile: reporte
