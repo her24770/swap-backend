@@ -1,0 +1,47 @@
+name: Desplegar versión
+
+# Pone producción en una versión concreta de main (ver deploy/README.md):
+#   - campo vacío: rollback a la versión anterior
+#   - v1.4.2 o un commit: esa versión; si su imagen ya no está guardada se reconstruye
+# Solo cambia el código: la base de datos no se toca.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versión a desplegar: v1.4.2 o un commit (vacío = volver a la anterior)"
+        required: false
+        type: string
+
+jobs:
+  desplegar-version:
+    name: Desplegar versión del backend en producción
+    runs-on: ubuntu-latest
+    # Mismo grupo que el deploy: nunca corren a la vez.
+    concurrency:
+      group: deploy-produccion-backend
+      cancel-in-progress: false
+    steps:
+      - name: Configurar SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Desplegar la versión indicada
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ -z "$VERSION" ]; then
+            ORDEN="rollback backend"
+          elif [[ "$VERSION" =~ ^(v[0-9]+\.[0-9]+\.[0-9]+|[0-9a-f]{7,40})$ ]]; then
+            ORDEN="desplegar backend $VERSION"
+          else
+            echo "La versión debe ser un nombre como v1.4.2 o un commit (7 a 40 caracteres hexadecimales)."
+            exit 1
+          fi
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" "$ORDEN"
