@@ -10,6 +10,7 @@ import {
 } from "../../src/repository/repositorioMensaje";
 import { obtenerEstadoPorNombre } from "../../src/repository/repositorioEstado";
 import { getIO } from "../../src/sockets/ioInstance";
+import { escribirLog } from "../../src/observabilidad/logger";
 
 vi.mock("../../src/repository/repositorioMensaje", () => ({
   buscarConversacionEntreDosUsuarios: vi.fn(),
@@ -25,6 +26,10 @@ vi.mock("../../src/repository/repositorioEstado", () => ({
 
 vi.mock("../../src/sockets/ioInstance", () => ({
   getIO: vi.fn(),
+}));
+
+vi.mock("../../src/observabilidad/logger", () => ({
+  escribirLog: vi.fn(),
 }));
 
 describe("crearMensajeYNotificar", () => {
@@ -132,11 +137,12 @@ describe("crearMensajeYNotificar", () => {
       mensaje: { id_mensaje: 50 }, notificacion: { id_notificacion: 20 }, conversacion: {},
     } as any);
     vi.mocked(getIO).mockReturnValue({ to: vi.fn(() => { throw new Error("socket caído"); }) } as any);
-    const consola = vi.spyOn(console, "error").mockImplementation(() => undefined);
-
     await expect(crearMensajeYNotificar(1, 1, "hola")).resolves.toMatchObject({ id_mensaje: 50 });
-    expect(consola).toHaveBeenCalled();
-    consola.mockRestore();
+    expect(escribirLog).toHaveBeenCalledWith(
+      "error",
+      "messaging.socket_emit_failed",
+      expect.objectContaining({ error: expect.any(Error) }),
+    );
   });
 
   it("rechaza persistir mensajes en una conversación inactiva", async () => {

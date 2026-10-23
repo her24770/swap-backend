@@ -6,7 +6,7 @@ name: swap-zap
 
 services:
   postgres:
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:pg16@sha256:7b822b0aac60967beb1ea5e576b8602c94c300a157d187f385ae3e0da199b90a
     container_name: swap-zap-postgres
     restart: "no"
     environment:
@@ -25,7 +25,7 @@ services:
       retries: 30
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
     container_name: swap-zap-redis
     restart: "no"
     command: redis-server --save "" --appendonly no --maxmemory 48mb --maxmemory-policy allkeys-lru
@@ -93,7 +93,7 @@ services:
   # sin TLS. Necesaria para que la copia reciba el tráfico igual que producción
   # (a través de un proxy), que es lo que determina req.ip en Express.
   nginx:
-    image: nginx:1.27-alpine
+    image: nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
     container_name: swap-zap-nginx
     restart: "no"
     volumes:

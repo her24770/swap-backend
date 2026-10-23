@@ -15,7 +15,10 @@ vi.mock("../../src/servicios/servicioEmail", () => ({
 }));
 
 import { ServicioJWT } from "../../src/autenticacion/ServicioJWT";
-import { limpiarIntentos } from "../../src/autenticacion/rateLimiter";
+import {
+    construirIdentificadoresRecuperacion,
+    limpiarIntentos,
+} from "../../src/autenticacion/rateLimiter";
 import prisma from "../../src/persistencia/prismaClient";
 import redis from "../../src/persistencia/redisClient";
 import {
@@ -152,7 +155,12 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
                 .expect(429);
 
             // Simula que termino la ventana de reintentos sin esperar diez minutos.
-            await limpiarIntentos("verificar_codigo_recuperacion", usuario.email_institucional);
+            for (const identificador of construirIdentificadoresRecuperacion(
+                "::ffff:127.0.0.1",
+                usuario.email_institucional,
+            )) {
+                await limpiarIntentos("verificar_codigo_recuperacion", identificador);
+            }
             await request(app)
                 .post("/api/v1/auth/forgot-password")
                 .send({ email: usuario.email_institucional })

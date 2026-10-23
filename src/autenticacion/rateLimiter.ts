@@ -1,5 +1,6 @@
 import redis from "../persistencia/redisClient.js";
 import { Request, Response, NextFunction } from "express";
+import { escribirLog } from "../observabilidad/logger.js";
 
 const MENSAJE_LIMITE = "Demasiadas solicitudes. Intenta nuevamente más tarde.";
 export const MENSAJE_RATE_LIMITER_NO_DISPONIBLE =
@@ -42,6 +43,20 @@ end
 return intentos
 `;
 
+const INCREMENTAR_VARIOS_CON_TTL = `
+local permitido = 1
+for indice, clave in ipairs(KEYS) do
+    local intentos = redis.call("INCR", clave)
+    if intentos == 1 then
+        redis.call("EXPIRE", clave, ARGV[1])
+    end
+    if intentos > tonumber(ARGV[2]) then
+        permitido = 0
+    end
+end
+return permitido
+`;
+
 function construirClave(bucket: Bucket, identificador: string): string {
     return `rate:${bucket}:${identificador}`;
 }
@@ -79,7 +94,12 @@ export async function rateLimitGlobal(req: Request, res: Response, next: NextFun
         }
         next();
     } catch (error) {
-        console.error("Rate limiter no disponible:", error);
+        escribirLog("error", "security.rate_limiter_unavailable", {
+            requestId: req.requestId,
+            ip: req.ip,
+            route: req.originalUrl,
+            error,
+        });
         res.status(503).json({ success: false, message: MENSAJE_RATE_LIMITER_NO_DISPONIBLE });
     }
 }
@@ -108,6 +128,27 @@ export function reiniciarRateLimiters(): void {
  */
 export function construirIdentificadorLogin(ip: string, correoObjetivo: string): string {
     return JSON.stringify([ip, correoObjetivo.trim().toLowerCase()]);
+}
+
+/**
+ * Mantiene cuotas independientes para la cuenta objetivo y para el origen.
+ * El prefijo tipado de la IP evita colisiones con direcciones de correo.
+ */
+export function construirIdentificadoresRecuperacion(ip: string, correoObjetivo: string): string[] {
+    return [correoObjetivo.trim().toLowerCase(), JSON.stringify(["ip", ip])];
+}
+
+/**
+ * Consume simultaneamente una posicion de cada cuota. El script evita que
+ * solicitudes concurrentes superen el limite mediante un check-then-incr.
+ */
+export async function consumirIntentos(bucket: Bucket, identificadores: string[]): Promise<boolean> {
+    const unicos = [...new Set(identificadores)];
+    const resultado = await ejecutarRedis(() => redis.eval(INCREMENTAR_VARIOS_CON_TTL, {
+        keys: unicos.map((identificador) => construirClave(bucket, identificador)),
+        arguments: [String(LIMITES[bucket].ventanaSegundos), String(LIMITES[bucket].maxIntentos)],
+    }));
+    return Number(resultado) === 1;
 }
 
 export async function registrarIntento(bucket: Bucket, identificador: string): Promise<void> {

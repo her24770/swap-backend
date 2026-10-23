@@ -4,6 +4,7 @@ import { buscarAnunciosPorUsuario, crearAnuncio, actualizarAnuncio, eliminarAnun
 import { errorResponse, exitoResponse, errorValidacionResponse } from "../servicios/Response.js";
 import { buscarUsuarioPorId } from "../repository/repositorioUsuario.js";
 import { subirImagenR2, eliminarImagenR2 } from "../servicios/servicioR2.js";
+import { escribirLog } from "../observabilidad/logger.js";
 
 export async function obtenerAnunciosUsuario(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -162,7 +163,11 @@ export async function eliminarAnuncioUsuario(req: Request, res: Response, next: 
             try {
                 await eliminarImagenR2(anuncio.imagen_url);
             } catch (error) {
-                console.error("Error eliminando imagen de R2:", error);
+                escribirLog("error", "storage.image_delete_failed", {
+                    requestId: req.requestId,
+                    resourceType: "advertisement",
+                    error,
+                });
             }
         }
 
@@ -251,7 +256,11 @@ export async function editarAnuncioUsuario(req: Request, res: Response, next: Ne
             try {
                 await eliminarImagenR2(urlAnteriorParaBorrar);
             } catch (error) {
-                console.error("Error eliminando imagen anterior de R2:", error);
+                escribirLog("error", "storage.image_delete_failed", {
+                    requestId: req.requestId,
+                    resourceType: "advertisement_previous_image",
+                    error,
+                });
             }
         }
 

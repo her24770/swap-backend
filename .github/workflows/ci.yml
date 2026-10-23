@@ -79,11 +79,33 @@ jobs:
       # (postgres-integration, redis-integration e integration-tests).
       - run: sh scripts/run-integration.sh
 
+  zap-baseline:
+    name: Escaneo DAST OWASP ZAP (Baseline)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Ejecutar escaneo OWASP ZAP baseline contra copia efímera
+        run: |
+          chmod +x security/zap/run-zap.sh
+          bash security/zap/run-zap.sh ci-baseline
+      - name: Publicar reporte de seguridad OWASP ZAP
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report-baseline-${{ github.run_id }}
+          path: security/zap/reports/ci-baseline/
+          if-no-files-found: ignore
+          retention-days: 14
+
   deploy:
     name: Deploy a producción
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [auditoria-dependencias, lint-y-typecheck, pruebas-unitarias, pruebas-integracion]
+    needs: [auditoria-dependencias, lint-y-typecheck, pruebas-unitarias, pruebas-integracion, zap-baseline]
     runs-on: ubuntu-latest
+
     concurrency:
       group: deploy-produccion-backend
       cancel-in-progress: false
@@ -104,3 +126,29 @@ jobs:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
         run: ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" backend
+
+  version:
+    name: Publicar versión
+    # Solo después de un deploy correcto: una versión con nombre siempre
+    # corresponde a algo que llegó a producción.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Crear el tag y el release de la versión desplegada
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git tag --points-at HEAD | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Este commit ya tiene versión; no se crea otra."
+            exit 0
+          fi
+          VERSION="$(bash .github/scripts/siguiente-version.sh)"
+          gh release create "$VERSION" --target "$GITHUB_SHA" --title "$VERSION" --generate-notes
+          echo "### Versión publicada: $VERSION" >> "$GITHUB_STEP_SUMMARY"
