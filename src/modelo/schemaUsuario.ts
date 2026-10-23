@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { arrayAcotado } from "./arrayAcotado";
 import { paginationOptions } from "./schemaPublicacion";
 
 /**
@@ -68,7 +69,7 @@ const contactoSchema = z.object({
 export const schemaAgregarContactos = z.object({
     contactos: z.union([
         contactoSchema,
-        z.array(contactoSchema)
+        arrayAcotado(contactoSchema, 20, "No se pueden enviar más de 20 contactos.")
     ], {
         required_error: "Debe enviar al menos un contacto.",
         invalid_type_error: "Debe enviar un contacto o un array de contactos."
@@ -126,18 +127,18 @@ export const schemaFiltrosTutor = paginationOptions.extend({
         .default(5)
         .optional(),
 
-    etiquetas: z
-        .array(
+    etiquetas: arrayAcotado(
             z.number()
                 .int()
                 .positive(
                     "Cada etiqueta debe ser un ID válido."
-                )
+                ),
+            50,
+            "No se pueden enviar más de 50 etiquetas."
         )
         .optional(),
 
-    dias: z
-        .array(
+    dias: arrayAcotado(
             z.enum([
                 "lunes",
                 "martes",
@@ -146,7 +147,9 @@ export const schemaFiltrosTutor = paginationOptions.extend({
                 "viernes",
                 "sabado",
                 "domingo"
-            ])
+            ]),
+            7,
+            "No se pueden enviar más de 7 días."
         )
         .optional(),
 

@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { arrayAcotado } from "./arrayAcotado";
 
-const arrayMultipart = <T extends z.ZodTypeAny>(item: T) => z.preprocess(
+const arrayMultipart = <T extends z.ZodTypeAny>(item: T, max: number, mensaje: string) => z.preprocess(
     (value) => typeof value === "string" ? JSON.parse(value) : value,
-    z.array(item).optional()
+    arrayAcotado(item, max, mensaje).optional()
 );
 
 /**
@@ -44,14 +45,15 @@ export const schemaCrearPublicacion = z.object({
         .optional()
         .default(false),
 
-    imagenes: z
-        .array(
-            z.string().url("Cada imagen debe ser una URL válida.")
+    imagenes: arrayAcotado(
+            z.string().url("Cada imagen debe ser una URL válida."),
+            20,
+            "No se pueden enviar más de 20 imágenes."
         )
         .optional()
         .default([]),
 
-    etiquetas: arrayMultipart(z.coerce.number().int().positive("Cada etiqueta debe ser un ID válido.")).default([]),
+    etiquetas: arrayMultipart(z.coerce.number().int().positive("Cada etiqueta debe ser un ID válido."), 50, "No se pueden enviar más de 50 etiquetas.").default([]),
 });
 
 /**
@@ -89,8 +91,8 @@ export const schemaEditarPublicacion = z.object({
         })
         .optional(),
 
-    etiquetas: arrayMultipart(z.coerce.number().int().positive("Cada etiqueta debe ser un ID válido.")),
-    imagenesEliminar: arrayMultipart(z.string().url("Cada imagen debe ser una URL válida.")),
+    etiquetas: arrayMultipart(z.coerce.number().int().positive("Cada etiqueta debe ser un ID válido."), 50, "No se pueden enviar más de 50 etiquetas."),
+    imagenesEliminar: arrayMultipart(z.string().url("Cada imagen debe ser una URL válida."), 20, "No se pueden eliminar más de 20 imágenes."),
 });
 
 export const schemaGuardarPublicacion = z.object({
@@ -141,8 +143,7 @@ export const schemaFiltrosPublicacion = paginationOptions.extend({
         .max(5, "La calificación máxima no puede superar 5.")
         .default(5)
         .optional(),
-    etiquetas: z
-        .array(z.number().int().positive("Cada etiqueta debe ser un ID válido."))
+    etiquetas: arrayAcotado(z.number().int().positive("Cada etiqueta debe ser un ID válido."), 50, "No se pueden enviar más de 50 etiquetas.")
         .optional(),
 });
 

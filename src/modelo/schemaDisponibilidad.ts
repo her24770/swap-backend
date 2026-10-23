@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { arrayAcotado } from "./arrayAcotado";
 
 const DIAS_SEMANA = [
     "lunes",
@@ -92,9 +93,7 @@ const bloqueHorarioSchema = z.object({
  * Reemplaza todos los bloques disponibles del usuario en una sola petición.
  */
 export const schemaActualizarHorario = z.object({
-    bloques: z
-        .array(bloqueHorarioSchema)
-        .max(7 * 24, "No se pueden enviar más de 168 bloques por semana."),
+    bloques: arrayAcotado(bloqueHorarioSchema, 7 * 24, "No se pueden enviar más de 168 bloques por semana."),
 }).refine(
     (data) => {
         const vistos = new Set<string>();
