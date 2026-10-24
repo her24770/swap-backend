@@ -20,7 +20,9 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")("SWAP-614 — errores 500
 
     beforeEach(async () => {
         await limpiarEntornoIntegracion();
-        estados = await asegurarEstadosIniciales();
+        estados = await asegurarEstadosIniciales([
+            "activo", "inactivo", "pendiente", "resuelto", "rechazado", "enviado", "leido" as any
+        ]);
         vendedor = await crearUsuarioTest();
         comprador = await crearUsuarioTest();
     });
@@ -136,6 +138,90 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")("SWAP-614 — errores 500
             const reportes = await prisma.reporte.findMany();
             expect(reportes).toHaveLength(1);
             expect(reportes[0].id_publicacion).toBeNull();
+        });
+    });
+
+    // ST-TT-S10-01-3 / SWAP-614: Validación de ID numérico positivo en rutas de notificación
+    describe("PATCH /api/v1/notificacion/:id/estado", () => {
+        it("responde 400 (no 500) con mensaje claro si el id es 'abc'", async () => {
+            const res = await request(app)
+                .patch("/api/v1/notificacion/abc/estado")
+                .set("Authorization", bearer(vendedor.id_usuario))
+                .send({ estado: "leido" });
+
+            expect(res.status).toBe(400);
+            expect(res.body.success).toBe(false);
+            expect(res.body.errores).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        campo: "id",
+                        mensaje: expect.stringContaining("El ID de la notificación debe ser un número"),
+                    }),
+                ])
+            );
+        });
+
+        it("responde 400 si el id es un número negativo, cero o decimal", async () => {
+            const resNegativo = await request(app)
+                .patch("/api/v1/notificacion/-1/estado")
+                .set("Authorization", bearer(vendedor.id_usuario))
+                .send({ estado: "leido" });
+            expect(resNegativo.status).toBe(400);
+
+            const resCero = await request(app)
+                .patch("/api/v1/notificacion/0/estado")
+                .set("Authorization", bearer(vendedor.id_usuario))
+                .send({ estado: "leido" });
+            expect(resCero.status).toBe(400);
+
+            const resDecimal = await request(app)
+                .patch("/api/v1/notificacion/1.5/estado")
+                .set("Authorization", bearer(vendedor.id_usuario))
+                .send({ estado: "leido" });
+            expect(resDecimal.status).toBe(400);
+        });
+
+        it("responde 400 si el estado enviado en el body no es válido", async () => {
+            const res = await request(app)
+                .patch("/api/v1/notificacion/1/estado")
+                .set("Authorization", bearer(vendedor.id_usuario))
+                .send({ estado: "desconocido" });
+
+            expect(res.status).toBe(400);
+            expect(res.body.success).toBe(false);
+        });
+
+        it("responde 404 si la notificación no existe", async () => {
+            const res = await request(app)
+                .patch("/api/v1/notificacion/999999/estado")
+                .set("Authorization", bearer(vendedor.id_usuario))
+                .send({ estado: "leido" });
+
+            expect(res.status).toBe(404);
+            expect(res.body.success).toBe(false);
+        });
+
+        it("actualiza a 'leido' cuando id y estado son válidos y pertenece al usuario", async () => {
+            const notif = await prisma.notificacion.create({
+                data: {
+                    id_usuario: vendedor.id_usuario,
+                    mensaje: "Tienes una nueva solicitud",
+                    id_estado: estados.enviado,
+                },
+            });
+
+            const res = await request(app)
+                .patch(`/api/v1/notificacion/${notif.id_notificacion}/estado`)
+                .set("Authorization", bearer(vendedor.id_usuario))
+                .send({ estado: "leido" });
+
+            expect(res.status).toBe(200);
+            expect(res.body.success).toBe(true);
+            const enDb = await prisma.notificacion.findUnique({
+                where: { id_notificacion: notif.id_notificacion },
+                include: { estado: true },
+            });
+            expect(enDb?.estado.estado).toBe("leido");
         });
     });
 });
