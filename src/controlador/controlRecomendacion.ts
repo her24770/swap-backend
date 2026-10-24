@@ -39,16 +39,22 @@ export async function obtenerRecomendacionesGlobales(
             }
         }
 
+        const idUsuario = Number(req.usuario?.sub) || undefined;
+
         // Generar recomendaciones
         const recomendaciones = await generarRecomendaciones(tipo);
 
+        const filtradas = idUsuario
+            ? recomendaciones.filter((pub: any) => pub.id_usuario !== idUsuario)
+            : recomendaciones;
+
         // Sin recomendaciones NO es error
-        if (recomendaciones.length === 0) {
+        if (filtradas.length === 0) {
             errorResponse(res, "No hay recomendaciones disponibles actualmente", 404);
             return;
         }
         // Respuesta exitosa
-        exitoResponse(res, recomendaciones, "Recomendaciones obtenidas exitosamente", 200);
+        exitoResponse(res, filtradas, "Recomendaciones obtenidas exitosamente", 200);
 
     } catch (error) {
         next(error);
@@ -133,7 +139,14 @@ export async function obtenerRecomendacionesPersonalizadas(
         const detalle = await buscarPublicacionesPorIdsDetallado(ids);
 
         const mapaScores = new Map(merged.map((p) => [p.id_publicacion, p.score]));
-        const resultado  = detalle.map((pub) => ({ ...pub, score: mapaScores.get(pub.id_publicacion) ?? 0 }));
+        const resultado  = detalle
+            .filter((pub) => pub.id_usuario !== idUsuario)
+            .map((pub) => ({ ...pub, score: mapaScores.get(pub.id_publicacion) ?? 0 }));
+
+        if (resultado.length === 0) {
+            errorResponse(res, "No hay recomendaciones disponibles aún", 404);
+            return;
+        }
 
         exitoResponse(res, resultado, "Recomendaciones personalizadas obtenidas exitosamente");
     } catch (error) {
