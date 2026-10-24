@@ -51,6 +51,7 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
 
             // 2. Creación de entidades: usuario que publica y moderador que auditará
             const autor = await crearUsuarioTest({ nombre: "Estudiante Vendedor" });
+            const visitante = await crearUsuarioTest({ nombre: "Estudiante Visitante" });
             const moderador = await crearModeradorTest({ usuario: "moderador_seguridad" });
 
             // 3. El usuario intenta crear una publicación mientras el proveedor de moderación está caído
@@ -122,16 +123,21 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
             });
             expect(publicacionAprobadaBd?.estado).toBe(estados.activo);
 
-            // Una vez aprobada por el moderador, ahora SÍ aparece en el listado público
+            // Una vez aprobada, aparece para otros usuarios, pero no en el listado del autor.
             const listadoPublicoDespues = await request(app)
                 .get("/api/v1/publicacion")
-                .set("Authorization", `Bearer ${autor.token}`)
+                .set("Authorization", `Bearer ${visitante.token}`)
                 .expect(200);
 
             const existeEnPublicoDespues = (listadoPublicoDespues.body.data?.publicaciones ?? []).some(
                 (p: { id_publicacion: number }) => p.id_publicacion === idPublicacion
             );
             expect(existeEnPublicoDespues).toBe(true);
+
+            await request(app)
+                .get("/api/v1/publicacion")
+                .set("Authorization", `Bearer ${autor.token}`)
+                .expect(404);
         });
     }
 );
