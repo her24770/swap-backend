@@ -96,6 +96,7 @@ asegurar_api_image() {
 
 cmd_up() {
     asegurar_embeddings_image
+    asegurar_api_image
     verificar_memoria
     log "Levantando copia aislada en 127.0.0.1:${ZAP_PORT}"
     $COMPOSE up -d
