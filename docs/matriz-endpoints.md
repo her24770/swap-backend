@@ -71,7 +71,7 @@ La política esperada es manual e independiente de los routers. `Propiedad esper
 | EP-057 | PATCH | `/moderador/palabras/:id` | moderador | moderador | no aplica | ✅ | `updateRestrictedWord` | `autorizacion-endpoints.test.ts` |
 | EP-058 | GET | `/moderador/publicaciones` | moderador | moderador | no aplica | ✅ | `listPublicationsForModeration` | `autorizacion-endpoints.test.ts` |
 | EP-059 | DELETE | `/moderador/publicaciones/:id` | moderador | moderador | no aplica | ✅ | `deletePublicationModeration` | `autorizacion-endpoints.test.ts` |
-| EP-060 | PATCH | `/moderador/publicaciones/:id/bajar` | moderador | moderador | no aplica | ✅ | `takeDownPublication` | `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
+| EP-060 | PATCH | `/moderador/publicaciones/:id/bajar` | moderador | moderador | no aplica | ✅ | `takeDownPublication` | `moderacion-fail-closed.test.ts`, `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-061 | PATCH | `/moderador/publicaciones/:id/reactivar` | moderador | moderador | no aplica | ✅ | `reactivatePublication` | `moderacion-fail-closed.test.ts`, `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-062 | GET | `/moderador/usuarios` | moderador | moderador | no aplica | ✅ | `listUsersForModeration` | `autorizacion-endpoints.test.ts` |
 | EP-063 | POST | `/moderador/usuarios/:id/advertencia` | moderador | moderador | no aplica | ✅ | `warnUser` | `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
