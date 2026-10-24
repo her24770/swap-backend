@@ -77,7 +77,7 @@ La política esperada es manual e independiente de los routers. `Propiedad esper
 | EP-063 | POST | `/moderador/usuarios/:id/advertencia` | moderador | moderador | no aplica | ✅ | `warnUser` | `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-064 | PATCH | `/moderador/usuarios/:id/estado` | moderador | moderador | no aplica | ✅ | `updateUserStatus` | `autenticacion-perfiles.test.ts`, `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-065 | GET | `/notificacion` | usuario | usuario | sesión propia | ✅ | `listNotifications` | `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
-| EP-066 | PATCH | `/notificacion/:id/estado` | usuario | usuario | propietario del recurso | ✅ | `updateNotificationState` | `autorizacion-endpoints.test.ts` |
+| EP-066 | PATCH | `/notificacion/:id/estado` | usuario | usuario | propietario del recurso | ✅ | `updateNotificationState` | `errores-500-zap-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-067 | GET | `/publicacion` | autenticado | autenticado | no aplica | ✅ | `listPublications` | `moderacion-fail-closed.test.ts`, `perfil-publicaciones-resenas-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-068 | POST | `/publicacion` | usuario | usuario | sesión propia | ✅ | `createPublication` | `moderacion-fail-closed.test.ts`, `moderacion-seguridad-real.test.ts`, `transversal-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-069 | DELETE | `/publicacion/:id` | usuario | usuario | propietario del recurso | ✅ | `deletePublication` | `errores-500-zap-real.test.ts`, `perfil-publicaciones-resenas-real.test.ts`, `transversal-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
