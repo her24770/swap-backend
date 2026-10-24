@@ -150,6 +150,7 @@ export async function buscarPublicacionesPaginadas(options: PaginationOptionInpu
     orderBy.push({ [CAMPO_ORDEN[sort] ?? CAMPO_ORDEN.fecha]: order });
 
     const where: any = {};
+    if (idUsuario) where.id_usuario = { not: idUsuario };
     const idTipo = await resolverIdTipoPerfilPorNombre(tipo);
     if (idTipo !== undefined) where.tipo_publicacion = idTipo;
 
