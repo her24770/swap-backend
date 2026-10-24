@@ -5,7 +5,11 @@ import {
     actualizarEstadoNotificacion,
 } from "../repository/repositorioNotificacion.js";
 import { obtenerEstadoPorNombre } from "../repository/repositorioEstado.js";
-import { errorResponse, exitoResponse } from "../servicios/Response.js";
+import { errorResponse, errorValidacionResponse, exitoResponse } from "../servicios/Response.js";
+import {
+    schemaParamIdNotificacion,
+    schemaCambiarEstadoNotificacion,
+} from "../modelo/schemaNotificacion.js";
 
 export async function listarNotificaciones(
     req: Request,
@@ -27,13 +31,20 @@ export async function cambiarEstadoNotificacion(
     next: NextFunction
 ): Promise<void> {
     try {
-        const idNotificacion = Number(req.params.id);
-        const { estado } = req.body;
-
-        if (!estado || !['leido', 'enviado'].includes(estado)) {
-            errorResponse(res, "Estado inválido. Use 'leido' o 'enviado'", 400);
+        const validacionParams = schemaParamIdNotificacion.safeParse(req.params);
+        if (!validacionParams.success) {
+            errorValidacionResponse(res, validacionParams.error.errors, "Parámetros inválidos.");
             return;
         }
+
+        const validacionBody = schemaCambiarEstadoNotificacion.safeParse(req.body);
+        if (!validacionBody.success) {
+            errorValidacionResponse(res, validacionBody.error.errors, "Datos inválidos.");
+            return;
+        }
+
+        const idNotificacion = validacionParams.data.id;
+        const { estado } = validacionBody.data;
 
         const notificacion = await obtenerNotificacionPorId(idNotificacion);
         if (!notificacion) {
