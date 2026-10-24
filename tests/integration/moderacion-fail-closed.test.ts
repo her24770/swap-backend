@@ -49,8 +49,9 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
                 new Error("OpenAI API indisponible o timeout (503 Service Unavailable)")
             );
 
-            // 2. Creación de entidades: usuario que publica y moderador que auditará
+            // 2. Creación de entidades: usuario que publica, moderador que auditará y un visitante
             const autor = await crearUsuarioTest({ nombre: "Estudiante Vendedor" });
+            const visitante = await crearUsuarioTest({ nombre: "Estudiante Visitante" });
             const moderador = await crearModeradorTest({ usuario: "moderador_seguridad" });
 
             // 3. El usuario intenta crear una publicación mientras el proveedor de moderación está caído
@@ -79,7 +80,7 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
             // Criterio de aceptación 3: La publicación NO está visible en el listado público (solo muestra activas)
             const listadoPublico = await request(app)
                 .get("/api/v1/publicacion")
-                .set("Authorization", `Bearer ${autor.token}`);
+                .set("Authorization", `Bearer ${visitante.token}`);
 
             if (listadoPublico.status === 200) {
                 const existeEnPublico = (listadoPublico.body.data?.publicaciones ?? []).some(
@@ -122,16 +123,25 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
             });
             expect(publicacionAprobadaBd?.estado).toBe(estados.activo);
 
-            // Una vez aprobada por el moderador, ahora SÍ aparece en el listado público
+            // Una vez aprobada por el moderador, ahora SÍ aparece en el listado público para otros usuarios
             const listadoPublicoDespues = await request(app)
                 .get("/api/v1/publicacion")
-                .set("Authorization", `Bearer ${autor.token}`)
+                .set("Authorization", `Bearer ${visitante.token}`)
                 .expect(200);
 
             const existeEnPublicoDespues = (listadoPublicoDespues.body.data?.publicaciones ?? []).some(
                 (p: { id_publicacion: number }) => p.id_publicacion === idPublicacion
             );
             expect(existeEnPublicoDespues).toBe(true);
+
+            // Para el propio autor, el listado general NO se la muestra (exclusión de publicaciones propias)
+            const listadoAutor = await request(app)
+                .get("/api/v1/publicacion")
+                .set("Authorization", `Bearer ${autor.token}`);
+            const existeEnListadoAutor = (listadoAutor.body.data?.publicaciones ?? []).some(
+                (p: { id_publicacion: number }) => p.id_publicacion === idPublicacion
+            );
+            expect(existeEnListadoAutor).toBe(false);
         });
     }
 );
