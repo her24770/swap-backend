@@ -49,7 +49,7 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
                 new Error("OpenAI API indisponible o timeout (503 Service Unavailable)")
             );
 
-            // 2. Creación de entidades: usuario que publica y moderador que auditará
+            // 2. Creación de entidades: usuario que publica, moderador que auditará y un visitante
             const autor = await crearUsuarioTest({ nombre: "Estudiante Vendedor" });
             const visitante = await crearUsuarioTest({ nombre: "Estudiante Visitante" });
             const moderador = await crearModeradorTest({ usuario: "moderador_seguridad" });
@@ -80,7 +80,7 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
             // Criterio de aceptación 3: La publicación NO está visible en el listado público (solo muestra activas)
             const listadoPublico = await request(app)
                 .get("/api/v1/publicacion")
-                .set("Authorization", `Bearer ${autor.token}`);
+                .set("Authorization", `Bearer ${visitante.token}`);
 
             if (listadoPublico.status === 200) {
                 const existeEnPublico = (listadoPublico.body.data?.publicaciones ?? []).some(

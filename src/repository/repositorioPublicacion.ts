@@ -136,7 +136,7 @@ export async function buscarPublicacionesPorUsuario(idUsuario: number): Promise<
     });
 }
 
-export async function buscarPublicacionesPaginadas(options: PaginationOptionInput, idUsuario?: number): Promise<ResultadoBusquedaPublicacion> {
+export async function buscarPublicacionesPaginadas(options: Partial<PaginationOptionInput>, idUsuario?: number): Promise<ResultadoBusquedaPublicacion> {
     //Valores por defecto
     const { page = 1, limit = 10, sort = 'fecha', order = 'desc', tipo, estado } = options;
 
@@ -150,12 +150,15 @@ export async function buscarPublicacionesPaginadas(options: PaginationOptionInpu
     orderBy.push({ [CAMPO_ORDEN[sort] ?? CAMPO_ORDEN.fecha]: order });
 
     const where: any = {};
-    if (idUsuario) where.id_usuario = { not: idUsuario };
     const idTipo = await resolverIdTipoPerfilPorNombre(tipo);
     if (idTipo !== undefined) where.tipo_publicacion = idTipo;
 
     const idEstado = await resolverIdEstadoPorNombre(estado);
     if (idEstado !== undefined) where.estado = idEstado;
+
+    if (idUsuario) {
+        where.id_usuario = { not: idUsuario };
+    }
 
     const [publicaciones, total] = await prisma.$transaction([
 
@@ -458,33 +461,28 @@ export async function buscarPorSimilitudVectorial(
     vector: number[],
     limite: number = 20,
     umbral: number = 0.35,
-    tipo?: string
+    tipo?: string,
+    idUsuario?: number
 ): Promise<number[]> {
     const vectorStr = `[${vector.join(',')}]`;
 
-    const resultados = tipo
-        ? await prisma.$queryRaw<{ id_publicacion: number }[]>`
-            SELECT p.id_publicacion
-            FROM "Publicacion" p
-            INNER JOIN "Estado" e ON e.id_estado = p.estado
-            INNER JOIN "Tipo_Perfil" tp ON tp.id_tipo_perfil = p.tipo_publicacion
-            WHERE p.embedding IS NOT NULL
-            AND e.estado = 'activo'
-            AND tp.tipo_perfil = ${tipo}
-            AND 1 - (p.embedding <=> ${vectorStr}::vector) >= ${umbral}
-            ORDER BY p.embedding <=> ${vectorStr}::vector
-            LIMIT ${limite}
-        `
-        : await prisma.$queryRaw<{ id_publicacion: number }[]>`
-            SELECT p.id_publicacion
-            FROM "Publicacion" p
-            INNER JOIN "Estado" e ON e.id_estado = p.estado
-            WHERE p.embedding IS NOT NULL
-            AND e.estado = 'activo'
-            AND 1 - (p.embedding <=> ${vectorStr}::vector) >= ${umbral}
-            ORDER BY p.embedding <=> ${vectorStr}::vector
-            LIMIT ${limite}
-        `;
+    const filtroTipo = tipo ? Prisma.sql`AND tp.tipo_perfil = ${tipo}` : Prisma.empty;
+    const joinTipo = tipo ? Prisma.sql`INNER JOIN "Tipo_Perfil" tp ON tp.id_tipo_perfil = p.tipo_publicacion` : Prisma.empty;
+    const filtroUsuario = idUsuario ? Prisma.sql`AND p.id_usuario != ${idUsuario}` : Prisma.empty;
+
+    const resultados = await prisma.$queryRaw<{ id_publicacion: number }[]>`
+        SELECT p.id_publicacion
+        FROM "Publicacion" p
+        INNER JOIN "Estado" e ON e.id_estado = p.estado
+        ${joinTipo}
+        WHERE p.embedding IS NOT NULL
+        AND e.estado = 'activo'
+        ${filtroTipo}
+        ${filtroUsuario}
+        AND 1 - (p.embedding <=> ${vectorStr}::vector) >= ${umbral}
+        ORDER BY p.embedding <=> ${vectorStr}::vector
+        LIMIT ${limite}
+    `;
 
     return resultados.map(r => r.id_publicacion);
 }
@@ -534,9 +532,13 @@ export async function buscarPublicacionesPorIdsDetallado(
 
 
 export async function buscarPublicacionesPorFiltros(
-    options: FiltrosPublicacionInput
+    options: Partial<FiltrosPublicacionInput>,
+    idUsuario?: number
 ): Promise<Publicacion[]> {
-        const where: any = {}; 
+    const where: any = {};
+    if (idUsuario) {
+        where.id_usuario = { not: idUsuario };
+    }
     // 1. Filtro por precio
     if (options.precio_min !== undefined || options.precio_max !== undefined) {
         where.precio = {};
