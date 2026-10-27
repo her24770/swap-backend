@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { arrayAcotado } from "./arrayAcotado";
 
 /**
  * Schema para POST /api/auth/registro
@@ -37,13 +38,15 @@ export const schemaRegistro = z.object({
         .optional()
         .nullable(),
 
-    etiquetas: z
-        .array(z.number({
-            required_error: "Cada ID de etiqueta debe ser un número.",
-            invalid_type_error: "Cada ID de etiqueta debe ser un número."
-        }).int("El ID de etiqueta debe ser entero.").positive("El ID de etiqueta debe ser positivo."))
-        .min(1, "Debes seleccionar al menos una categoría.")
-        .max(10, "No puedes seleccionar más de 10 categorías.")
+    etiquetas: arrayAcotado(
+            z.number({
+                required_error: "Cada ID de etiqueta debe ser un número.",
+                invalid_type_error: "Cada ID de etiqueta debe ser un número."
+            }).int("El ID de etiqueta debe ser entero.").positive("El ID de etiqueta debe ser positivo."),
+            10,
+            "No puedes seleccionar más de 10 categorías.",
+            (array) => array.min(1, "Debes seleccionar al menos una categoría.")
+        )
         .optional(),
 
     codigo_verificacion: z

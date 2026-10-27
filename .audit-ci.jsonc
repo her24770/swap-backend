@@ -4,5 +4,10 @@
   "high": true,
   "report-type": "full",
   "retry-count": 3,
-  "allowlist": []
+  "allowlist": [
+    // zod: la corrección solo existe en zod 4 (el backend usa zod 3). Mitigado con
+    // src/modelo/arrayAcotado.ts: todos los arrays de los schemas revisan su tamaño
+    // antes de validar elementos. Quitar esta excepción al migrar a zod 4.
+    "GHSA-mrhx-c7xc-m3w5"
+  ]
 }
