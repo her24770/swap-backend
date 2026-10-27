@@ -141,7 +141,8 @@ export async function obtenerPublicacionPorId(req: Request, res: Response, next:
 export async function obtenerPublicacionesPorFiltros(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
         const options = req.body;
-        const publicaciones = await buscarPublicacionesPorFiltros(options);
+        const idUsuario = Number(req.usuario?.sub) || undefined;
+        const publicaciones = await buscarPublicacionesPorFiltros(options, idUsuario);
         if (!publicaciones) {
             errorResponse(res, "No se encontraron publicaciones que coincidan con los filtros", 404);
             return;
