@@ -119,9 +119,9 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")("SWAP-614 — errores 500
             expect(await prisma.acuerdo.count()).toBe(1);
         });
 
-        // No era uno de los 500: Reporte.id_publicacion es opcional y la BD lo deja en null.
-        it("elimina una publicación reportada y conserva el reporte sin el vínculo", async () => {
-            const pub = await crearPublicacionTest({ id_usuario: vendedor.id_usuario });
+        // ST-TT-S10-01-4 (SWAP-652): Al eliminar una publicación reportada, se cierra el reporte con snapshot
+        it("elimina una publicación reportada, cierra el reporte como resuelto y guarda snapshot histórico", async () => {
+            const pub = await crearPublicacionTest({ id_usuario: vendedor.id_usuario, titulo: "Libro de Cálculo Avanzado", precio: "150.00" });
             const motivo = await prisma.motivoReporte.create({ data: { motivo: `Contenido inapropiado ${pub.id_publicacion}` } });
             await prisma.reporte.create({
                 data: {
@@ -135,9 +135,17 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")("SWAP-614 — errores 500
             });
 
             expect((await borrar(pub.id_publicacion)).status).toBe(200);
+            expect(await prisma.publicacion.findUnique({ where: { id_publicacion: pub.id_publicacion } })).toBeNull();
+
             const reportes = await prisma.reporte.findMany();
             expect(reportes).toHaveLength(1);
             expect(reportes[0].id_publicacion).toBeNull();
+            expect(reportes[0].estado).toBe(estados.resuelto);
+            expect(reportes[0].observaciones).toContain("Denuncia original: \"Publicación ofensiva\"");
+            expect(reportes[0].observaciones).toContain("[Snapshot - Publicación Eliminada]");
+            expect(reportes[0].observaciones).toContain("Libro de Cálculo Avanzado");
+            expect(reportes[0].observaciones).toContain("Q150.00");
+            expect(reportes[0].observaciones).toContain("Resuelto por: Sistema (Cierre automático por eliminación del autor)");
         });
     });
 

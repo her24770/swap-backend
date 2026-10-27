@@ -387,6 +387,58 @@ export async function contarAcuerdosDePublicacion(idPublicacion: number): Promis
 
 export async function eliminarPublicacionConRelaciones(idPublicacion: number): Promise<void> {
     await prisma.$transaction(async (tx) => {
+        // SWAP-652 / ST-TT-S10-01-4: Capturar snapshot y cerrar reportes pendientes antes de borrar la publicación
+        const pub = await tx.publicacion.findUnique({
+            where: { id_publicacion: idPublicacion },
+            select: {
+                titulo: true,
+                precio: true,
+                usuario: { select: { nombre: true, email_institucional: true } },
+            },
+        });
+
+        const estadoResuelto = await tx.estado.findUnique({ where: { estado: "resuelto" } });
+        const estadoPendiente = await tx.estado.findUnique({ where: { estado: "pendiente" } });
+
+        if (pub && estadoResuelto && estadoPendiente) {
+            const reportesPendientes = await tx.reporte.findMany({
+                where: {
+                    id_publicacion: idPublicacion,
+                    estado: estadoPendiente.id_estado,
+                },
+                select: { id_reporte: true, observaciones: true },
+            });
+
+            const fechaResolucion = new Date().toISOString().replace("T", " ").slice(0, 19);
+            const precioFormateado = Number(pub.precio).toFixed(2);
+            const propietarioInfo = pub.usuario
+                ? `${pub.usuario.nombre} (${pub.usuario.email_institucional})`
+                : "Desconocido";
+
+            for (const rep of reportesPendientes) {
+                const partes = [];
+                if (rep.observaciones && rep.observaciones.trim()) {
+                    partes.push(`Denuncia original: "${rep.observaciones.trim()}"`, "---");
+                }
+                partes.push(
+                    `[Snapshot - Publicación Eliminada]`,
+                    `• Publicación: ${pub.titulo} (ID previo: ${idPublicacion})`,
+                    `• Propietario: ${propietarioInfo}`,
+                    `• Precio original: Q${precioFormateado}`,
+                    `• Fecha de resolución: ${fechaResolucion}`,
+                    `• Resuelto por: Sistema (Cierre automático por eliminación del autor)`
+                );
+
+                await tx.reporte.update({
+                    where: { id_reporte: rep.id_reporte },
+                    data: {
+                        estado: estadoResuelto.id_estado,
+                        observaciones: partes.join("\n"),
+                    },
+                });
+            }
+        }
+
         await tx.imagenPublicacion.deleteMany({ where: { id_publicacion: idPublicacion } });
         await tx.publicacionEtiqueta.deleteMany({ where: { id_publicacion: idPublicacion } });
         // Likes/guardados y contextos solo tienen sentido mientras exista la publicación;
