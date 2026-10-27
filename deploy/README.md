@@ -39,6 +39,11 @@ Antes del build manual, el dueño exporta `SOURCE_DATE_EPOCH` con la fecha del
 commit. El procedimiento y la verificación por digest están en
 [`docs/builds-reproducibles.md`](../docs/builds-reproducibles.md).
 
+El deploy también exporta `APP_VERSION`: usa el tag `vX.Y.Z` del commit o, para
+el `main` aún no publicado, calcula la misma siguiente versión que CI convertirá
+en Release después del health check. La imagen la devuelve en `GET /api/health`;
+un rollback recupera la versión embebida en su propia imagen.
+
 ## Secrets de GitHub (en ambos repos)
 
 | Secret | Contenido |

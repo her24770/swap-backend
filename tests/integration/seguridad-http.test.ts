@@ -7,6 +7,10 @@ vi.mock("../../src/autenticacion/rateLimiter", () => ({
     RateLimiterNoDisponibleError: class RateLimiterNoDisponibleError extends Error {},
 }));
 
+vi.mock("../../src/observabilidad/saludDependencias", () => ({
+    comprobarDependencias: vi.fn().mockResolvedValue([]),
+}));
+
 describe("regresiones de seguridad HTTP", () => {
     afterEach(() => {
         vi.unstubAllEnvs();

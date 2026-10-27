@@ -442,8 +442,16 @@ const paths: Record<string, Record<string, unknown>> = {
             rawResponse: true,
             responseSchema: {
                 type: "object",
-                required: ["status"],
-                properties: { status: { type: "string", const: "ok" } },
+                required: ["status", "version"],
+                properties: {
+                    status: { type: "string", enum: ["ok", "unavailable"] },
+                    version: { type: "string", description: "Tag vX.Y.Z o commit desplegado" },
+                    components: {
+                        type: "array",
+                        items: { type: "string", enum: ["postgres", "redis"] },
+                        description: "Sólo aparece con HTTP 503 e identifica dependencias no disponibles",
+                    },
+                },
             },
         }),
     },

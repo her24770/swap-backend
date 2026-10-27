@@ -39,6 +39,7 @@ services:
       target: builder
       args:
         SOURCE_DATE_EPOCH: ${SOURCE_DATE_EPOCH:-0}
+        APP_VERSION: ${APP_VERSION:-test}
     environment:
       NODE_ENV: test
       RUN_INTEGRATION: "true"
