@@ -33,13 +33,13 @@ export async function cambiarEstadoNotificacion(
     try {
         const validacionParams = schemaParamIdNotificacion.safeParse(req.params);
         if (!validacionParams.success) {
-            errorValidacionResponse(res, validacionParams.error.errors, "Parámetros inválidos.");
+            errorValidacionResponse(res, validacionParams.error.issues, "Parámetros inválidos.");
             return;
         }
 
         const validacionBody = schemaCambiarEstadoNotificacion.safeParse(req.body);
         if (!validacionBody.success) {
-            errorValidacionResponse(res, validacionBody.error.errors, "Datos inválidos.");
+            errorValidacionResponse(res, validacionBody.error.issues, "Datos inválidos.");
             return;
         }
 

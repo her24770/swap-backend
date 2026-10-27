@@ -18,7 +18,7 @@ describe("schemaParamIdNotificacion", () => {
         const resultado = schemaParamIdNotificacion.safeParse({ id: "abc" });
         expect(resultado.success).toBe(false);
         if (!resultado.success) {
-            expect(resultado.error.errors[0].message).toContain("El ID de la notificación debe ser un número");
+            expect(resultado.error.issues[0].message).toContain("El ID de la notificación debe ser un número");
         }
     });
 
@@ -45,7 +45,7 @@ describe("schemaCambiarEstadoNotificacion", () => {
         const resultado = schemaCambiarEstadoNotificacion.safeParse({ estado: "invalido" });
         expect(resultado.success).toBe(false);
         if (!resultado.success) {
-            expect(resultado.error.errors[0].message).toContain("Estado inválido");
+            expect(resultado.error.issues[0].message).toContain("Estado inválido");
         }
     });
 
