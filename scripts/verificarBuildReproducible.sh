@@ -24,13 +24,13 @@ case "$IMAGEN" in
         DOCKERFILE=embeddings/Dockerfile
         TARGET=
         ;;
-    backup)
-        CONTEXTO=docker/backup
-        DOCKERFILE=docker/backup/Dockerfile
+    postgres)
+        CONTEXTO=docker/postgres
+        DOCKERFILE=docker/postgres/Dockerfile
         TARGET=
         ;;
     *)
-        echo "Uso: $0 {api|embeddings|backup}" >&2
+        echo "Uso: $0 {api|embeddings|postgres}" >&2
         exit 2
         ;;
 esac
