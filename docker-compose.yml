@@ -91,6 +91,7 @@ services:
       target: production
       args:
         SOURCE_DATE_EPOCH: ${SOURCE_DATE_EPOCH:-0}
+        APP_VERSION: ${APP_VERSION:-development}
     container_name: backend
     restart: unless-stopped
     env_file:

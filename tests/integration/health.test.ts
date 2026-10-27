@@ -1,5 +1,5 @@
 import request from "supertest";
-import { describe, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import app from "../../src/app";
 
 vi.mock("../../src/autenticacion/rateLimiter", () => ({
@@ -8,7 +8,13 @@ vi.mock("../../src/autenticacion/rateLimiter", () => ({
 }));
 
 describe("Endpoint health", () => {
-    it("debe devolver un estado 200", async () => {
-        await request(app).get("/api/health").expect(200);
+    afterEach(() => delete process.env.APP_VERSION);
+
+    it("expone la versión inyectada durante el build", async () => {
+        process.env.APP_VERSION = "v1.2.3";
+
+        const respuesta = await request(app).get("/api/health").expect(200);
+
+        expect(respuesta.body).toEqual({ status: "ok", version: "v1.2.3" });
     });
 });

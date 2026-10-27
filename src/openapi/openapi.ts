@@ -442,8 +442,11 @@ const paths: Record<string, Record<string, unknown>> = {
             rawResponse: true,
             responseSchema: {
                 type: "object",
-                required: ["status"],
-                properties: { status: { type: "string", const: "ok" } },
+                required: ["status", "version"],
+                properties: {
+                    status: { type: "string", const: "ok" },
+                    version: { type: "string", description: "Tag vX.Y.Z o commit desplegado" },
+                },
             },
         }),
     },

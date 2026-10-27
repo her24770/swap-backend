@@ -75,6 +75,19 @@ nombre_version() {
     echo "${nombre:-$1}"
 }
 
+version_para_build() {
+    local objetivo="$1" publicada
+    publicada="$(nombre_version "$objetivo")"
+    if [ "$publicada" != "$objetivo" ]; then
+        echo "$publicada"
+    elif [ "$objetivo" = "$(git -C "$DIR" rev-parse origin/main)" ] \
+        && [ -x "$DIR/.github/scripts/siguiente-version.sh" ]; then
+        bash "$DIR/.github/scripts/siguiente-version.sh"
+    else
+        git -C "$DIR" rev-parse --short "$objetivo"
+    fi
+}
+
 versiones_disponibles() {
     docker image ls "$IMAGEN" --format '{{.CreatedAt}}\t{{.Tag}}' \
         | awk -F'\t' '$2 ~ /^[0-9a-f]{7,40}$/' | sort -r | cut -f2
@@ -235,6 +248,8 @@ if [ "$ACCION" = rollback ] || [ "$ACCION" = desplegar ]; then
         log "No hay imagen guardada de esa versión: se reconstruye (puede tardar unos minutos)."
         git checkout --quiet --detach "$OBJETIVO"
         export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+        export APP_VERSION="$(version_para_build "$OBJETIVO")"
+        export BUILD_ID="$APP_VERSION"
         CONSTRUIR=()
         if [ "$DESTINO" = backend ]; then
             CONSTRUIR=(api)
@@ -291,6 +306,8 @@ fi
 
 # Todos los builds del commit usan el mismo origen temporal.
 export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+export APP_VERSION="$(version_para_build "$ACTUAL")"
+export BUILD_ID="$APP_VERSION"
 
 # Embeddings casi nunca cambia y la API espera a que esté sano para arrancar,
 # así que solo se reconstruye cuando cambia su código o falta su imagen (SWAP-634).

@@ -25,7 +25,7 @@ const router = Router();
 
 //Ruta de prueba
 router.get("/health", (_req, res) => {
-    res.json({ status: "ok" });
+    res.json({ status: "ok", version: process.env.APP_VERSION?.trim() || "development" });
 });
 
 //Rutas de autenticación
