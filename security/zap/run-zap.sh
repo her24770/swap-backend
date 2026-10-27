@@ -96,6 +96,7 @@ asegurar_api_image() {
 
 cmd_up() {
     asegurar_embeddings_image
+    asegurar_api_image
     verificar_memoria
     log "Levantando copia aislada en 127.0.0.1:${ZAP_PORT}"
     $COMPOSE up -d
@@ -104,7 +105,6 @@ cmd_up() {
     docker exec -e HOME=/tmp swap-zap-api ./node_modules/.bin/tsx prisma/seed.ts | tail -1
     log "Cargando datos de prueba (seedPruebas.ts)"
     docker exec -e HOME=/tmp swap-zap-api ./node_modules/.bin/tsx prisma/seedPruebas.ts | tail -1
-
 }
 
 cmd_down() {
@@ -346,4 +346,3 @@ case "${1:-}" in
     *) sed -n '2,13p' "$DIR/$(basename "$0")"; exit 1 ;;
 
 esac
-

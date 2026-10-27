@@ -57,7 +57,7 @@ export async function actualizarEstadoReporte(req: Request, res: Response, next:
     try {
         const validacion = schemaActualizarEstadoReporte.safeParse(req.body);
         if (!validacion.success) {
-            errorValidacionResponse(res, validacion.error.errors);
+            errorValidacionResponse(res, validacion.error.issues);
             return;
         }
 
@@ -126,7 +126,7 @@ export async function registrarNuevoReporte(req: Request, res: Response, next: N
 
         const validacion = schemaCrearReporte.safeParse(req.body);
         if (!validacion.success) {
-            errorValidacionResponse(res, validacion.error.errors);
+            errorValidacionResponse(res, validacion.error.issues);
             return;
         }
 

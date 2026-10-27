@@ -8,8 +8,15 @@ import prisma from "../persistencia/prismaClient";
 
 // Función auxiliar para transformar el reporte a formato de tabla
 function transformarReporteParaTabla(reporte: any): ReporteTableData {
-    // Determinar el tipo basado en qué ID tiene
-    const tipo = reporte.id_publicacion ? 'Publicación' : reporte.id_mensaje ? 'Mensaje' : 'Usuario';
+    // Determinar el tipo basado en qué ID tiene o si contiene snapshot de publicación eliminada
+    const esPublicacionSnapshot = typeof reporte.observaciones === 'string' &&
+        reporte.observaciones.includes('[Snapshot - Publicación Eliminada]');
+
+    const tipo = (reporte.id_publicacion || esPublicacionSnapshot)
+        ? 'Publicación'
+        : reporte.id_mensaje
+            ? 'Mensaje'
+            : 'Usuario';
 
     return {
         id_reporte: reporte.id_reporte,
@@ -138,7 +145,10 @@ export async function buscarReportesPaginados(
 
     // Filtro por tipo (publicación o mensaje)
     if (tipo === 'publicacion') {
-        where.id_publicacion = { not: null };
+        where.OR = [
+            { id_publicacion: { not: null } },
+            { observaciones: { contains: "[Snapshot - Publicación Eliminada]" } }
+        ];
         where.id_mensaje = null;
     } else if (tipo === 'mensaje') {
         where.id_mensaje = { not: null };
@@ -146,6 +156,9 @@ export async function buscarReportesPaginados(
     } else if (tipo === 'usuario') {
         where.id_publicacion = null;
         where.id_mensaje = null;
+        where.NOT = {
+            observaciones: { contains: "[Snapshot - Publicación Eliminada]" }
+        };
     }
     // Si es 'todos', no filtramos por tipo
 
@@ -169,6 +182,7 @@ export async function buscarReportesPaginados(
                 fecha: true,
                 id_publicacion: true,
                 id_mensaje: true,
+                observaciones: true,
                 motivoRel: {
                     select: {
                         id_motivo: true,

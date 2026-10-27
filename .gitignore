@@ -3,6 +3,7 @@ node_modules/
 
 # ─── Compilación ────────────────────────────────
 dist/
+coverage/
 
 # ─── Variables de entorno ───────────────────────
 .env

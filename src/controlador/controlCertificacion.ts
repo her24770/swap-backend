@@ -71,7 +71,7 @@ export async function crearCertificacionUsuario(req: Request, res: Response, nex
 
         const validacion = schemaCrearCertificacion.safeParse(bodyData);
         if (!validacion.success) {
-            errorValidacionResponse(res, validacion.error.errors);
+            errorValidacionResponse(res, validacion.error.issues);
             return;
         }
 

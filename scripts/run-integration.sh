@@ -2,6 +2,7 @@
 set -eu
 
 COMPOSE_FILE="docker-compose.integration.yml"
+mkdir -p coverage
 
 cleanup() {
   docker compose -f "$COMPOSE_FILE" down --volumes --remove-orphans

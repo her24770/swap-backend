@@ -7,12 +7,13 @@ import { reportePaginationOptions, schemaCrearReporte, schemaActualizarEstadoRep
 import { obtenerReportesPaginados, registrarNuevoReporte, obtenerReportePorId, actualizarEstadoReporte } from "../controlador/controlReporte";
 import { uploadImagen } from "../servicios/middlewareMulter.js";
 import { marcarObsoleto } from "./compatibilidad.js";
+import { rateLimitOperacionCostosa } from "../autenticacion/rateLimiter.js";
 
 const router = Router();
 
 // Reportar es una accion exclusiva de Usuario -- el panel de moderador
 // resuelve reportes, no los crea.
-router.post("/", autenticar, soloUsuario, uploadImagen.array("imagenes", 3), validar(schemaCrearReporte), registrarNuevoReporte);
+router.post("/", autenticar, soloUsuario, rateLimitOperacionCostosa("creacion_reporte"), uploadImagen.array("imagenes", 3), validar(schemaCrearReporte), registrarNuevoReporte);
 
 // POST /reporte - Obtener reportes paginados (con filtros en body)
 router.post("/buscar", autenticar, validar(reportePaginationOptions), soloModerador, obtenerReportesPaginados);

@@ -75,9 +75,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # No se necesita Node en el runner: todo corre dentro de docker compose
-      # (postgres-integration, redis-integration e integration-tests).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      # Las pruebas corren dentro de docker compose; Node en el runner resume
+      # el reporte generado en el volumen de cobertura.
       - run: sh scripts/run-integration.sh
+      - name: Resumir cobertura combinada
+        if: always()
+        run: node scripts/coverage-summary.mjs >> "$GITHUB_STEP_SUMMARY"
+      - name: Publicar reporte de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura-backend-${{ github.run_id }}
+          path: coverage/report/
+          if-no-files-found: warn
+          retention-days: 14
 
   zap-baseline:
     name: Escaneo DAST OWASP ZAP (Baseline)
