@@ -30,4 +30,14 @@ COPY --chmod=755 publish-pgbackrest-report /usr/local/bin/publish-pgbackrest-rep
 COPY --chmod=755 run-pgbackrest-backup /usr/local/bin/run-pgbackrest-backup
 COPY --chmod=755 run-pgbackrest-restore /usr/local/bin/run-pgbackrest-restore
 
+# Sanitiza saltos de línea Windows (CRLF) a Linux (LF) en los scripts copiados
+RUN sed -i 's/\r$//' \
+    /usr/local/bin/scheduled-backups-entrypoint \
+    /usr/local/bin/publish-pgbackrest-report \
+    /usr/local/bin/run-pgbackrest-backup \
+    /usr/local/bin/run-pgbackrest-restore \
+    /etc/cron.d/pgbackrest \
+    /etc/pgbackrest/pgbackrest.conf
+
 ENTRYPOINT ["scheduled-backups-entrypoint"]
+
