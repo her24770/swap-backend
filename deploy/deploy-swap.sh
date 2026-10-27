@@ -296,7 +296,7 @@ export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
 # así que solo se reconstruye cuando cambia su código o falta su imagen (SWAP-634).
 CONSTRUIR=()
 if [ "$DESTINO" = backend ]; then
-    CONSTRUIR=(api)
+    CONSTRUIR=(api postgres)
     if ! git diff --quiet "$ANTERIOR" "$ACTUAL" -- embeddings/ \
         || ! existe_imagen swap-backend-embeddings:latest; then
         CONSTRUIR+=(embeddings)

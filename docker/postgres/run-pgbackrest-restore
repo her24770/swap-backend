@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+backup_label=
+recovery_type=default
+
+for argument in "$@"; do
+    case "$argument" in
+        --set=*) backup_label=${argument#--set=} ;;
+        --type=*) recovery_type=${argument#--type=} ;;
+    esac
+done
+
+[[ -n "$backup_label" ]] || {
+    echo "La restauración reportada requiere --set=<ETIQUETA>." >&2
+    exit 64
+}
+
+work_dir=$(mktemp -d)
+trap 'rm -rf -- "$work_dir"' EXIT
+
+started_epoch=$(date +%s)
+started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+execution_id="swap-restore-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+command_log="$work_dir/pgbackrest.log"
+report_file="$work_dir/report.json"
+
+set +e
+pgbackrest --stanza=swap "$@" restore 2>&1 | tee "$command_log"
+command_exit=${PIPESTATUS[0]}
+set -e
+
+completed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+duration_seconds=$(($(date +%s) - started_epoch))
+status=failed
+post_restore_validation=not_started
+error_tail=$(tail -n 20 "$command_log")
+
+if (( command_exit == 0 )); then
+    status=success
+    post_restore_validation=pending
+    error_tail=
+fi
+
+jq -n \
+    --arg operation restore \
+    --arg execution_id "$execution_id" \
+    --arg environment "${BACKUP_REPORT_ENVIRONMENT:-development}" \
+    --arg stanza swap \
+    --arg backup_label "$backup_label" \
+    --arg recovery_type "$recovery_type" \
+    --arg status "$status" \
+    --arg post_restore_validation "$post_restore_validation" \
+    --arg started_at "$started_at" \
+    --arg completed_at "$completed_at" \
+    --arg error "$error_tail" \
+    --argjson duration_seconds "$duration_seconds" \
+    --argjson exit_code "$command_exit" \
+    '{
+        schema_version: 1,
+        operation: $operation,
+        execution_id: $execution_id,
+        environment: $environment,
+        stanza: $stanza,
+        backup_label: $backup_label,
+        recovery_type: $recovery_type,
+        status: $status,
+        post_restore_validation: $post_restore_validation,
+        started_at: $started_at,
+        completed_at: $completed_at,
+        duration_seconds: $duration_seconds,
+        pgbackrest_exit_code: $exit_code,
+        error: (if $error == "" then null else $error end)
+    }' > "$report_file"
+
+set +e
+publish-pgbackrest-report "$report_file" restore "$execution_id"
+publish_exit=$?
+set -e
+
+(( command_exit != 0 )) && exit "$command_exit"
+exit "$publish_exit"
