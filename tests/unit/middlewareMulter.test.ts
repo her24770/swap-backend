@@ -48,6 +48,21 @@ describe("middlewareMulter", () => {
         expect(esErrorCargaArchivo(error)).toBe(true);
     });
 
+    it("procesa una imagen multipart válida con Multer 2", async () => {
+        const app = express();
+        app.post("/", uploadImagen.single("imagen"), (req, res) => {
+            res.status(200).json({ size: req.file?.buffer.length, mimetype: req.file?.mimetype });
+        });
+
+        const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+        const respuesta = await request(app)
+            .post("/")
+            .attach("imagen", png, { filename: "imagen.png", contentType: "image/png" });
+
+        expect(respuesta.status).toBe(200);
+        expect(respuesta.body).toEqual({ size: png.length, mimetype: "image/png" });
+    });
+
     it("responde 400 cuando el body multipart queda truncado", async () => {
         const app = express();
         app.get("/health", (_req, res) => res.sendStatus(200));
