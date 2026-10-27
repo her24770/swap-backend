@@ -14,7 +14,7 @@ export function validar(schema: ZodSchema) {
             next();
         } catch (error) {
             if (error instanceof ZodError) {
-                errorValidacionResponse(res, error.errors, "Datos inválidos.");
+                errorValidacionResponse(res, error.issues, "Datos inválidos.");
                 return;
             }
             next(error);

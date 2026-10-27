@@ -7,10 +7,7 @@ import { arrayAcotado } from "./arrayAcotado";
  */
 export const schemaSincronizarEtiquetas = z.object({
     ids: arrayAcotado(
-            z.number({
-                required_error: "Cada ID de etiqueta debe ser un número.",
-                invalid_type_error: "Cada ID de etiqueta debe ser un número."
-            })
+            z.number({ error: "Cada ID de etiqueta debe ser un número." })
             .int("El ID de etiqueta debe ser un número entero.")
             .positive("El ID de etiqueta debe ser un número positivo."),
             50,
