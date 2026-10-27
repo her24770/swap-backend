@@ -5,7 +5,7 @@ import { z } from "zod";
  */
 export const schemaParamIdNotificacion = z.object({
     id: z.coerce
-        .number({ invalid_type_error: "El ID de la notificación debe ser un número." })
+        .number({ error: "El ID de la notificación debe ser un número." })
         .int("El ID de la notificación debe ser un número entero.")
         .positive("El ID de la notificación debe ser un número entero positivo."),
 });
@@ -15,7 +15,7 @@ export const schemaParamIdNotificacion = z.object({
  */
 export const schemaCambiarEstadoNotificacion = z.object({
     estado: z.enum(["leido", "enviado"], {
-        errorMap: () => ({ message: "Estado inválido. Use 'leido' o 'enviado'." }),
+        error: "Estado inválido. Use 'leido' o 'enviado'.",
     }),
 });
 
