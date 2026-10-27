@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { schemaLogin } from "../../src/modelo/schemaAuth";
-import { schemaCrearPublicacion } from "../../src/modelo/schemaPublicacion";
+import { schemaCrearPublicacion, schemaFiltrosPublicacion } from "../../src/modelo/schemaPublicacion";
+import { schemaFiltrosTutor } from "../../src/modelo/schemaUsuario";
 import { errorValidacionResponse } from "../../src/servicios/Response";
 
 describe("compatibilidad de respuestas con Zod 4", () => {
@@ -51,6 +52,22 @@ describe("compatibilidad de respuestas con Zod 4", () => {
                 { campo: "email_institucional", mensaje: "El correo institucional es obligatorio." },
                 { campo: "password", mensaje: "La contraseña es obligatoria." },
             ],
+        });
+    });
+
+    it("no activa filtros opcionales omitidos y conserva los defaults de paginación", () => {
+        expect(schemaFiltrosPublicacion.parse({})).toEqual({
+            page: 1,
+            limit: 10,
+            sort: "fecha",
+            order: "desc",
+        });
+        expect(schemaFiltrosTutor.parse({ etiquetas: [1] })).toEqual({
+            page: 1,
+            limit: 10,
+            sort: "fecha",
+            order: "desc",
+            etiquetas: [1],
         });
     });
 });

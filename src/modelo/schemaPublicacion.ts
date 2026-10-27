@@ -128,24 +128,20 @@ export const schemaFiltrosPublicacion = paginationOptions.extend({
     precio_min: z
         .number({ error: "El precio mínimo debe ser un número." })
         .min(0, "El precio mínimo no puede ser negativo.")
-        .default(0)
         .optional(),
     precio_max: z
         .number({ error: "El precio máximo debe ser un número." })
         .min(0, "El precio máximo no puede ser negativo.")
-        .default(999.99)
         .optional(),
     calificacion_min: z
         .number({ error: "La calificación mínima debe ser un número." })
         .min(0, "La calificación mínima no puede ser negativa.")
         .max(5, "La calificación máxima no puede superar 5.")
-        .default(0)
         .optional(),
     calificacion_max: z
         .number({ error: "La calificación máxima debe ser un número." })
         .min(0, "La calificación máxima no puede ser negativa.")
         .max(5, "La calificación máxima no puede superar 5.")
-        .default(5)
         .optional(),
     etiquetas: arrayAcotado(z.number().int().positive("Cada etiqueta debe ser un ID válido."), 50, "No se pueden enviar más de 50 etiquetas.")
         .optional(),
