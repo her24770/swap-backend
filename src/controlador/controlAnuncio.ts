@@ -59,7 +59,7 @@ export async function crearAnuncioUsuario(req: Request, res: Response, next: Nex
         // Validar los datos de entrada con Zod
         const validacion = schemaCrearAnuncio.safeParse(bodyData);
         if (!validacion.success) {
-            errorValidacionResponse(res, validacion.error.errors);
+            errorValidacionResponse(res, validacion.error.issues);
             return;
         }
 
@@ -193,7 +193,7 @@ export async function editarAnuncioUsuario(req: Request, res: Response, next: Ne
         };  
         const validacion = schemaEditarAnuncio.safeParse(bodyData);
         if (!validacion.success) {
-            errorValidacionResponse(res, validacion.error.errors);
+            errorValidacionResponse(res, validacion.error.issues);
             return;
         }
 

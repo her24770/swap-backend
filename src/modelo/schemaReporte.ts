@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { errorRequerido } from "./erroresZod.js";
 
 export const tiposObjetivoReporte = ["usuario", "publicacion", "comentario"] as const;
 export const estadosReporte = ["pendiente", "resuelto", "rechazado"] as const;
@@ -27,20 +28,20 @@ export const motivosReporte = [
  * Basado en el modelo Reporte del schema.prisma
  */
 export const schemaCrearReporte = z.object({
-    tipo_objetivo: z.enum(tiposObjetivoReporte, {
-        required_error: "El tipo de objetivo es obligatorio.",
-        invalid_type_error: "El tipo de objetivo no es válido.",
-    }),
+    tipo_objetivo: z.enum(
+        tiposObjetivoReporte,
+        errorRequerido("El tipo de objetivo es obligatorio.", "El tipo de objetivo no es válido.")
+    ),
 
     id_objetivo: z
-        .coerce.number({ required_error: "El ID del objetivo es obligatorio.", invalid_type_error: "El ID del objetivo debe ser un número." })
+        .coerce.number(errorRequerido("El ID del objetivo es obligatorio.", "El ID del objetivo debe ser un número."))
         .int()
         .positive("El ID del objetivo debe ser un ID válido."),
 
-    motivo: z.enum(motivosReporte, {
-        required_error: "El motivo del reporte es obligatorio.",
-        invalid_type_error: "El motivo del reporte no es válido.",
-    }),
+    motivo: z.enum(
+        motivosReporte,
+        errorRequerido("El motivo del reporte es obligatorio.", "El motivo del reporte no es válido.")
+    ),
 
     detalle: z
         .string()
@@ -100,12 +101,12 @@ export interface ResultadoBusquedaReporte {
 // También se requiere el ID del reporte que se desea actualizar.
 
 export const schemaActualizarEstadoReporte = z.object({
-    estado: z.enum(estadosReporte, {
-        required_error: "El estado del reporte es obligatorio.",
-        invalid_type_error: "El estado del reporte no es válido.",
-    }),
+    estado: z.enum(
+        estadosReporte,
+        errorRequerido("El estado del reporte es obligatorio.", "El estado del reporte no es válido.")
+    ),
     id_reporte: z
-        .number({ invalid_type_error: "El ID del reporte debe ser un número." })
+        .number({ error: "El ID del reporte debe ser un número." })
         .int()
         .positive("El ID del reporte debe ser un ID válido.")
         .optional(),

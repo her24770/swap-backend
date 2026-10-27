@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { arrayAcotado } from "./arrayAcotado";
 import { paginationOptions } from "./schemaPublicacion";
+import { errorFormato, errorRequerido } from "./erroresZod";
 
 /**
  * Schema para PUT /api/user/:id
@@ -16,8 +17,7 @@ export const schemaActualizarPerfil = z.object({
         .optional(),
 
     url_foto_perfil: z
-        .string()
-        .url("La URL de la foto no tiene un formato válido.")
+        .url(errorFormato("La URL de la foto no tiene un formato válido."))
         .refine((url) => {
             // Fix BG-18: si aceptamos cualquier dominio aquí, se puede saltar
             // por completo el flujo de subida moderada (PUT /api/imagen/perfil/:id
@@ -51,12 +51,12 @@ const PATRON_ESQUEMA = /^([a-zA-Z][a-zA-Z0-9+.-]*):/;
  */
 const contactoSchema = z.object({
     tipo_contacto: z
-        .number({ required_error: "El tipo de contacto es obligatorio.", invalid_type_error: "El tipo de contacto debe ser un número." })
+        .number(errorRequerido("El tipo de contacto es obligatorio.", "El tipo de contacto debe ser un número."))
         .int()
         .positive("El tipo de contacto debe ser un ID válido."),
 
     valor: z
-        .string({ required_error: "El valor del contacto es obligatorio." })
+        .string(errorRequerido("El valor del contacto es obligatorio."))
         .min(1, "El valor no puede estar vacío.")
         .max(255, "El valor no puede superar 255 caracteres.")
         .refine((valor) => {
@@ -70,10 +70,10 @@ export const schemaAgregarContactos = z.object({
     contactos: z.union([
         contactoSchema,
         arrayAcotado(contactoSchema, 20, "No se pueden enviar más de 20 contactos.")
-    ], {
-        required_error: "Debe enviar al menos un contacto.",
-        invalid_type_error: "Debe enviar un contacto o un array de contactos."
-    }).refine(
+    ], errorRequerido(
+        "Debe enviar al menos un contacto.",
+        "Debe enviar un contacto o un array de contactos."
+    )).refine(
         (data) => {
             if (Array.isArray(data) && data.length === 0) {
                 return false;
@@ -90,38 +90,26 @@ export const schemaAgregarContactos = z.object({
 export const schemaFiltrosTutor = paginationOptions.extend({
 
     precio_min: z
-        .number({
-            invalid_type_error:
-                "El precio mínimo debe ser un número."
-        })
+        .number({ error: "El precio mínimo debe ser un número." })
         .min(0, "El precio mínimo no puede ser negativo.")
         .default(0)
         .optional(),
 
     precio_max: z
-        .number({
-            invalid_type_error:
-                "El precio máximo debe ser un número."
-        })
+        .number({ error: "El precio máximo debe ser un número." })
         .min(0, "El precio máximo no puede ser negativo.")
         .default(999.99)
         .optional(),
 
     calificacion_min: z
-        .number({
-            invalid_type_error:
-                "La calificación mínima debe ser un número."
-        })
+        .number({ error: "La calificación mínima debe ser un número." })
         .min(0, "La calificación mínima no puede ser negativa.")
         .max(5, "La calificación máxima no puede superar 5.")
         .default(0)
         .optional(),
 
     calificacion_max: z
-        .number({
-            invalid_type_error:
-                "La calificación máxima debe ser un número."
-        })
+        .number({ error: "La calificación máxima debe ser un número." })
         .min(0, "La calificación máxima no puede ser negativa.")
         .max(5, "La calificación máxima no puede superar 5.")
         .default(5)

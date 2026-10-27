@@ -23,7 +23,7 @@ export async function registrarNuevaResena(req: Request, res: Response, next: Ne
 
         const validacion = schemaCrearResena.safeParse(req.body);
         if (!validacion.success) {
-            errorValidacionResponse(res, validacion.error.errors);
+            errorValidacionResponse(res, validacion.error.issues);
             return;
         }
 
@@ -86,7 +86,7 @@ export async function modificarResenaUsuario(req: Request, res: Response, next: 
 
         const validacion = schemaEditarResena.safeParse(req.body);
         if (!validacion.success) {
-        errorValidacionResponse(res, validacion.error.errors);
+        errorValidacionResponse(res, validacion.error.issues);
         return;
         }
 
@@ -172,4 +172,4 @@ export async function eliminarResenaUsuario(req: Request, res: Response, next: N
     } catch (error) {
         next(error);
     }
-}   
+}

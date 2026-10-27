@@ -8,7 +8,7 @@ export async function listarUsuariosModeracion(req: Request, res: Response, next
     try {
         const parseo = schemaFiltrosModeracionUsuario.safeParse(req.query);
         if (!parseo.success) {
-            errorValidacionResponse(res, parseo.error.errors, "Filtros inválidos.");
+            errorValidacionResponse(res, parseo.error.issues, "Filtros inválidos.");
             return;
         }
 
