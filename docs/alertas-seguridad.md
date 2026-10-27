@@ -28,9 +28,10 @@ de Redis y la recepción HTTP del webhook. En el servidor, el dueño debe:
 4. Guardar evidencia de al menos tres notificaciones recibidas.
 5. Confirmar que la carga no contiene contraseñas, cookies, tokens ni códigos.
 
-Los límites y agrupaciones por IP dependen de `req.ip`. El dueño del servidor
-debe configurar `TRUST_PROXY_HOPS` con el número exacto de proxies inversos
-confiables; no debe habilitar confianza general en `X-Forwarded-For`.
+Los límites y agrupaciones por IP dependen de `req.ip`. En la topología de
+producción Cloudflare → nginx → API, el dueño del servidor debe configurar
+`TRUST_PROXY=cloudflare`. No se debe habilitar confianza general en
+`X-Forwarded-For`.
 
 La validación local de extremo a extremo se ejecuta con:
 
