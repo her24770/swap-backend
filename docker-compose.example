@@ -21,7 +21,6 @@ services:
       PGBACKREST_REPO1_S3_KEY: ${BACKUP_R2_ACCESS_KEY_ID:?Falta definir BACKUP_R2_ACCESS_KEY_ID en .env}
       PGBACKREST_REPO1_S3_KEY_SECRET: ${BACKUP_R2_SECRET_ACCESS_KEY:?Falta definir BACKUP_R2_SECRET_ACCESS_KEY en .env}
       PGBACKREST_REPO1_CIPHER_PASS: ${BACKUP_ENCRYPTION_KEY:?Falta definir BACKUP_ENCRYPTION_KEY en .env}
-      BACKUP_REPORT_ENVIRONMENT: ${BACKUP_REPORT_ENVIRONMENT:-development}
     command:
       - postgres
       - -c
@@ -32,12 +31,33 @@ services:
       - archive_timeout=60s
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - postgres_socket:/var/run/postgresql
     # Sin mapeo de puertos al host: solo accesible dentro de la red interna de Docker (servicio "api").
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  postgres-backup:
+    image: swap-postgres:16
+    container_name: postgres-backup
+    restart: unless-stopped
+    command: backup-scheduler
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGBACKREST_PG1_USER: ${POSTGRES_USER:?Falta definir POSTGRES_USER en .env}
+      PGBACKREST_REPO1_S3_BUCKET: ${BACKUP_R2_BUCKET_NAME:?Falta definir BACKUP_R2_BUCKET_NAME en .env}
+      PGBACKREST_REPO1_S3_ENDPOINT: ${BACKUP_R2_ACCOUNT_ID:?Falta definir BACKUP_R2_ACCOUNT_ID en .env}.r2.cloudflarestorage.com
+      PGBACKREST_REPO1_S3_KEY: ${BACKUP_R2_ACCESS_KEY_ID:?Falta definir BACKUP_R2_ACCESS_KEY_ID en .env}
+      PGBACKREST_REPO1_S3_KEY_SECRET: ${BACKUP_R2_SECRET_ACCESS_KEY:?Falta definir BACKUP_R2_SECRET_ACCESS_KEY en .env}
+      PGBACKREST_REPO1_CIPHER_PASS: ${BACKUP_ENCRYPTION_KEY:?Falta definir BACKUP_ENCRYPTION_KEY en .env}
+      BACKUP_REPORT_ENVIRONMENT: ${BACKUP_REPORT_ENVIRONMENT:-development}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data:ro
+      - postgres_socket:/var/run/postgresql
 
   # ─────────────────────────────────────────────
   # Redis
@@ -105,4 +125,5 @@ services:
 
 volumes:
   postgres_data:
+  postgres_socket:
   redis_data:

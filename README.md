@@ -203,9 +203,9 @@ cifrados, en el bucket R2 configurado con `BACKUP_R2_*`:
 Operaciones manuales:
 
 ```bash
-docker compose exec -u postgres postgres pgbackrest --stanza=swap info
-docker compose exec -u postgres postgres run-pgbackrest-backup full manual
-docker compose exec -u postgres postgres run-pgbackrest-backup incr manual
+docker compose exec -u postgres postgres-backup pgbackrest --stanza=swap info
+docker compose exec -u postgres postgres-backup run-pgbackrest-backup full manual
+docker compose exec -u postgres postgres-backup run-pgbackrest-backup incr manual
 ```
 
 Una restauración física requiere detener `api` y PostgreSQL antes de reemplazar

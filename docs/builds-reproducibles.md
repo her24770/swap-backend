@@ -23,7 +23,6 @@ el contexto representa exactamente `HEAD`:
 ```bash
 ./scripts/verificarBuildReproducible.sh api
 ./scripts/verificarBuildReproducible.sh embeddings
-./scripts/verificarBuildReproducible.sh backup
 ./scripts/verificarBuildReproducible.sh postgres
 ```
 

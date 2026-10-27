@@ -9,8 +9,9 @@ las últimas cuatro cadenas de backups completos.
 - Full: domingo a las 03:00, hora de Guatemala.
 - Incremental: lunes a sábado a las 03:00, hora de Guatemala.
 
-El calendario se ejecuta dentro del contenedor `postgres`. No depende del
-servicio antiguo `postgres-backup`.
+El calendario se ejecuta en el servicio `postgres-backup`; PostgreSQL sólo se
+encarga de archivar los WAL. El servicio usa pgBackRest y reemplaza por completo
+el mecanismo anterior basado en `pg_dump`.
 
 ## Configuración inicial
 
@@ -44,8 +45,8 @@ docker compose up -d --build --remove-orphans
 Inicializar y validar la stanza una sola vez:
 
 ```bash
-docker compose exec -u postgres postgres pgbackrest --stanza=swap stanza-create
-docker compose exec -u postgres postgres pgbackrest --stanza=swap check
+docker compose exec -u postgres postgres-backup pgbackrest --stanza=swap stanza-create
+docker compose exec -u postgres postgres-backup pgbackrest --stanza=swap check
 ```
 
 En producción, agregar `-f docker-compose.prod.yml` a los comandos de Compose.
@@ -55,14 +56,14 @@ En producción, agregar `-f docker-compose.prod.yml` a los comandos de Compose.
 Consultar los backups disponibles:
 
 ```bash
-docker compose exec -u postgres postgres pgbackrest --stanza=swap info
+docker compose exec -u postgres postgres-backup pgbackrest --stanza=swap info
 ```
 
 Crear backups manuales:
 
 ```bash
-docker compose exec -u postgres postgres run-pgbackrest-backup full manual
-docker compose exec -u postgres postgres run-pgbackrest-backup incr manual
+docker compose exec -u postgres postgres-backup run-pgbackrest-backup full manual
+docker compose exec -u postgres postgres-backup run-pgbackrest-backup incr manual
 ```
 
 Usar los wrappers anteriores garantiza que la ejecución también genere su
@@ -71,7 +72,7 @@ reporte. Invocar `pgbackrest backup` directamente no lo genera.
 Seguir la ejecución programada:
 
 ```bash
-docker compose logs -f postgres
+docker compose logs -f postgres-backup
 ```
 
 ## Reportes
@@ -106,13 +107,28 @@ PostgreSQL y la API.
 `verify` relee el backup indicado y comprueba su integridad:
 
 ```bash
-docker compose exec -u postgres postgres pgbackrest --stanza=swap check
-docker compose exec -u postgres postgres pgbackrest --stanza=swap --set=<ETIQUETA> verify
+docker compose exec -u postgres postgres-backup pgbackrest --stanza=swap check
+docker compose exec -u postgres postgres-backup pgbackrest --stanza=swap --set=<ETIQUETA> verify
 ```
 
 Obtener `<ETIQUETA>` con el comando `info`.
 
-## Prueba real de restauración
+## Prueba automatizada de restauración
+
+La prueba restaura el último backup en volúmenes temporales, inicia una instancia
+aislada de PostgreSQL y ejecuta una consulta. No detiene servicios ni modifica el
+volumen productivo:
+
+```bash
+set -a; . ./.env; set +a
+./scripts/probar-restauracion-pgbackrest.sh
+```
+
+También acepta una etiqueta concreta como primer argumento y `COMPOSE_FILE`
+para elegir otro archivo Compose. Los contenedores y volúmenes temporales se
+eliminan incluso si la prueba falla.
+
+## Restauración manual
 
 > **Destructivo:** ejecutar únicamente en un entorno local desechable. Estos
 > pasos reemplazan por completo el volumen local de PostgreSQL.
@@ -149,7 +165,7 @@ Obtener `<ETIQUETA>` con el comando `info`.
 
    ```bash
    docker compose exec -u postgres postgres sh -lc 'psql -U "$PGBACKREST_PG1_USER" -d "$POSTGRES_DB" -Atc "select pg_is_in_recovery();"'
-   docker compose exec -u postgres postgres pgbackrest --stanza=swap check
+   docker compose exec -u postgres postgres-backup pgbackrest --stanza=swap check
    curl --fail http://127.0.0.1:3001/api/health
    ```
 
