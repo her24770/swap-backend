@@ -15,6 +15,7 @@ import {
     MENSAJE_RATE_LIMITER_NO_DISPONIBLE,
     permitirEventoSocket,
     rateLimitGlobal,
+    rateLimitOperacionCostosa,
     RateLimiterNoDisponibleError,
     registrarIntento,
     reiniciarRateLimiters,
@@ -23,7 +24,8 @@ import {
 function respuestaMock() {
     const json = vi.fn();
     const status = vi.fn(() => ({ json }));
-    return { res: { status } as any, status, json };
+    const setHeader = vi.fn();
+    return { res: { status, setHeader } as any, status, json, setHeader };
 }
 
 describe("rate limiting distribuido", () => {
@@ -131,5 +133,68 @@ describe("rate limiting distribuido", () => {
             keys: ["rate:socket_evento:7:mensaje:enviar"],
             arguments: ["60"],
         });
+    });
+
+    it.each([
+        ["publicacion_moderada", "900", 11],
+        ["subida_imagen_moderada", "900", 21],
+        ["subida_certificacion", "3600", 4],
+        ["creacion_reporte", "3600", 11],
+    ] as const)("aplica el bucket %s por usuario", async (bucket, ventana, excedido) => {
+        redisMock.eval.mockResolvedValueOnce(1).mockResolvedValueOnce(excedido);
+        const next = vi.fn();
+        const respuesta = respuestaMock();
+
+        await rateLimitOperacionCostosa(bucket)(
+            { usuario: { sub: 42 }, ip: "203.0.113.30" } as any,
+            respuesta.res,
+            next,
+        );
+
+        expect(next).toHaveBeenCalledOnce();
+        expect(redisMock.eval).toHaveBeenCalledWith(expect.stringContaining("INCR"), {
+            keys: [`rate:${bucket}:usuario:42`],
+            arguments: [ventana],
+        });
+
+        const respuestaExcedida = respuestaMock();
+        await rateLimitOperacionCostosa(bucket)(
+            { usuario: { sub: 42 }, ip: "203.0.113.30" } as any,
+            respuestaExcedida.res,
+            next,
+        );
+        expect(next).toHaveBeenCalledOnce();
+        expect(respuestaExcedida.status).toHaveBeenCalledWith(429);
+    });
+
+    it("responde 429 sin ejecutar el proveedor al exceder la cuota", async () => {
+        redisMock.eval.mockResolvedValue(11);
+        const proveedorCostoso = vi.fn();
+        const respuesta = respuestaMock();
+
+        await rateLimitOperacionCostosa("publicacion_moderada")(
+            { usuario: { sub: 42 }, ip: "203.0.113.30" } as any,
+            respuesta.res,
+            proveedorCostoso,
+        );
+
+        expect(proveedorCostoso).not.toHaveBeenCalled();
+        expect(respuesta.setHeader).toHaveBeenCalledWith("Retry-After", "900");
+        expect(respuesta.status).toHaveBeenCalledWith(429);
+    });
+
+    it("falla cerrado antes del proveedor cuando Redis no está disponible", async () => {
+        redisMock.eval.mockRejectedValue(new Error("Redis caído"));
+        const proveedorCostoso = vi.fn();
+        const respuesta = respuestaMock();
+
+        await rateLimitOperacionCostosa("subida_certificacion")(
+            { usuario: { sub: 42 }, ip: "203.0.113.30" } as any,
+            respuesta.res,
+            proveedorCostoso,
+        );
+
+        expect(proveedorCostoso).not.toHaveBeenCalled();
+        expect(respuesta.status).toHaveBeenCalledWith(503);
     });
 });
