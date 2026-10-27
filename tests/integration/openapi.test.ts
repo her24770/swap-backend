@@ -4,6 +4,7 @@ import app from "../../src/app";
 
 vi.mock("../../src/autenticacion/rateLimiter", () => ({
     rateLimitGlobal: (_req: unknown, _res: unknown, next: () => void) => next(),
+    rateLimitOperacionCostosa: () => (_req: unknown, _res: unknown, next: () => void) => next(),
     RateLimiterNoDisponibleError: class RateLimiterNoDisponibleError extends Error {},
 }));
 
