@@ -101,16 +101,9 @@ cmd_up() {
     $COMPOSE up -d
     esperar_api
     log "Cargando catálogos (seed.ts)"
-<<<<<<< HEAD
-    docker exec swap-zap-api ./node_modules/.bin/tsx prisma/seed.ts | tail -1
-    log "Cargando datos de prueba (seedPruebas.ts)"
-    docker exec swap-zap-api ./node_modules/.bin/tsx prisma/seedPruebas.ts | tail -1
-=======
     docker exec -e HOME=/tmp swap-zap-api ./node_modules/.bin/tsx prisma/seed.ts | tail -1
     log "Cargando datos de prueba (seedPruebas.ts)"
     docker exec -e HOME=/tmp swap-zap-api ./node_modules/.bin/tsx prisma/seedPruebas.ts | tail -1
-
->>>>>>> origin/develop
 }
 
 cmd_down() {
@@ -352,4 +345,3 @@ case "${1:-}" in
     *) sed -n '2,13p' "$DIR/$(basename "$0")"; exit 1 ;;
 
 esac
-
