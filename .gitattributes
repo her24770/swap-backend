@@ -1,0 +1,6 @@
+# Enforce LF line endings for scripts and container assets
+* text=auto
+
+docker/postgres/* text eol=lf
+*.sh text eol=lf
+Dockerfile* text eol=lf
