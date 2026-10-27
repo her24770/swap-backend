@@ -587,10 +587,10 @@ export async function buscarPublicacionesPorFiltros(
     options: Partial<FiltrosPublicacionInput>,
     idUsuario?: number
 ): Promise<Publicacion[]> {
-    const where: any = {}; 
+    const where: any = {};
     if (idUsuario) {
         where.id_usuario = { not: idUsuario };
-    } 
+    }
     // 1. Filtro por precio
     if (options.precio_min !== undefined || options.precio_max !== undefined) {
         where.precio = {};

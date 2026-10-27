@@ -133,7 +133,7 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
             });
             expect(publicacionAprobadaBd?.estado).toBe(estados.activo);
 
-            // Una vez aprobada por el moderador, ahora SÍ aparece en el listado público para otros usuarios
+            // Una vez aprobada, aparece para otros usuarios, pero no en el listado del autor.
             const listadoPublicoDespues = await request(app)
                 .get("/api/v1/publicacion")
                 .set("Authorization", `Bearer ${visitante.token}`)
@@ -144,14 +144,10 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")(
             );
             expect(existeEnPublicoDespues).toBe(true);
 
-            // Para el propio autor, el listado general NO se la muestra (exclusión de publicaciones propias)
-            const listadoAutor = await request(app)
+            await request(app)
                 .get("/api/v1/publicacion")
-                .set("Authorization", `Bearer ${autor.token}`);
-            const existeEnListadoAutor = (listadoAutor.body.data?.publicaciones ?? []).some(
-                (p: { id_publicacion: number }) => p.id_publicacion === idPublicacion
-            );
-            expect(existeEnListadoAutor).toBe(false);
+                .set("Authorization", `Bearer ${autor.token}`)
+                .expect(404);
         });
 
         it("flujo de rechazo: al fallar el proveedor, la publicación queda retenida, el moderador la rechaza (/bajar) y permanece no visible", async () => {

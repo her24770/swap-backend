@@ -31,6 +31,8 @@ services:
       retries: 20
 
   integration-tests:
+    volumes:
+      - ./coverage:/app/coverage
     build:
       context: .
       dockerfile: Dockerfile
@@ -58,4 +60,4 @@ services:
     command: >-
       sh -c "npx prisma db execute --file ./prisma/setup.sql &&
       npx prisma db push --skip-generate &&
-      npm run test:integration"
+      npm run test:coverage:combined"
