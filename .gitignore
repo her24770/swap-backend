@@ -9,6 +9,7 @@ coverage/
 .env
 .env.local
 .env.*.local
+.env.staging
 
 # ─── Logs ───────────────────────────────────────
 logs/

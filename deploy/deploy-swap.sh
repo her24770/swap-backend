@@ -10,6 +10,7 @@
 #   deploy-swap.sh desplegar backend|frontend <v> pone en producción una versión concreta de main
 #   deploy-swap.sh versiones backend|frontend     lista las versiones y respaldos disponibles
 #   deploy-swap.sh restaurar-bd [archivo]         restaura la base de datos (solo a mano, destructivo)
+#   deploy-swap.sh staging backend|frontend       despliega develop en staging (ver deploy-staging.sh)
 #
 # Una versión <v> es un nombre publicado (v1.4.2) o un commit (623f3dc).
 set -euo pipefail
@@ -30,6 +31,11 @@ if [ -n "${SSH_ORIGINAL_COMMAND:-}" ]; then
     read -r -a ARGS <<< "$SSH_ORIGINAL_COMMAND"
 else
     ARGS=("$@")
+fi
+
+# Staging (SWAP-673) lo atiende su propio script: nada de producción interviene.
+if [ "${ARGS[0]:-}" = staging ]; then
+    exec "$RAIZ/deploy-staging.sh" "${ARGS[@]:1}"
 fi
 
 ACCION=deploy
