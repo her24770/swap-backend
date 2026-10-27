@@ -12,6 +12,8 @@ on:
         required: false
         type: string
 
+permissions: {}
+
 jobs:
   desplegar-version:
     name: Desplegar versión del backend en producción
