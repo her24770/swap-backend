@@ -1,8 +1,9 @@
 # Alertas de seguridad
 
-El canal elegido es **webhook**. Configure `SECURITY_ALERT_WEBHOOK_URL` en el
-servidor; si no está definido, el evaluador no se inicia. La URL es un secreto
-y nunca debe confirmarse en el repositorio ni imprimirse en logs.
+El canal elegido es **Discord**. Configure `SECURITY_ALERT_WEBHOOK_URL` con la
+URL HTTPS de un webhook del canal del equipo; si no está definido, el evaluador
+no se inicia. La URL es un secreto y nunca debe confirmarse en el repositorio,
+en tickets ni imprimirse en logs.
 
 Las reglas usan contadores y enfriamiento distribuidos en Redis:
 
@@ -17,12 +18,43 @@ Cada alerta tiene 15 minutos de enfriamiento para evitar una tormenta de
 notificaciones. Los umbrales y ventanas se pueden sobrescribir con las
 variables documentadas en `.env.example`.
 
+Estos valores son el punto de partida para producción. Después de siete días,
+el dueño del servidor debe contar los eventos por ventanas de cinco minutos:
+
+- si hay alertas frecuentes durante uso legítimo, subir el umbral al percentil
+  99 observado más un margen del 20 %;
+- si un incidente conocido no alcanza el umbral, reducirlo;
+- mantener `moderation_provider_failures=1`, porque una sola caída del proveedor
+  ya requiere revisión operativa.
+
+## Crear el webhook de Discord
+
+1. Abrir **Ajustes del servidor → Integraciones → Webhooks**.
+2. Crear un webhook para el canal privado de seguridad.
+3. Copiar la URL y entregarla al dueño del servidor por un canal secreto.
+4. El dueño debe cargar estos valores en el `.env` de producción:
+
+```env
+SECURITY_ALERT_WEBHOOK_URL=https://discord.com/api/webhooks/...
+ALERT_FAILED_LOGIN_THRESHOLD=5
+ALERT_FAILED_LOGIN_WINDOW_SECONDS=300
+ALERT_RATE_LIMIT_THRESHOLD=3
+ALERT_RATE_LIMIT_WINDOW_SECONDS=300
+ALERT_MODERATION_FAILURE_THRESHOLD=1
+ALERT_MODERATION_FAILURE_WINDOW_SECONDS=300
+ALERT_HTTP_5XX_THRESHOLD=5
+ALERT_HTTP_5XX_WINDOW_SECONDS=300
+```
+
+El payload usa `content` y `embeds`, deshabilita menciones y no incluye
+contraseñas, tokens, cookies ni códigos.
+
 ## Validación
 
 Las pruebas unitarias simulan los cuatro tipos de evento, la decisión atómica
 de Redis y la recepción HTTP del webhook. En el servidor, el dueño debe:
 
-1. Configurar la URL HTTPS del receptor.
+1. Configurar la URL HTTPS del webhook de Discord.
 2. Desplegar/reiniciar la API.
 3. Simular cada evento en un entorno controlado hasta alcanzar el umbral.
 4. Guardar evidencia de al menos tres notificaciones recibidas.

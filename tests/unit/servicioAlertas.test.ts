@@ -35,7 +35,15 @@ describe("alertas de seguridad por webhook", () => {
         const [url, options] = fetchMock.mock.calls[0];
         expect(url).toBe("https://alertas.invalid/security");
         const payload = JSON.parse(options.body);
-        expect(payload).toMatchObject({ event: "security.alert.triggered", alert: expectedAlert });
+        expect(payload).toMatchObject({
+            username: "SWAP Seguridad",
+            allowed_mentions: { parse: [] },
+            embeds: [{ title: "Evento de seguridad detectado" }],
+        });
+        expect(payload.content).toContain(expectedAlert);
+        expect(payload.embeds[0].fields).toContainEqual(
+            expect.objectContaining({ name: "Regla", value: expectedAlert }),
+        );
         expect(options.body).not.toContain("no-debe-salir");
         expect(options.body).not.toContain("tampoco-debe-salir");
         expect(options.body).not.toContain("123456");
