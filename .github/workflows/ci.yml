@@ -127,6 +127,35 @@ jobs:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
         run: ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" backend
 
+  # Staging (SWAP-673): cada push a develop con el CI en verde se despliega en el
+  # ambiente de pruebas. Solo corre si el repo tiene la variable STAGING_ACTIVO=true
+  # (Settings → Variables), que se crea cuando staging ya está instalado en el servidor.
+  deploy-staging:
+    name: Deploy a staging
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop' && vars.STAGING_ACTIVO == 'true'
+    needs: [auditoria-dependencias, lint-y-typecheck, pruebas-unitarias, pruebas-integracion, zap-baseline]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-staging-backend
+      cancel-in-progress: false
+    steps:
+      - name: Configurar SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+      # Misma llave y mismo forced command que producción: "staging backend" lo
+      # atiende deploy-staging.sh, que no toca nada de producción.
+      - name: Desplegar backend en staging
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" staging backend
+
   version:
     name: Publicar versión
     # Solo después de un deploy correcto: una versión con nombre siempre
