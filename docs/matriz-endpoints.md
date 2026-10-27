@@ -51,7 +51,7 @@ La política esperada es manual e independiente de los routers. `Propiedad esper
 | EP-037 | GET | `/guardados` | usuario | usuario | sesión propia | ✅ | `listSavedPublications` | `historial-guardados.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-038 | DELETE | `/guardados/:publicacionId` | usuario | usuario | sesión propia | ✅ | `removeSavedPublication` | `autorizacion-endpoints.test.ts` |
 | EP-039 | POST | `/guardados/:publicacionId` | usuario | usuario | sesión propia | ✅ | `savePublication` | `historial-guardados.test.ts`, `autorizacion-endpoints.test.ts` |
-| EP-040 | GET | `/health` | público | público | no aplica | ✅ | `getHealth` | `contrato-rest.test.ts`, `health.test.ts` |
+| EP-040 | GET | `/health` | público | público | no aplica | ✅ | `getHealth` | `contrato-rest.test.ts`, `health.test.ts`, `infraestructura-real.test.ts` |
 | EP-041 | GET | `/horarios/:usuarioId` | público | público | no aplica | ✅ | `getUserSchedule` | `autenticacion-perfiles.test.ts`, `tutorias-real.test.ts` |
 | EP-042 | PUT | `/horarios/:usuarioId` | usuario | usuario | propietario por parámetro | ✅ | `replaceUserSchedule` | `autenticacion-perfiles.test.ts`, `tutorias-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-043 | PUT | `/imagen/perfil/:id` | usuario | usuario | propietario por parámetro | ✅ | `updateProfilePicture` | `transversal-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |

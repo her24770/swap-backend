@@ -8,6 +8,10 @@ vi.mock("../../src/autenticacion/rateLimiter", () => ({
     RateLimiterNoDisponibleError: class RateLimiterNoDisponibleError extends Error {},
 }));
 
+vi.mock("../../src/observabilidad/saludDependencias", () => ({
+    comprobarDependencias: vi.fn().mockResolvedValue([]),
+}));
+
 describe("contrato REST v1", () => {
     it("expone /api/v1 como versión canónica y conserva /api", async () => {
         const [versionada, compatible] = await Promise.all([
