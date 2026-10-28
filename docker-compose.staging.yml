@@ -2,7 +2,7 @@
 # La levanta deploy/deploy-staging.sh con `-p swap-staging --env-file .env.staging`.
 # Es independiente de producción (docker-compose.prod.yml):
 #   - proyecto de compose, red, contenedores y volúmenes propios (swap-staging / swap_staging_*)
-#   - la API escucha en 127.0.0.1:3101 (el tráfico entra por nginx y Cloudflare)
+#   - la API escucha en 127.0.0.1:3301 (el tráfico entra por nginx y Cloudflare)
 #   - base de datos y Redis propios, con datos de prueba; nunca la de producción
 #   - embeddings reutiliza la imagen de producción (no se reconstruye)
 # Todas las variables salen de .env.staging (copiar deploy/staging/env.staging.example).
@@ -90,7 +90,7 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       EMBEDDINGS_SERVICE_URL: http://embeddings:8000
     ports:
-      - "127.0.0.1:3101:3001"
+      - "127.0.0.1:3301:3001"
     depends_on:
       postgres:
         condition: service_healthy

@@ -55,12 +55,23 @@ if ! nginx -t; then revertir; exit 1; fi
 systemctl reload nginx
 
 # 4. Comprobar: directo debe rechazarse (403) y por Cloudflare debe seguir funcionando (200).
-directo="$(curl -sk -m 10 -o /dev/null -w '%{http_code}' --resolve "$DOMINIO:443:127.0.0.1" "https://$DOMINIO/api/health" || true)"
+# Tras recargar, nginx tarda un instante en pasar a los procesos nuevos: se espera hasta
+# 15 s a que lo directo dé 403 en vez de probar una sola vez.
+directo=""
+for _ in $(seq 1 15); do
+    directo="$(curl -sk -m 10 -o /dev/null -w '%{http_code}' --resolve "$DOMINIO:443:127.0.0.1" "https://$DOMINIO/api/health" || true)"
+    [ "$directo" = 403 ] && break
+    sleep 1
+done
 por_cf="$(curl -s -m 15 -o /dev/null -w '%{http_code}' "https://$DOMINIO/api/health" || true)"
 echo "Directo al servidor: HTTP $directo (esperado 403)"
 echo "Por Cloudflare:      HTTP $por_cf (esperado 200)"
 if [ "$directo" != 403 ] || [ "$por_cf" != 200 ]; then
-    echo "Resultado inesperado."
+    echo "Resultado inesperado. Diagnóstico:"
+    echo "--- reglas activas en nginx:"
+    nginx -T 2>/dev/null | grep -nE "cloudflare-solo|deny all|server_name $DOMINIO" | head -8 || true
+    echo "--- respuesta directa:"
+    curl -skI -m 10 --resolve "$DOMINIO:443:127.0.0.1" "https://$DOMINIO/api/health" | head -5 || true
     revertir
     exit 1
 fi

@@ -136,23 +136,29 @@ frontend (compose solo en el servidor) lleva `max-size: 10m`, `max-file: 3`,
 `mem_limit: 512m` y `cpus: 1.0`. Cambiar estos valores recrea los contenedores en el
 siguiente deploy. Para ver el consumo: `docker stats --no-stream`.
 
-## Scripts de servidor (`deploy/servidor/`)
+## Scripts de servidor (`deploy/servidor/` y `scripts/`)
 
 Se ejecutan a mano en el servidor; ninguno corre desde GitHub. Los que cambian
 configuración del sistema piden `sudo`, hacen respaldo de lo que modifican, validan
-antes de aplicar y se revierten solos si algo falla.
+antes de aplicar y se revierten solos si algo falla. Todos están instalados en
+`/home/nandez/deploy/`.
 
 | Script | Tarea | Qué hace |
 |---|---|---|
-| `liberar-disco.sh` | SWAP-668 | Borra la caché de builds y las imágenes colgantes (no toca contenedores, volúmenes ni las versiones guardadas para rollback) |
-| `alerta-disco.sh` | SWAP-668 | Avisa por webhook cuando el disco pasa del 85 %. Instalar en `/home/nandez/deploy/` y programar con `crontab -e`: `0 * * * * /home/nandez/deploy/alerta-disco.sh` |
-| `nginx-swap-solo-cloudflare.sh` | SWAP-666 | El sitio de Swap solo acepta IPs de Cloudflare; comprueba que lo directo da 403 y lo normal 200 |
+| `liberar-disco.sh` | SWAP-668 | Borra la caché de builds y las imágenes colgantes (no toca contenedores, volúmenes ni las versiones guardadas para rollback). Ejecutado el 28/10: disco de 78 % a 35 % |
+| `alerta-disco.sh` | SWAP-668 | Avisa por webhook de Discord cuando el disco pasa del 85 %. Programado cada hora en el cron de `nandez`; configuración en `/home/nandez/deploy/alertas.env` (permisos 600) |
+| `nginx-swap-solo-cloudflare.sh` | SWAP-666 | El sitio de Swap solo acepta IPs de Cloudflare; espera hasta 15 s tras recargar y comprueba que lo directo da 403 y lo normal 200 |
 | `nginx-servidor-por-defecto.sh` | SWAP-672 | Opcional: hosts desconocidos reciben respuesta vacía en vez de "Welcome to nginx". Toca configuración compartida, por eso compara la respuesta de todos los sitios antes y después |
-| `ssh-sin-root.sh` | SWAP-670 | `PermitRootLogin no`. Mantener una sesión abierta mientras se prueba |
-| `reinicios-nocturnos.sh` | SWAP-669 | Reinicio automático tras actualizaciones a las 04:00 de Guatemala |
+| `ssh-sin-root.sh` | SWAP-670 | `PermitRootLogin no` **y** `PasswordAuthentication no`. Se llama `10-...` porque `50-cloud-init.conf` (solo legible por root) lo anulaba. Se niega a correr si el usuario no tiene llave autorizada. Mantener una sesión abierta mientras se prueba |
+| `reinicios-nocturnos.sh` | SWAP-669 | Reinicio automático tras actualizaciones a las 04:00 de Guatemala (la hora se calcula según la zona horaria del servidor) |
+| `activar-respaldos.sh` | SWAP-664 | Activa/desactiva los respaldos con pgBackRest (ver Backups) |
+| `simulacro-rollback.sh` | SWAP-665 | `restauracion`: restaura el último respaldo en un contenedor temporal y lo compara (no afecta producción). `rollback`: vuelve a la versión anterior y regresa midiendo la caída. Guarda el informe en `mediciones/` |
+| `instalar-nginx-staging.sh` | SWAP-673 | Instala el sitio de nginx de staging con respaldo y reversión |
+| `scripts/probar-respaldos-r2.sh` | SWAP-664 | Prueba respaldo completo, incremental y restauración contra un bucket R2 **de prueba**, comparando los datos |
+| `scripts/configurar-status-checks.sh` | SWAP-685 | Exige que el CI pase antes de mergear a develop y main. Por defecto es una simulación; `--aplicar` cambia los rulesets (con respaldo para revertir) |
 
-Orden sugerido: `liberar-disco.sh`, `nginx-swap-solo-cloudflare.sh`, `ssh-sin-root.sh`,
-`reinicios-nocturnos.sh` y, al final y si se quiere, `nginx-servidor-por-defecto.sh`.
+Orden sugerido para un servidor nuevo: `liberar-disco.sh`, `nginx-swap-solo-cloudflare.sh`,
+`ssh-sin-root.sh`, `reinicios-nocturnos.sh` y, si se quiere, `nginx-servidor-por-defecto.sh`.
 
 ## Staging (SWAP-673)
 
@@ -160,47 +166,77 @@ Ambiente de pruebas para validar `develop` antes de mergear a `main`, en
 `https://swap-staging.jhgo.online`. El dominio es de un solo nivel a propósito: el SSL
 universal de Cloudflare no cubre `swap.staging.jhgo.online`. No comparte nada con
 producción: proyectos de compose `swap-staging` y `swap-staging-web`, contenedores
-`swap-staging-*`, volúmenes `swap_staging_*`, puertos `127.0.0.1:3100` (web) y `3101`
-(API), y su propio `.env.staging`. Reutiliza la imagen de embeddings de producción.
-Sin respaldos, versiones ni rollback.
+`swap-staging-*`, volúmenes `swap_staging_*`, puertos `127.0.0.1:3300` (web) y `3301`
+(API; los 3100 y 3101 los usa uvghelp en el mismo servidor), y su propio `.env.staging`.
+Reutiliza la imagen de embeddings de producción. Sin respaldos, versiones ni rollback.
 
-Preparación inicial (una sola vez, en el servidor):
+Ya preparado en el servidor (28/10/2026): carpeta `/home/nandez/projects/software/swap-staging`
+con los dos clones en `develop`, `swap-backend/.env.staging` con secretos aleatorios propios,
+la clave de Server Actions de staging y los scripts en `/home/nandez/deploy/`.
 
-1. **DNS:** en Cloudflare, registro `swap-staging` (proxied) hacia el mismo origen que
-   `swap`. Recomendado: protegerlo con Cloudflare Access para que solo entre el equipo.
-2. **Clones** (el script despliega desde ellos):
-   ```bash
-   mkdir -p /home/nandez/projects/software/swap-staging && cd /home/nandez/projects/software/swap-staging
-   git clone "$(git -C ../swap/swap-backend remote get-url origin)" swap-backend
-   git clone "$(git -C ../swap/swap-frontend remote get-url origin)" swap-frontend
-   ```
-3. **Variables:** `cp swap-backend/deploy/staging/env.staging.example swap-backend/.env.staging`,
-   `chmod 600`, y completar con secretos nuevos y llaves de prueba. Nunca los de producción.
-4. **Scripts** (respaldar antes el `deploy-swap.sh` instalado; ahora delega `staging`):
+Pasos pendientes (en este orden):
+
+1. **Variables de prueba:** completar en `.env.staging` las vacías: `RESEND_API_KEY`,
+   `OPENAI_API_KEY`, `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`. Llaves de PRUEBA, nunca las de
+   producción. Sin ellas staging funciona, pero no envía correos ni modera imágenes con IA.
+2. **DNS:** en Cloudflare, registro `swap-staging` (proxied) hacia el mismo origen que `swap`.
+   Recomendado: protegerlo con Cloudflare Access para que solo entre el equipo.
+3. **Instalar el deploy actualizado** (ahora entiende `staging`; respaldar antes el actual):
    ```bash
    cp /home/nandez/deploy/deploy-swap.sh /home/nandez/deploy/deploy-swap.sh.respaldo-$(date +%Y%m%d)
-   cp deploy/deploy-swap.sh deploy/deploy-staging.sh /home/nandez/deploy/
+   cp /home/nandez/projects/software/swap-staging/swap-backend/deploy/deploy-swap.sh /home/nandez/deploy/
    ```
-5. **nginx:** instalar `deploy/staging/nginx-swap-staging.conf` (instrucciones en el archivo).
-   Requiere haber ejecutado antes `nginx-swap-solo-cloudflare.sh`, que crea el filtro de IPs.
-6. **Primer deploy a mano:** `/home/nandez/deploy/deploy-swap.sh staging backend` y luego
-   `... staging frontend`.
-7. **Datos de prueba:** las migraciones corren solas al arrancar la API. Para cargar la seed
-   hay que ejecutarla con las herramientas de desarrollo (no están en la imagen de producción),
-   por ejemplo con un contenedor temporal de Node en la red `swap-staging_default`; requiere
-   un bucket de pruebas para las imágenes de `SEED_*_KEY`.
-8. **Automatizar:** crear la variable `STAGING_ACTIVO=true` en Settings → Variables de cada
-   repo. Desde entonces, cada push a `develop` despliega en staging (`ci.yml` en el backend,
+4. **nginx:** `sudo /home/nandez/deploy/instalar-nginx-staging.sh`.
+5. **Primer deploy:** `/home/nandez/deploy/deploy-staging.sh backend` y luego
+   `/home/nandez/deploy/deploy-staging.sh frontend`. El backend aplica las migraciones al arrancar.
+6. **Datos de prueba:** la seed necesita las herramientas de desarrollo (no están en la imagen de
+   producción), por ejemplo un contenedor temporal de Node en la red `swap-staging_default`, y un
+   bucket de pruebas para las imágenes de `SEED_*_KEY`.
+7. **Automatizar:** crear la variable `STAGING_ACTIVO=true` en Settings → Variables de cada repo.
+   Desde entonces, cada push a `develop` despliega en staging (`ci.yml` en el backend,
    `staging.yml` en el frontend).
 
-Para liberar memoria cuando no se use:
+Staging ocupa unos 1,7 GB de RAM. Para liberarla cuando no se use:
 `docker compose -p swap-staging --env-file .env.staging -f docker-compose.staging.yml stop`
 (y `docker compose -p swap-staging-web stop` para la web).
 
 ## Backups
 
-El servicio `postgres-backup` ejecuta pgBackRest con el mismo calendario en
-desarrollo y producción: full los domingos e incremental de lunes a sábado,
-siempre a las 03:00 de Guatemala. El `.env` del servidor debe definir `BACKUP_R2_*` y
-`BACKUP_ENCRYPTION_KEY`. Ver la guía de
+Los respaldos con pgBackRest son **opcionales**: `docker-compose.prod.yml` usa el Postgres de
+siempre y no exige ninguna variable `BACKUP_*`. Se activan sumando `docker-compose.respaldos.yml`,
+que reemplaza Postgres por `swap-postgres:16` (la misma base pgvector más pgBackRest), archiva los
+WAL en R2 y agrega el servicio `postgres-backup` (full los domingos e incremental de lunes a
+sábado, a las 03:00 de Guatemala). El script de deploy suma esa capa solo si existe
+`/home/nandez/deploy/respaldos.activos`. Detalle técnico en la guía de
 [backups de PostgreSQL](../docs/backups-postgresql.md).
+
+Qué se verificó (28/10/2026, con un S3 local en lugar de R2): cambiar la imagen sobre un volumen con
+datos los conserva idénticos; stanza-create y check pasan; el respaldo completo, el incremental y su
+reporte funcionan; y **restaurar el último respaldo en un volumen vacío devuelve las mismas filas y la
+misma huella de contenido**. Lo que solo se comprueba con R2 real es el endpoint, la región y la
+subida del reporte: para eso está `scripts/probar-respaldos-r2.sh`.
+
+Cómo activarlos en producción (en este orden):
+
+1. **Bucket de prueba:** crear en tu Cloudflare un bucket cuyo nombre contenga "prueba" y un token
+   "Lectura y escritura de objetos" limitado a ese bucket. Ubicación por defecto (no UE).
+2. **Probar R2 de verdad** sin tocar producción: exportar `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
+   `R2_SECRET_ACCESS_KEY` y `R2_BUCKET`, y ejecutar `./scripts/probar-respaldos-r2.sh`. Debe terminar con
+   "TODO CORRECTO". Después borrar ese bucket.
+3. **Bucket y token de producción** (otro bucket, por ejemplo `swap-respaldos`) y una clave de cifrado:
+   `openssl rand -base64 48`. **Guardar la clave fuera del servidor y no cambiarla nunca**: queda atada
+   al repositorio, y una clave de relleno como `change_me...` es pública. Cargar las cinco variables
+   `BACKUP_R2_ACCOUNT_ID`, `BACKUP_R2_ACCESS_KEY_ID`, `BACKUP_R2_SECRET_ACCESS_KEY`,
+   `BACKUP_R2_BUCKET_NAME` y `BACKUP_ENCRYPTION_KEY` en el `.env` del backend del servidor
+   (`chmod 600`). Pedir que revoquen la llave de la otra cuenta (`swap-backup`).
+4. `/home/nandez/deploy/activar-respaldos.sh preparar` (valida las variables y crea el marcador).
+5. **Deploy del backend** (workflow o `deploy-swap.sh backend`). Construye la imagen de Postgres antes
+   de tocar nada; si falla, producción sigue como estaba.
+6. **Enseguida:** `/home/nandez/deploy/activar-respaldos.sh inicializar` (stanza-create, check y primer
+   respaldo completo). Hasta ese momento Postgres archiva sin repositorio y los WAL se acumulan en disco
+   (no se pierden); con 47 GB libres hay holgura, pero no lo dejes días.
+7. Probar una restauración que compare datos (`scripts/probar-respaldos-r2.sh` o
+   `simulacro-rollback.sh restauracion`) y repetirla cada mes.
+
+Para desactivarlos: `activar-respaldos.sh desactivar` y un deploy del backend (los respaldos ya subidos
+al bucket no se borran).
