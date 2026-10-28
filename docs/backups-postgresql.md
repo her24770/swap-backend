@@ -49,7 +49,13 @@ docker compose exec -u postgres postgres-backup pgbackrest --stanza=swap stanza-
 docker compose exec -u postgres postgres-backup pgbackrest --stanza=swap check
 ```
 
-En producción, agregar `-f docker-compose.prod.yml` a los comandos de Compose.
+En producción los respaldos son opcionales y viven en una capa aparte: agregar
+`-f docker-compose.prod.yml -f docker-compose.respaldos.yml` a los comandos de Compose (o usar
+`/home/nandez/deploy/activar-respaldos.sh`, que valida el `.env`, activa el marcador que hace que el
+deploy sume esa capa y ejecuta `stanza-create`, `check` y el primer respaldo). Procedimiento completo y
+orden de los pasos: [deploy/README.md → Backups](../deploy/README.md#backups). La prueba de restauración
+automática compara únicamente que la copia arranque; para comparar también los datos usar
+`scripts/probar-respaldos-r2.sh`.
 
 ## Uso
 

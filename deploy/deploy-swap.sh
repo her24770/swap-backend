@@ -13,6 +13,11 @@
 #   deploy-swap.sh staging backend|frontend       despliega develop en staging (ver deploy-staging.sh)
 #
 # Una versión <v> es un nombre publicado (v1.4.2) o un commit (623f3dc).
+#
+# Respaldos con pgBackRest (opcionales): si existe /home/nandez/deploy/respaldos.activos,
+# el backend se levanta con docker-compose.prod.yml + docker-compose.respaldos.yml.
+# Sin ese marcador (el estado normal hoy) no se usa pgBackRest ni se exige ninguna
+# variable BACKUP_*. Ver deploy/README.md → Backups para activarlos.
 set -euo pipefail
 
 BASE=/home/nandez/projects/software/swap
@@ -50,6 +55,9 @@ case "$DESTINO" in
     backend)
         DIR="$BASE/swap-backend"
         COMPOSE=(docker compose -f docker-compose.prod.yml)
+        if [ -f "$RAIZ/respaldos.activos" ]; then
+            COMPOSE+=(-f docker-compose.respaldos.yml)
+        fi
         SALUD="http://127.0.0.1:3001/api/health"
         IMAGEN=swap-backend-api
         ;;
@@ -183,6 +191,18 @@ respaldar_bd() {
     ULTIMO_RESPALDO="$archivo"
 }
 
+# Con los respaldos activos, el commit que se va a poner en marcha debe traer su capa de
+# compose; si no (una versión anterior a esta función), se aborta ANTES de tocar nada.
+exigir_capa_respaldos() {
+    # $1 = commit o rama que se pondrá en marcha
+    [ "$DESTINO" = backend ] && [ -f "$RAIZ/respaldos.activos" ] || return 0
+    if ! git cat-file -e "$1:docker-compose.respaldos.yml" 2>/dev/null; then
+        log "ABORTADO: existe $RAIZ/respaldos.activos pero '$1' no trae docker-compose.respaldos.yml."
+        log "Para esa versión desactiva los respaldos (borra el marcador) o elige una versión más reciente."
+        exit 1
+    fi
+}
+
 exigir_arbol_limpio() {
     if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
         log "ABORTADO: hay cambios locales sin commitear en archivos versionados:"
@@ -244,6 +264,7 @@ if [ "$ACCION" = rollback ] || [ "$ACCION" = desplegar ]; then
         exit 1
     fi
     exigir_arbol_limpio
+    exigir_capa_respaldos "$OBJETIVO"
     EN_USO="$(git rev-parse --short HEAD)"
     log "$ACCION de $DESTINO: $(nombre_version "$EN_USO") -> $(nombre_version "$OBJETIVO") ($(git log -1 --format=%s "$OBJETIVO"))"
     log "Solo cambia el código; la base de datos no se restaura."
@@ -294,6 +315,7 @@ exigir_arbol_limpio
 
 ANTERIOR="$(git rev-parse --short HEAD)"
 git fetch --quiet --tags origin main
+exigir_capa_respaldos origin/main
 git checkout --quiet main
 git merge --ff-only --quiet origin/main
 ACTUAL="$(git rev-parse --short HEAD)"

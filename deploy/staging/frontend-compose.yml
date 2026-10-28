@@ -28,7 +28,7 @@ services:
     mem_limit: 512m
     cpus: 1.0
     ports:
-      - "127.0.0.1:3100:3000"
+      - "127.0.0.1:3300:3000"
 
 secrets:
   # Clave propia de staging; deploy-staging.sh la genera la primera vez.

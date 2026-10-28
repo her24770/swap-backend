@@ -9,7 +9,7 @@
 #
 # Staging NO comparte nada con producción: proyectos de compose distintos
 # (swap-staging, swap-staging-web), contenedores swap-staging-*, volúmenes y red
-# propios, puertos 127.0.0.1:3100 (web) y 3101 (API), y su propio .env.staging.
+# propios, puertos 127.0.0.1:3300 (web) y 3301 (API), y su propio .env.staging.
 # No hace respaldos, versiones ni rollback: si falla, se arregla y se vuelve a
 # desplegar. Preparación inicial: deploy/README.md → "Staging".
 set -euo pipefail
@@ -26,12 +26,12 @@ case "$DESTINO" in
     backend)
         DIR="$DIR_API"
         COMPOSE=(docker compose -p swap-staging --env-file .env.staging -f docker-compose.staging.yml)
-        SALUD="http://127.0.0.1:3101/api/health"
+        SALUD="http://127.0.0.1:3301/api/health"
         ;;
     frontend)
         DIR="$BASE/swap-frontend"
         COMPOSE=(docker compose -p swap-staging-web -f "$DIR_API/deploy/staging/frontend-compose.yml" --project-directory "$DIR")
-        SALUD="http://127.0.0.1:3100/"
+        SALUD="http://127.0.0.1:3300/"
         ;;
     *)
         echo "Uso: deploy-swap.sh staging backend|frontend" >&2
