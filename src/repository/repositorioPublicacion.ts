@@ -136,7 +136,7 @@ export async function buscarPublicacionesPorUsuario(idUsuario: number): Promise<
     });
 }
 
-export async function buscarPublicacionesPaginadas(options: PaginationOptionInput, idUsuario?: number): Promise<ResultadoBusquedaPublicacion> {
+export async function buscarPublicacionesPaginadas(options: Partial<PaginationOptionInput>, idUsuario?: number): Promise<ResultadoBusquedaPublicacion> {
     //Valores por defecto
     const { page = 1, limit = 10, sort = 'fecha', order = 'desc', tipo, estado } = options;
 
@@ -155,6 +155,10 @@ export async function buscarPublicacionesPaginadas(options: PaginationOptionInpu
 
     const idEstado = await resolverIdEstadoPorNombre(estado);
     if (idEstado !== undefined) where.estado = idEstado;
+
+    if (idUsuario) {
+        where.id_usuario = { not: idUsuario };
+    }
 
     const [publicaciones, total] = await prisma.$transaction([
 
@@ -383,6 +387,58 @@ export async function contarAcuerdosDePublicacion(idPublicacion: number): Promis
 
 export async function eliminarPublicacionConRelaciones(idPublicacion: number): Promise<void> {
     await prisma.$transaction(async (tx) => {
+        // SWAP-652 / ST-TT-S10-01-4: Capturar snapshot y cerrar reportes pendientes antes de borrar la publicación
+        const pub = await tx.publicacion.findUnique({
+            where: { id_publicacion: idPublicacion },
+            select: {
+                titulo: true,
+                precio: true,
+                usuario: { select: { nombre: true, email_institucional: true } },
+            },
+        });
+
+        const estadoResuelto = await tx.estado.findUnique({ where: { estado: "resuelto" } });
+        const estadoPendiente = await tx.estado.findUnique({ where: { estado: "pendiente" } });
+
+        if (pub && estadoResuelto && estadoPendiente) {
+            const reportesPendientes = await tx.reporte.findMany({
+                where: {
+                    id_publicacion: idPublicacion,
+                    estado: estadoPendiente.id_estado,
+                },
+                select: { id_reporte: true, observaciones: true },
+            });
+
+            const fechaResolucion = new Date().toISOString().replace("T", " ").slice(0, 19);
+            const precioFormateado = Number(pub.precio).toFixed(2);
+            const propietarioInfo = pub.usuario
+                ? `${pub.usuario.nombre} (${pub.usuario.email_institucional})`
+                : "Desconocido";
+
+            for (const rep of reportesPendientes) {
+                const partes = [];
+                if (rep.observaciones && rep.observaciones.trim()) {
+                    partes.push(`Denuncia original: "${rep.observaciones.trim()}"`, "---");
+                }
+                partes.push(
+                    `[Snapshot - Publicación Eliminada]`,
+                    `• Publicación: ${pub.titulo} (ID previo: ${idPublicacion})`,
+                    `• Propietario: ${propietarioInfo}`,
+                    `• Precio original: Q${precioFormateado}`,
+                    `• Fecha de resolución: ${fechaResolucion}`,
+                    `• Resuelto por: Sistema (Cierre automático por eliminación del autor)`
+                );
+
+                await tx.reporte.update({
+                    where: { id_reporte: rep.id_reporte },
+                    data: {
+                        estado: estadoResuelto.id_estado,
+                        observaciones: partes.join("\n"),
+                    },
+                });
+            }
+        }
+
         await tx.imagenPublicacion.deleteMany({ where: { id_publicacion: idPublicacion } });
         await tx.publicacionEtiqueta.deleteMany({ where: { id_publicacion: idPublicacion } });
         // Likes/guardados y contextos solo tienen sentido mientras exista la publicación;
@@ -457,33 +513,28 @@ export async function buscarPorSimilitudVectorial(
     vector: number[],
     limite: number = 20,
     umbral: number = 0.35,
-    tipo?: string
+    tipo?: string,
+    idUsuario?: number
 ): Promise<number[]> {
     const vectorStr = `[${vector.join(',')}]`;
 
-    const resultados = tipo
-        ? await prisma.$queryRaw<{ id_publicacion: number }[]>`
-            SELECT p.id_publicacion
-            FROM "Publicacion" p
-            INNER JOIN "Estado" e ON e.id_estado = p.estado
-            INNER JOIN "Tipo_Perfil" tp ON tp.id_tipo_perfil = p.tipo_publicacion
-            WHERE p.embedding IS NOT NULL
-            AND e.estado = 'activo'
-            AND tp.tipo_perfil = ${tipo}
-            AND 1 - (p.embedding <=> ${vectorStr}::vector) >= ${umbral}
-            ORDER BY p.embedding <=> ${vectorStr}::vector
-            LIMIT ${limite}
-        `
-        : await prisma.$queryRaw<{ id_publicacion: number }[]>`
-            SELECT p.id_publicacion
-            FROM "Publicacion" p
-            INNER JOIN "Estado" e ON e.id_estado = p.estado
-            WHERE p.embedding IS NOT NULL
-            AND e.estado = 'activo'
-            AND 1 - (p.embedding <=> ${vectorStr}::vector) >= ${umbral}
-            ORDER BY p.embedding <=> ${vectorStr}::vector
-            LIMIT ${limite}
-        `;
+    const filtroTipo = tipo ? Prisma.sql`AND tp.tipo_perfil = ${tipo}` : Prisma.empty;
+    const joinTipo = tipo ? Prisma.sql`INNER JOIN "Tipo_Perfil" tp ON tp.id_tipo_perfil = p.tipo_publicacion` : Prisma.empty;
+    const filtroUsuario = idUsuario ? Prisma.sql`AND p.id_usuario != ${idUsuario}` : Prisma.empty;
+
+    const resultados = await prisma.$queryRaw<{ id_publicacion: number }[]>`
+        SELECT p.id_publicacion
+        FROM "Publicacion" p
+        INNER JOIN "Estado" e ON e.id_estado = p.estado
+        ${joinTipo}
+        WHERE p.embedding IS NOT NULL
+        AND e.estado = 'activo'
+        ${filtroTipo}
+        ${filtroUsuario}
+        AND 1 - (p.embedding <=> ${vectorStr}::vector) >= ${umbral}
+        ORDER BY p.embedding <=> ${vectorStr}::vector
+        LIMIT ${limite}
+    `;
 
     return resultados.map(r => r.id_publicacion);
 }
@@ -533,9 +584,13 @@ export async function buscarPublicacionesPorIdsDetallado(
 
 
 export async function buscarPublicacionesPorFiltros(
-    options: FiltrosPublicacionInput
+    options: Partial<FiltrosPublicacionInput>,
+    idUsuario?: number
 ): Promise<Publicacion[]> {
-        const where: any = {}; 
+    const where: any = {};
+    if (idUsuario) {
+        where.id_usuario = { not: idUsuario };
+    }
     // 1. Filtro por precio
     if (options.precio_min !== undefined || options.precio_max !== undefined) {
         where.precio = {};

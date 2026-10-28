@@ -1,0 +1,36 @@
+# Frontend de STAGING (SWAP-673). Lo usa deploy/deploy-staging.sh así:
+#   docker compose -p swap-staging-web -f <este archivo> --project-directory <swap-frontend de staging>
+# `context: .` se resuelve contra --project-directory (el clon del frontend).
+# El Dockerfile es el del repo del frontend; las variables NEXT_PUBLIC_* forman parte
+# del bundle, por eso apuntan al dominio de staging.
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_ID: ${BUILD_ID:-staging}
+        SOURCE_DATE_EPOCH: ${SOURCE_DATE_EPOCH:-0}
+        SERVER_ACTIONS_KEY_VERSION: "1"
+        NEXT_PUBLIC_API_URL: https://swap-staging.jhgo.online
+        NEXT_PUBLIC_SOCKET_URL: https://swap-staging.jhgo.online
+        NEXT_PUBLIC_DEFAULT_AVATAR_URL: https://i.pravatar.cc/150?u=vendedor
+      secrets:
+        - next_server_actions_encryption_key
+    image: swap-staging-frontend:latest
+    container_name: swap-staging-frontend
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: 512m
+    cpus: 1.0
+    ports:
+      - "127.0.0.1:3300:3000"
+
+secrets:
+  # Clave propia de staging; deploy-staging.sh la genera la primera vez.
+  next_server_actions_encryption_key:
+    file: /home/nandez/deploy/secretos/next-server-actions-staging.key

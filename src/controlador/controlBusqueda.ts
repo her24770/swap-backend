@@ -17,8 +17,9 @@ export async function buscarPublicacionesSemanticamente(
             return;
         }
 
+        const idUsuario = Number(req.usuario?.sub) || undefined;
         const vector = await generarEmbedding(query.trim());
-        const ids = await buscarPorSimilitudVectorial(vector, 20, 0.50, tipo);
+        const ids = await buscarPorSimilitudVectorial(vector, 20, 0.50, tipo, idUsuario);
 
         if (ids.length === 0) {
             errorResponse(res, "No se encontraron publicaciones", 404);

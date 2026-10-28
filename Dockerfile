@@ -1,4 +1,5 @@
 ARG SOURCE_DATE_EPOCH=0
+ARG APP_VERSION=development
 
 # ─────────────────────────────────────────────
 # Stage 1: Builder
@@ -36,6 +37,7 @@ RUN npm run build
 FROM node:22.22.3-alpine3.22@sha256:cd7807368cf24826297cbad5dca1a44972ccfd770647db52a8c7589eb4599ac8 AS production
 
 ARG SOURCE_DATE_EPOCH
+ARG APP_VERSION
 
 # También necesitamos las librerías aquí para el runtime
 RUN apk add --no-cache openssl=3.5.9-r0 gcompat=1.1.0-r4 \
@@ -44,7 +46,8 @@ RUN apk add --no-cache openssl=3.5.9-r0 gcompat=1.1.0-r4 \
 
 WORKDIR /app
 
-ENV NODE_ENV=production
+ENV NODE_ENV=production \
+    APP_VERSION=$APP_VERSION
 
 # Copiamos solo lo esencial
 COPY --from=builder --chown=10001:10001 /app/package.json /app/package-lock.json ./

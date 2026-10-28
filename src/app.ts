@@ -13,19 +13,10 @@ import { configuracionTrustProxy } from "./autenticacion/proxyConfiable.js";
 
 const app = express();
 
-// Por defecto Express usa la IP de la conexión directa. En producción, el
-// dueño del servidor debe indicar cuántos proxies confiables hay delante de
-// la API; confiar indiscriminadamente en X-Forwarded-For permitiría evadir
-// los límites por IP.
-const trustProxyHops = Number.parseInt(process.env.TRUST_PROXY_HOPS ?? "0", 10);
-if (Number.isFinite(trustProxyHops) && trustProxyHops > 0) {
-    app.set("trust proxy", trustProxyHops);
-}
-
-app.use(observabilidadHttp);
-
 // Debe ir antes de cualquier middleware que use req.ip (rate limiting, login).
 app.set("trust proxy", configuracionTrustProxy());
+
+app.use(observabilidadHttp);
 
 app.use((_req, res, next) => {
     res.setHeader("X-API-Version", "1");

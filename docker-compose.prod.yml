@@ -5,14 +5,30 @@
 #   - volúmenes con nombre fijo swap_postgres_data / swap_redis_data: NO renombrar,
 #     son los que contienen los datos reales; otro nombre crearía una base vacía
 #   - la API solo escucha en 127.0.0.1 (el tráfico entra por nginx/Cloudflare)
-# El servicio de backups (postgres-backup) no se incluye todavía: requiere las
-# variables BACKUP_R2_* en el .env del servidor.
+# Respaldos con pgBackRest: OPCIONALES. Este archivo no los incluye ni exige
+# variables BACKUP_*. Se activan sumando docker-compose.respaldos.yml (en el servidor,
+# con el marcador /home/nandez/deploy/respaldos.activos; ver deploy/README.md → Backups).
+#
+# Logs y recursos (SWAP-667, SWAP-671): el servidor aloja unos 25 contenedores de
+# otros proyectos, así que cada servicio tiene su rotación de logs y un tope de
+# memoria y CPU. Los topes son techos, no reservas. Consumo medido el 2026-10-25:
+# embeddings 640 MB, frontend 87 MB, postgres 61 MB, api 58 MB, redis 11 MB.
+# Ojo: cambiar estos valores recrea los contenedores en el siguiente deploy.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
 
   postgres:
     image: pgvector/pgvector:pg16@sha256:7b822b0aac60967beb1ea5e576b8602c94c300a157d187f385ae3e0da199b90a
     container_name: swap-postgres
     restart: unless-stopped
+    logging: *logging
+    mem_limit: 1g
+    cpus: 1.0
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?Falta definir POSTGRES_USER en .env}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta definir POSTGRES_PASSWORD en .env}
@@ -30,7 +46,14 @@ services:
     image: redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
     container_name: swap-redis
     restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD:?Falta definir REDIS_PASSWORD en .env} --appendonly yes
+    logging: *logging
+    mem_limit: 256m
+    cpus: 0.5
+    # maxmemory por debajo del tope del contenedor para que Redis rechace
+    # escrituras antes de que el sistema lo mate. noeviction: Redis guarda la lista
+    # de tokens revocados y los contadores del rate limiting; descartar claves
+    # cuando se llene abriría una brecha de seguridad.
+    command: redis-server --requirepass ${REDIS_PASSWORD:?Falta definir REDIS_PASSWORD en .env} --appendonly yes --maxmemory 200mb --maxmemory-policy noeviction
     volumes:
       - swap_redis_data:/data
     # Sin mapeo de puertos al host: solo accesible dentro de la red interna de Docker (servicio "api").
@@ -48,6 +71,10 @@ services:
         SOURCE_DATE_EPOCH: ${SOURCE_DATE_EPOCH:-0}
     container_name: swap-embeddings
     restart: unless-stopped
+    logging: *logging
+    # 2 GB: usa ~640 MB en reposo pero el arranque (carga del modelo) sube más.
+    mem_limit: 2g
+    cpus: 2.0
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"]
       interval: 30s
@@ -65,8 +92,14 @@ services:
       target: production
       args:
         SOURCE_DATE_EPOCH: ${SOURCE_DATE_EPOCH:-0}
+        APP_VERSION: ${APP_VERSION:-development}
     container_name: swap-backend
     restart: unless-stopped
+    logging: *logging
+    # 768 MB: usa ~60 MB en reposo; el margen es para renderizar PDFs de
+    # certificaciones (pdf-to-img) y procesar imágenes subidas.
+    mem_limit: 768m
+    cpus: 2.0
     env_file:
       - .env
     environment:

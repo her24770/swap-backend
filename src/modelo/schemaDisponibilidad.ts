@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { errorRequerido } from "./erroresZod.js";
 import { arrayAcotado } from "./arrayAcotado";
 
 const DIAS_SEMANA = [
@@ -12,7 +13,7 @@ const DIAS_SEMANA = [
 ] as const;
 
 const horaSchema = z
-    .string({ required_error: "La hora es obligatoria." })
+    .string(errorRequerido("La hora es obligatoria."))
     .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "La hora debe tener formato HH:mm.");
 
 /**
@@ -21,15 +22,15 @@ const horaSchema = z
  */
 export const schemaCrearDisponibilidad = z.object({
     inicio_intervalo: z
-        .string({ required_error: "La fecha de inicio es obligatoria." })
+        .string(errorRequerido("La fecha de inicio es obligatoria."))
         .datetime({ message: "La fecha de inicio debe ser una fecha válida en formato ISO 8601." }),
 
     fin_intervalo: z
-        .string({ required_error: "La fecha de fin es obligatoria." })
+        .string(errorRequerido("La fecha de fin es obligatoria."))
         .datetime({ message: "La fecha de fin debe ser una fecha válida en formato ISO 8601." }),
 
     estado: z
-        .number({ invalid_type_error: "El estado debe ser un número." })
+        .number({ error: "El estado debe ser un número." })
         .int()
         .positive()
         .optional(),
@@ -56,7 +57,7 @@ export const schemaEditarDisponibilidad = z.object({
         .optional(),
 
     estado: z
-        .number({ invalid_type_error: "El estado debe ser un número." })
+        .number({ error: "El estado debe ser un número." })
         .int()
         .positive()
         .optional(),
@@ -74,10 +75,7 @@ export const schemaEditarDisponibilidad = z.object({
 );
 
 const bloqueHorarioSchema = z.object({
-    dia: z.enum(DIAS_SEMANA, {
-        required_error: "El día es obligatorio.",
-        invalid_type_error: "El día no es válido.",
-    }),
+    dia: z.enum(DIAS_SEMANA, errorRequerido("El día es obligatorio.", "El día no es válido.")),
     hora_inicio: horaSchema,
     hora_fin: horaSchema,
 }).refine(

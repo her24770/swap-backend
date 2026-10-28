@@ -3,7 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../src/autenticacion/rateLimiter", () => ({
     rateLimitGlobal: (_req: unknown, _res: unknown, next: () => void) => next(),
+    rateLimitOperacionCostosa: () => (_req: unknown, _res: unknown, next: () => void) => next(),
     RateLimiterNoDisponibleError: class RateLimiterNoDisponibleError extends Error {},
+}));
+
+vi.mock("../../src/observabilidad/saludDependencias", () => ({
+    comprobarDependencias: vi.fn().mockResolvedValue([]),
 }));
 
 describe("regresiones de seguridad HTTP", () => {

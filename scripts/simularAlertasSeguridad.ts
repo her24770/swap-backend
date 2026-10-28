@@ -40,7 +40,10 @@ async function main(): Promise<void> {
         await procesarEventoParaAlertas("http.request_completed", { statusCode: 503, route: "/api/simulacion" });
     }
 
-    const alertas = recibidas.map((evento) => evento.alert).sort();
+    const alertas = recibidas.map((evento) => {
+        const embeds = evento.embeds as Array<{ fields?: Array<{ name: string; value: string }> }>;
+        return embeds?.[0]?.fields?.find((campo) => campo.name === "Regla")?.value;
+    }).sort();
     const esperadas = [
         "failed_login_spike",
         "http_5xx_spike",
@@ -51,7 +54,7 @@ async function main(): Promise<void> {
         throw new Error(`Alertas recibidas inesperadas: ${JSON.stringify(alertas)}`);
     }
 
-    console.log(JSON.stringify({ success: true, channel: "webhook", alertsReceived: alertas }, null, 2));
+    console.log(JSON.stringify({ success: true, channel: "discord", alertsReceived: alertas }, null, 2));
 
     await redis.flushDb();
     await redis.quit();

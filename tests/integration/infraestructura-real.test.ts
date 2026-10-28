@@ -40,4 +40,12 @@ describe.runIf(process.env.RUN_INTEGRATION === "true")("infraestructura de integ
         await redis.set("integration:health", "ok");
         expect(await redis.get("integration:health")).toBe("ok");
     });
+
+    it("comprueba PostgreSQL y Redis mediante el health real en menos de 200 ms", async () => {
+        const inicio = performance.now();
+        const respuesta = await request(app).get("/api/health").expect(200);
+
+        expect(respuesta.body.status).toBe("ok");
+        expect(performance.now() - inicio).toBeLessThan(200);
+    });
 });

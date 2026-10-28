@@ -4,13 +4,14 @@ import { autenticar, verificarPropietario } from "../autenticacion/GestorPermiso
 import { soloUsuario } from "../autenticacion/permisosUsuario.js";
 import { uploadImagen } from "../servicios/middlewareMulter.js";
 import { moderarImagenes } from "../autenticacion/middlewareModeracion.js";
+import { rateLimitOperacionCostosa } from "../autenticacion/rateLimiter.js";
 
 const router = Router();
 
 // POST /api/imagen/upload?carpeta=general
-router.post("/upload", autenticar, uploadImagen.single("imagen"), moderarImagenes, subirImagen);
+router.post("/upload", autenticar, rateLimitOperacionCostosa("subida_imagen_moderada"), uploadImagen.single("imagen"), moderarImagenes, subirImagen);
 
 // PUT /api/imagen/perfil/:id
-router.put("/perfil/:id", autenticar, verificarPropietario, soloUsuario, uploadImagen.single("imagen"), moderarImagenes, subirFotoPerfil);
+router.put("/perfil/:id", autenticar, verificarPropietario, soloUsuario, rateLimitOperacionCostosa("subida_imagen_moderada"), uploadImagen.single("imagen"), moderarImagenes, subirFotoPerfil);
 
 export default router;

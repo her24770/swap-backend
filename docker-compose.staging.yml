@@ -1,0 +1,106 @@
+# Configuración de STAGING (SWAP-673), servidor Contabo, swap-staging.jhgo.online.
+# La levanta deploy/deploy-staging.sh con `-p swap-staging --env-file .env.staging`.
+# Es independiente de producción (docker-compose.prod.yml):
+#   - proyecto de compose, red, contenedores y volúmenes propios (swap-staging / swap_staging_*)
+#   - la API escucha en 127.0.0.1:3301 (el tráfico entra por nginx y Cloudflare)
+#   - base de datos y Redis propios, con datos de prueba; nunca la de producción
+#   - embeddings reutiliza la imagen de producción (no se reconstruye)
+# Todas las variables salen de .env.staging (copiar deploy/staging/env.staging.example).
+# Los topes de memoria son techos, no reservas; para liberar RAM:
+#   docker compose -p swap-staging --env-file .env.staging -f docker-compose.staging.yml stop
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+
+  postgres:
+    image: pgvector/pgvector:pg16@sha256:7b822b0aac60967beb1ea5e576b8602c94c300a157d187f385ae3e0da199b90a
+    container_name: swap-staging-postgres
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 512m
+    cpus: 0.5
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Falta definir POSTGRES_USER en .env.staging}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta definir POSTGRES_PASSWORD en .env.staging}
+      POSTGRES_DB: ${POSTGRES_DB:?Falta definir POSTGRES_DB en .env.staging}
+    volumes:
+      - swap_staging_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
+    container_name: swap-staging-redis
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 128m
+    cpus: 0.25
+    command: redis-server --requirepass ${REDIS_PASSWORD:?Falta definir REDIS_PASSWORD en .env.staging} --appendonly yes --maxmemory 100mb --maxmemory-policy noeviction
+    volumes:
+      - swap_staging_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  embeddings:
+    # Misma imagen que producción (la crea su deploy); no se construye aquí.
+    image: swap-backend-embeddings:latest
+    pull_policy: never
+    container_name: swap-staging-embeddings
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 2g
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+      start_interval: 2s
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+      args:
+        SOURCE_DATE_EPOCH: ${SOURCE_DATE_EPOCH:-0}
+    image: swap-staging-api:latest
+    container_name: swap-staging-api
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 512m
+    cpus: 1.0
+    env_file:
+      - .env.staging
+    environment:
+      NODE_ENV: production
+      TRUST_PROXY: cloudflare
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      EMBEDDINGS_SERVICE_URL: http://embeddings:8000
+    ports:
+      - "127.0.0.1:3301:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      embeddings:
+        condition: service_healthy
+
+volumes:
+  swap_staging_postgres_data:
+    name: swap_staging_postgres_data
+  swap_staging_redis_data:
+    name: swap_staging_redis_data

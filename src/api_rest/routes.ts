@@ -20,12 +20,19 @@ import moderadorRoutes from "./routesModerador.js";
 import reporteRoutes from "./routesReporte.js";
 import palabraRestringidaRoutes from "./routesPalabraRestringida.js";
 import moderacionUsuarioRoutes from "./routesModeracionUsuario.js";
+import { comprobarDependencias } from "../observabilidad/saludDependencias.js";
 
 const router = Router();
 
 //Ruta de prueba
-router.get("/health", (_req, res) => {
-    res.json({ status: "ok" });
+router.get("/health", async (_req, res) => {
+    const version = process.env.APP_VERSION?.trim() || "development";
+    const componentes = await comprobarDependencias();
+    if (componentes.length > 0) {
+        res.status(503).json({ status: "unavailable", version, components: componentes });
+        return;
+    }
+    res.json({ status: "ok", version });
 });
 
 //Rutas de autenticación

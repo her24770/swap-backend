@@ -10,8 +10,14 @@
 #   deploy-swap.sh desplegar backend|frontend <v> pone en producción una versión concreta de main
 #   deploy-swap.sh versiones backend|frontend     lista las versiones y respaldos disponibles
 #   deploy-swap.sh restaurar-bd [archivo]         restaura la base de datos (solo a mano, destructivo)
+#   deploy-swap.sh staging backend|frontend       despliega develop en staging (ver deploy-staging.sh)
 #
 # Una versión <v> es un nombre publicado (v1.4.2) o un commit (623f3dc).
+#
+# Respaldos con pgBackRest (opcionales): si existe /home/nandez/deploy/respaldos.activos,
+# el backend se levanta con docker-compose.prod.yml + docker-compose.respaldos.yml.
+# Sin ese marcador (el estado normal hoy) no se usa pgBackRest ni se exige ninguna
+# variable BACKUP_*. Ver deploy/README.md → Backups para activarlos.
 set -euo pipefail
 
 BASE=/home/nandez/projects/software/swap
@@ -32,6 +38,11 @@ else
     ARGS=("$@")
 fi
 
+# Staging (SWAP-673) lo atiende su propio script: nada de producción interviene.
+if [ "${ARGS[0]:-}" = staging ]; then
+    exec "$RAIZ/deploy-staging.sh" "${ARGS[@]:1}"
+fi
+
 ACCION=deploy
 case "${ARGS[0]:-}" in
     rollback|desplegar|versiones|restaurar-bd) ACCION="${ARGS[0]}"; ARGS=("${ARGS[@]:1}") ;;
@@ -44,6 +55,9 @@ case "$DESTINO" in
     backend)
         DIR="$BASE/swap-backend"
         COMPOSE=(docker compose -f docker-compose.prod.yml)
+        if [ -f "$RAIZ/respaldos.activos" ]; then
+            COMPOSE+=(-f docker-compose.respaldos.yml)
+        fi
         SALUD="http://127.0.0.1:3001/api/health"
         IMAGEN=swap-backend-api
         ;;
@@ -68,11 +82,52 @@ fi
 log() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*"; }
 existe_imagen() { docker image inspect "$1" >/dev/null 2>&1; }
 
+construir() {
+    if [ "$DESTINO" = frontend ]; then
+        "${COMPOSE[@]}" build \
+            --build-arg "BUILD_ID=$BUILD_ID" \
+            --build-arg "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH" "$@"
+    else
+        "${COMPOSE[@]}" build "$@"
+    fi
+}
+
+verificar_digest_frontend() {
+    local build_id primero segundo
+    primero="$(docker image inspect "$IMAGEN:$1" --format '{{.Id}}')"
+    build_id="$(docker run --rm --entrypoint cat "$IMAGEN:$1" .next/BUILD_ID)"
+    if [ "$build_id" != "$BUILD_ID" ]; then
+        log "BUILD_ID incorrecto: $build_id != $BUILD_ID"
+        return 1
+    fi
+    log "Verificando build reproducible del frontend (sin caché)"
+    construir --no-cache
+    segundo="$(docker image inspect "$IMAGEN:latest" --format '{{.Id}}')"
+    if [ "$primero" != "$segundo" ]; then
+        log "Build no reproducible: $primero != $segundo"
+        return 1
+    fi
+    log "Digest reproducible: $primero"
+}
+
 # Nombre publicado (vX.Y.Z) de un commit, si tiene; si no, el propio commit.
 nombre_version() {
     local nombre
     nombre="$(git -C "$DIR" tag --points-at "$1" 2>/dev/null | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)"
     echo "${nombre:-$1}"
+}
+
+version_para_build() {
+    local objetivo="$1" publicada
+    publicada="$(nombre_version "$objetivo")"
+    if [ "$publicada" != "$objetivo" ]; then
+        echo "$publicada"
+    elif [ "$objetivo" = "$(git -C "$DIR" rev-parse origin/main)" ] \
+        && [ -x "$DIR/.github/scripts/siguiente-version.sh" ]; then
+        bash "$DIR/.github/scripts/siguiente-version.sh"
+    else
+        git -C "$DIR" rev-parse --short "$objetivo"
+    fi
 }
 
 versiones_disponibles() {
@@ -164,6 +219,18 @@ respaldar_bd() {
     ULTIMO_RESPALDO="$archivo"
 }
 
+# Con los respaldos activos, el commit que se va a poner en marcha debe traer su capa de
+# compose; si no (una versión anterior a esta función), se aborta ANTES de tocar nada.
+exigir_capa_respaldos() {
+    # $1 = commit o rama que se pondrá en marcha
+    [ "$DESTINO" = backend ] && [ -f "$RAIZ/respaldos.activos" ] || return 0
+    if ! git cat-file -e "$1:docker-compose.respaldos.yml" 2>/dev/null; then
+        log "ABORTADO: existe $RAIZ/respaldos.activos pero '$1' no trae docker-compose.respaldos.yml."
+        log "Para esa versión desactiva los respaldos (borra el marcador) o elige una versión más reciente."
+        exit 1
+    fi
+}
+
 exigir_arbol_limpio() {
     if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
         log "ABORTADO: hay cambios locales sin commitear en archivos versionados:"
@@ -225,6 +292,7 @@ if [ "$ACCION" = rollback ] || [ "$ACCION" = desplegar ]; then
         exit 1
     fi
     exigir_arbol_limpio
+    exigir_capa_respaldos "$OBJETIVO"
     EN_USO="$(git rev-parse --short HEAD)"
     log "$ACCION de $DESTINO: $(nombre_version "$EN_USO") -> $(nombre_version "$OBJETIVO") ($(git log -1 --format=%s "$OBJETIVO"))"
     log "Solo cambia el código; la base de datos no se restaura."
@@ -235,12 +303,14 @@ if [ "$ACCION" = rollback ] || [ "$ACCION" = desplegar ]; then
         log "No hay imagen guardada de esa versión: se reconstruye (puede tardar unos minutos)."
         git checkout --quiet --detach "$OBJETIVO"
         export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+        export APP_VERSION="$(version_para_build "$OBJETIVO")"
+        export BUILD_ID="$(git rev-parse "$OBJETIVO^{commit}")"
         CONSTRUIR=()
         if [ "$DESTINO" = backend ]; then
             CONSTRUIR=(api)
             git diff --quiet "$EN_USO" "$OBJETIVO" -- embeddings/ || CONSTRUIR+=(embeddings)
         fi
-        if ! "${COMPOSE[@]}" build "${CONSTRUIR[@]}"; then
+        if ! construir "${CONSTRUIR[@]}"; then
             git checkout --quiet --detach "$EN_USO"
             log "FALLÓ la construcción; producción sigue en $(nombre_version "$EN_USO") sin cambios."
             exit 1
@@ -273,6 +343,7 @@ exigir_arbol_limpio
 
 ANTERIOR="$(git rev-parse --short HEAD)"
 git fetch --quiet --tags origin main
+exigir_capa_respaldos origin/main
 git checkout --quiet main
 git merge --ff-only --quiet origin/main
 ACTUAL="$(git rev-parse --short HEAD)"
@@ -291,12 +362,14 @@ fi
 
 # Todos los builds del commit usan el mismo origen temporal.
 export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+export APP_VERSION="$(version_para_build "$ACTUAL")"
+export BUILD_ID="$(git rev-parse HEAD)"
 
 # Embeddings casi nunca cambia y la API espera a que esté sano para arrancar,
 # así que solo se reconstruye cuando cambia su código o falta su imagen (SWAP-634).
 CONSTRUIR=()
 if [ "$DESTINO" = backend ]; then
-    CONSTRUIR=(api)
+    CONSTRUIR=(api postgres)
     if ! git diff --quiet "$ANTERIOR" "$ACTUAL" -- embeddings/ \
         || ! existe_imagen swap-backend-embeddings:latest; then
         CONSTRUIR+=(embeddings)
@@ -306,13 +379,14 @@ fi
 # Se construye primero: si el build falla, los contenedores actuales siguen
 # corriendo sin cambios.
 log "Construyendo imágenes: ${CONSTRUIR[*]:-todas}"
-"${COMPOSE[@]}" build "${CONSTRUIR[@]}"
+construir "${CONSTRUIR[@]}"
 docker tag "$IMAGEN:latest" "$IMAGEN:$ACTUAL"
 
 log "Levantando contenedores"
 "${COMPOSE[@]}" up -d
 
-if esperar_salud; then
+if esperar_salud \
+    && { [ "$DESTINO" != frontend ] || verificar_digest_frontend "$ACTUAL"; }; then
     guardar_estado "$ACTUAL" "$ANTERIOR"
     # Se conservan las últimas versiones; nunca se borra la actual ni la anterior.
     for v in $(versiones_disponibles | tail -n +"$((VERSIONES_A_CONSERVAR + 1))"); do

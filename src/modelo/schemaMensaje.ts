@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { errorRequerido } from "./erroresZod.js";
 
 /**
  * Schema para POST /api/mensajes
@@ -6,12 +7,12 @@ import { z } from "zod";
  */
 export const schemaEnviarMensaje = z.object({
     id_conversacion: z
-        .number({ required_error: "El ID de conversación es obligatorio.", invalid_type_error: "El ID de conversación debe ser un número." })
+        .number(errorRequerido("El ID de conversación es obligatorio.", "El ID de conversación debe ser un número."))
         .int()
         .positive("El ID de conversación debe ser un ID válido."),
 
     mensaje: z
-        .string({ required_error: "El mensaje es obligatorio." })
+        .string(errorRequerido("El mensaje es obligatorio."))
         .min(1, "El mensaje no puede estar vacío.")
         .max(2000, "El mensaje no puede superar 2000 caracteres."),
 });
@@ -22,7 +23,7 @@ export const schemaEnviarMensaje = z.object({
  */
 export const schemaCrearConversacion = z.object({
     id_usuario_2: z
-        .number({ required_error: "El ID del destinatario es obligatorio.", invalid_type_error: "El ID del destinatario debe ser un número." })
+        .number(errorRequerido("El ID del destinatario es obligatorio.", "El ID del destinatario debe ser un número."))
         .int()
         .positive("El ID del destinatario debe ser un ID válido."),
 });
@@ -34,22 +35,17 @@ export const schemaCrearConversacion = z.object({
  */
 export const schemaIniciarConversacion = z.object({
     id_usuario_2: z
-        .number({
-            required_error: "El ID del destinatario es obligatorio.",
-            invalid_type_error: "El ID del destinatario debe ser un número."
-        })
+        .number(errorRequerido("El ID del destinatario es obligatorio.", "El ID del destinatario debe ser un número."))
         .int()
         .positive("El ID del destinatario debe ser un ID válido."),
 
     mensaje: z
-        .string({ required_error: "El mensaje es obligatorio." })
+        .string(errorRequerido("El mensaje es obligatorio."))
         .min(1, "El mensaje no puede estar vacío.")
         .max(2000, "El mensaje no puede superar 2000 caracteres."),
 
     id_publicacion: z
-        .number({
-            invalid_type_error: "El ID de la publicación debe ser un número."
-        })
+        .number({ error: "El ID de la publicación debe ser un número." })
         .int()
         .positive("El ID de la publicación debe ser un ID válido.")
         .optional(),

@@ -19,6 +19,10 @@ export class RateLimiterNoDisponibleError extends Error {
 type Bucket =
     | "api_global"
     | "socket_evento"
+    | "publicacion_moderada"
+    | "subida_imagen_moderada"
+    | "subida_certificacion"
+    | "creacion_reporte"
     | "login"
     | "solicitar_codigo_registro"
     | "verificar_codigo_registro"
@@ -28,12 +32,22 @@ type Bucket =
 const LIMITES: Record<Bucket, { maxIntentos: number; ventanaSegundos: number }> = {
     api_global: { maxIntentos: 120, ventanaSegundos: 60 },
     socket_evento: { maxIntentos: 60, ventanaSegundos: 60 },
+    publicacion_moderada: { maxIntentos: 10, ventanaSegundos: 60 * 15 },
+    subida_imagen_moderada: { maxIntentos: 20, ventanaSegundos: 60 * 15 },
+    subida_certificacion: { maxIntentos: 3, ventanaSegundos: 60 * 60 },
+    creacion_reporte: { maxIntentos: 10, ventanaSegundos: 60 * 60 },
     login: { maxIntentos: 5, ventanaSegundos: 60 * 15 },
     solicitar_codigo_registro: { maxIntentos: 3, ventanaSegundos: 60 * 15 },
     verificar_codigo_registro: { maxIntentos: 5, ventanaSegundos: 60 * 10 },
     solicitar_codigo_recuperacion: { maxIntentos: 3, ventanaSegundos: 60 * 15 },
     verificar_codigo_recuperacion: { maxIntentos: 5, ventanaSegundos: 60 * 10 },
 };
+
+export type BucketCostoso =
+    | "publicacion_moderada"
+    | "subida_imagen_moderada"
+    | "subida_certificacion"
+    | "creacion_reporte";
 
 const INCREMENTAR_CON_TTL = `
 local intentos = redis.call("INCR", KEYS[1])
@@ -102,6 +116,42 @@ export async function rateLimitGlobal(req: Request, res: Response, next: NextFun
         });
         res.status(503).json({ success: false, message: MENSAJE_RATE_LIMITER_NO_DISPONIBLE });
     }
+}
+
+/**
+ * Limita por usuario autenticado una operación que consume almacenamiento o
+ * proveedores externos. Debe colocarse después de `autenticar` y antes de
+ * multer/moderación para que una respuesta 429 no invoque servicios costosos.
+ */
+export function rateLimitOperacionCostosa(bucket: BucketCostoso) {
+    return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+        const idUsuario = Number(req.usuario?.sub);
+        if (!Number.isInteger(idUsuario) || idUsuario <= 0) {
+            res.status(401).json({ success: false, message: "No autenticado." });
+            return;
+        }
+
+        try {
+            const intentos = await incrementarContador(bucket, `usuario:${idUsuario}`);
+            const limite = LIMITES[bucket];
+            if (intentos > limite.maxIntentos) {
+                res.setHeader("Retry-After", String(limite.ventanaSegundos));
+                res.status(429).json({ success: false, message: MENSAJE_LIMITE });
+                return;
+            }
+            next();
+        } catch (error) {
+            escribirLog("error", "security.rate_limiter_unavailable", {
+                requestId: req.requestId,
+                userId: idUsuario,
+                ip: req.ip,
+                route: req.originalUrl,
+                bucket,
+                error,
+            });
+            res.status(503).json({ success: false, message: MENSAJE_RATE_LIMITER_NO_DISPONIBLE });
+        }
+    };
 }
 
 /**

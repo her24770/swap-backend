@@ -1,0 +1,33 @@
+name: Rangos de Cloudflare
+
+on:
+  schedule:
+    - cron: "17 12 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    name: Comparar rangos IPv4 e IPv6
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Comparar con las listas oficiales
+        run: npm run cloudflare:check-ranges
+      - name: Probar que una diferencia simulada se detecta
+        env:
+          CLOUDFLARE_IPV4_URL: data:text/plain,192.0.2.0%2F24
+          CLOUDFLARE_IPV6_URL: data:text/plain,2400%3Acb00%3A%3A%2F32%0A2606%3A4700%3A%3A%2F32%0A2803%3Af800%3A%3A%2F32%0A2405%3Ab500%3A%3A%2F32%0A2405%3A8100%3A%3A%2F32%0A2a06%3A98c0%3A%3A%2F29%0A2c0f%3Af248%3A%3A%2F32
+        run: |
+          if npm run cloudflare:check-ranges; then
+            echo "La verificación no detectó la diferencia simulada." >&2
+            exit 1
+          fi
+          echo "Diferencia simulada detectada correctamente."

@@ -78,7 +78,7 @@ async function enviarWebhook(regla: ReglaAlerta, grupo: string, datos: Record<st
     const url = process.env.SECURITY_ALERT_WEBHOOK_URL;
     if (!url) return;
 
-    const payload = sanitizarDatos({
+    const evento = sanitizarDatos({
         event: "security.alert.triggered",
         alert: regla.id,
         threshold: regla.threshold,
@@ -92,12 +92,33 @@ async function enviarWebhook(regla: ReglaAlerta, grupo: string, datos: Record<st
             providerType: datos.providerType,
             ip: datos.ip,
         },
-    });
+    }) as Record<string, unknown>;
+    const muestra = evento.sample as Record<string, unknown>;
+    const campos = [
+        { name: "Regla", value: String(evento.alert), inline: true },
+        { name: "Grupo", value: String(evento.group), inline: true },
+        { name: "Umbral", value: `${evento.threshold} en ${evento.windowSeconds}s`, inline: true },
+        ...Object.entries(muestra)
+            .filter(([, valor]) => valor !== undefined)
+            .map(([nombre, valor]) => ({ name: nombre, value: String(valor), inline: true })),
+    ];
+
+    const payloadDiscord = {
+        username: "SWAP Seguridad",
+        content: `🚨 Alerta de seguridad: **${regla.id}**`,
+        allowed_mentions: { parse: [] },
+        embeds: [{
+            title: "Evento de seguridad detectado",
+            color: 0xED4245,
+            timestamp: String(evento.timestamp),
+            fields: campos,
+        }],
+    };
 
     const respuesta = await fetch(url, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payloadDiscord),
         signal: AbortSignal.timeout(5_000),
     });
     if (!respuesta.ok) throw new Error(`Webhook de seguridad respondió HTTP ${respuesta.status}`);

@@ -10,6 +10,7 @@ interface OperationOptions {
     secured?: boolean;
     rawResponse?: boolean;
     deprecated?: boolean;
+    responses?: Record<string, Record<string, unknown>>;
 }
 
 const ref = (name: string): OpenApiSchema => ({
@@ -129,6 +130,8 @@ const operation = (
             "409": errorResponse("La operación entra en conflicto con el estado actual."),
             "429": errorResponse("Se excedió el límite de solicitudes."),
             "500": errorResponse("Error interno del servidor."),
+            "503": errorResponse("Servicio temporalmente no disponible o dependencias degradadas."),
+            ...(options.responses ?? {}),
         },
     };
 };
@@ -138,7 +141,7 @@ const dateTime = { type: "string", format: "date-time" };
 const publicationType = { type: "string", enum: ["material", "tutoria", "negocio"] };
 const publicationState = {
     type: "string",
-    enum: ["disponible", "vendido", "reservado", "activo", "inactivo"],
+    enum: ["disponible", "vendido", "reservado", "activo", "inactivo", "pendiente"],
 };
 const agreementState = {
     type: "string",
@@ -391,7 +394,7 @@ const filterProperties = {
     precio_max: { type: "number", minimum: 0, default: 999.99 },
     calificacion_min: { type: "number", minimum: 0, maximum: 5, default: 0 },
     calificacion_max: { type: "number", minimum: 0, maximum: 5, default: 5 },
-    etiquetas: arrayOf(id),
+    etiquetas: { ...arrayOf(id), maxItems: 50 },
 };
 const reviewCreateSchema: OpenApiSchema = {
     type: "object",
@@ -442,8 +445,38 @@ const paths: Record<string, Record<string, unknown>> = {
             rawResponse: true,
             responseSchema: {
                 type: "object",
-                required: ["status"],
-                properties: { status: { type: "string", const: "ok" } },
+                required: ["status", "version"],
+                properties: {
+                    status: { type: "string", enum: ["ok", "unavailable"] },
+                    version: { type: "string", description: "Tag vX.Y.Z o commit desplegado" },
+                    components: {
+                        type: "array",
+                        items: { type: "string", enum: ["postgres", "redis"] },
+                        description: "Sólo aparece con HTTP 503 e identifica dependencias no disponibles",
+                    },
+                },
+            },
+            responses: {
+                "503": {
+                    description: "Dependencias críticas no disponibles (postgres o redis).",
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["status", "version", "components"],
+                                properties: {
+                                    status: { type: "string", enum: ["unavailable"] },
+                                    version: { type: "string", description: "Tag vX.Y.Z o commit desplegado" },
+                                    components: {
+                                        type: "array",
+                                        items: { type: "string", enum: ["postgres", "redis"] },
+                                        description: "Dependencias degradadas o no disponibles",
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             },
         }),
     },
@@ -503,6 +536,7 @@ const paths: Record<string, Record<string, unknown>> = {
     "/auth/forgot-password": {
         post: operation("Autenticación", "forgotPassword", "Solicitar recuperación de contraseña", {
             secured: false,
+            description: "Envía un código de recuperación de 6 dígitos por correo. Protegido por límite de 3 solicitudes por cada 15 minutos.",
             body: jsonBody({
                 type: "object",
                 required: ["email"],
@@ -514,6 +548,7 @@ const paths: Record<string, Record<string, unknown>> = {
     "/auth/verify-reset-code": {
         post: operation("Autenticación", "verifyResetCode", "Verificar código de recuperación", {
             secured: false,
+            description: "Valida el código de verificación de 6 dígitos. Protegido por límite de 5 intentos fallidos antes de bloquear la verificación.",
             body: jsonBody({
                 type: "object",
                 required: ["email", "code"],
@@ -525,6 +560,7 @@ const paths: Record<string, Record<string, unknown>> = {
     "/auth/reset-password": {
         post: operation("Autenticación", "resetPassword", "Restablecer contraseña", {
             secured: false,
+            description: "Restablece la contraseña del usuario tras validar el código e incrementa la versión de sesión para invalidar tokens previos.",
             body: jsonBody({
                 type: "object",
                 required: ["email", "code", "newPassword"],
@@ -591,7 +627,7 @@ const paths: Record<string, Record<string, unknown>> = {
                     contactos: {
                         oneOf: [
                             ref("Contacto"),
-                            { ...arrayOf(ref("Contacto")), minItems: 1, maxItems: 4 },
+                            { ...arrayOf(ref("Contacto")), minItems: 1, maxItems: 20 },
                         ],
                     },
                 },
@@ -607,6 +643,7 @@ const paths: Record<string, Record<string, unknown>> = {
                     ...filterProperties,
                     dias: {
                         type: "array",
+                        maxItems: 7,
                         items: {
                             type: "string",
                             enum: ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"],
@@ -647,7 +684,7 @@ const paths: Record<string, Record<string, unknown>> = {
         }),
         post: operation("Publicaciones", "createPublication", "Crear una publicación", {
             status: 201,
-            description: "Admite hasta cinco imágenes en el campo `imagenes`.",
+            description: "Admite hasta 5 imágenes en el campo `imagenes` y hasta 50 etiquetas. Sujeto a moderación automática de texto e imágenes; las publicaciones con contenido sensible o pendientes de revisión externa se asignan al estado `pendiente`.",
             body: multipartBody({
                 titulo: { type: "string", minLength: 3, maxLength: 100 },
                 descripcion: { type: "string", minLength: 10, maxLength: 255 },
@@ -655,6 +692,7 @@ const paths: Record<string, Record<string, unknown>> = {
                 tipo_publicacion: publicationType,
                 estado: publicationState,
                 destacar: { type: "boolean", default: false },
+                etiquetas: { type: "string", description: "Array JSON de IDs de etiquetas (máximo 50).", examples: ["[1,2,3]"] },
                 imagenes: { type: "array", items: imageFile, maxItems: 5 },
             }, ["titulo", "descripcion", "tipo_publicacion"]),
             responseSchema: {
@@ -697,15 +735,15 @@ const paths: Record<string, Record<string, unknown>> = {
         }),
         patch: operation("Publicaciones", "updatePublication", "Editar parcialmente una publicación", {
             parameters: [pathId("id", "ID de la publicación.")],
-            description: "Solo el propietario puede editarla. `etiquetas` e `imagenesEliminar` se envían como arreglos JSON serializados.",
+            description: "Solo el propietario puede editarla. `etiquetas` (máximo 50) e `imagenesEliminar` (máximo 20) se envían como arreglos JSON serializados. Admite hasta 5 imágenes nuevas en `imagenes`. Si la moderación externa falla o detecta contenido sensible, la publicación se retiene en estado `pendiente`.",
             body: multipartBody({
                 titulo: { type: "string", minLength: 3, maxLength: 100 },
                 descripcion: { type: "string", minLength: 10, maxLength: 255 },
                 precio: { type: "number", minimum: 0, maximum: 999.99 },
                 tipo_publicacion: publicationType,
                 estado: publicationState,
-                etiquetas: { type: "string", examples: ["[1,2,3]"] },
-                imagenesEliminar: { type: "string", examples: ["[\"https://example.com/imagen.webp\"]"] },
+                etiquetas: { type: "string", description: "Array JSON de IDs de etiquetas (máximo 50).", examples: ["[1,2,3]"] },
+                imagenesEliminar: { type: "string", description: "Array JSON de URLs a eliminar (máximo 20).", examples: ["[\"https://example.com/imagen.webp\"]"] },
                 imagenes: { type: "array", items: imageFile, maxItems: 5 },
             }, []),
             responseSchema: {
@@ -729,15 +767,15 @@ const paths: Record<string, Record<string, unknown>> = {
         put: operation("Publicaciones", "updatePublicationLegacy", "Editar parcialmente una publicación (obsoleto)", {
             deprecated: true,
             parameters: [pathId("id", "ID de la publicación.")],
-            description: "Alias temporal de compatibilidad. Usar PATCH sobre esta misma ruta.",
+            description: "Alias temporal de compatibilidad. Usar PATCH sobre esta misma ruta. `etiquetas` (máx 50) e `imagenesEliminar` (máx 20). Retiene en `pendiente` ante fallos o revisión de moderación.",
             body: multipartBody({
                 titulo: { type: "string", minLength: 3, maxLength: 100 },
                 descripcion: { type: "string", minLength: 10, maxLength: 255 },
                 precio: { type: "number", minimum: 0, maximum: 999.99 },
                 tipo_publicacion: publicationType,
                 estado: publicationState,
-                etiquetas: { type: "string", examples: ["[1,2,3]"] },
-                imagenesEliminar: { type: "string", examples: ["[\"https://example.com/imagen.webp\"]"] },
+                etiquetas: { type: "string", description: "Array JSON de IDs de etiquetas (máximo 50).", examples: ["[1,2,3]"] },
+                imagenesEliminar: { type: "string", description: "Array JSON de URLs a eliminar (máximo 20).", examples: ["[\"https://example.com/imagen.webp\"]"] },
                 imagenes: { type: "array", items: imageFile, maxItems: 5 },
             }, []),
             responseSchema: { type: "object" },
@@ -807,7 +845,7 @@ const paths: Record<string, Record<string, unknown>> = {
             body: jsonBody({
                 type: "object",
                 required: ["ids"],
-                properties: { ids: { ...arrayOf(id), minItems: 1, maxItems: 20 } },
+                properties: { ids: { ...arrayOf(id), minItems: 1, maxItems: 50 } },
             }),
             responseSchema: arrayOf(ref("Etiqueta")),
         }),
@@ -951,6 +989,7 @@ const paths: Record<string, Record<string, unknown>> = {
         post: operation("Imágenes", "uploadImage", "Subir una imagen", {
             parameters: [query("carpeta", "Carpeta lógica de destino.", { type: "string", default: "general" })],
             status: 201,
+            description: "Sujeto a cuota de subida e inspección de contenido moderado (20 operaciones cada 15 minutos por usuario).",
             body: multipartBody({ imagen: imageFile }, ["imagen"]),
             responseSchema: { type: "string", format: "uri" },
         }),
@@ -958,6 +997,7 @@ const paths: Record<string, Record<string, unknown>> = {
     "/imagen/perfil/{id}": {
         put: operation("Imágenes", "updateProfilePicture", "Subir o reemplazar la foto de perfil", {
             parameters: [pathId("id", "ID del usuario propietario.")],
+            description: "Sujeto a cuota de subida e inspección de contenido moderado (20 operaciones cada 15 minutos por usuario).",
             body: multipartBody({ imagen: imageFile }, ["imagen"]),
             responseSchema: { type: "string", format: "uri" },
         }),
@@ -1172,6 +1212,7 @@ const paths: Record<string, Record<string, unknown>> = {
     "/certificacion": {
         post: operation("Certificaciones", "createCertification", "Crear una certificación", {
             status: 201,
+            description: "Sube un comprobante académico en PDF. Sujeto a cuota de 3 certificaciones cada 60 minutos por usuario.",
             body: multipartBody({
                 nombre: { type: "string", minLength: 3, maxLength: 100 },
                 lugar_emision: { type: "string", minLength: 3, maxLength: 100 },
@@ -1216,7 +1257,7 @@ const paths: Record<string, Record<string, unknown>> = {
     "/reportes": {
         post: operation("Reportes", "createReport", "Crear un reporte sobre un usuario o elemento", {
             status: 201,
-            description: "Crea un reporte genérico para usuarios, publicaciones o comentarios usando una sola petición.",
+            description: "Crea un reporte genérico para usuarios, publicaciones o comentarios usando una sola petición. Sujeto a cuota de 10 reportes cada 60 minutos por usuario.",
             body: jsonBody(reportCreateSchema),
             responseSchema: ref("Reporte"),
         }),

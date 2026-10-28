@@ -51,7 +51,7 @@ La política esperada es manual e independiente de los routers. `Propiedad esper
 | EP-037 | GET | `/guardados` | usuario | usuario | sesión propia | ✅ | `listSavedPublications` | `historial-guardados.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-038 | DELETE | `/guardados/:publicacionId` | usuario | usuario | sesión propia | ✅ | `removeSavedPublication` | `autorizacion-endpoints.test.ts` |
 | EP-039 | POST | `/guardados/:publicacionId` | usuario | usuario | sesión propia | ✅ | `savePublication` | `historial-guardados.test.ts`, `autorizacion-endpoints.test.ts` |
-| EP-040 | GET | `/health` | público | público | no aplica | ✅ | `getHealth` | `contrato-rest.test.ts`, `health.test.ts` |
+| EP-040 | GET | `/health` | público | público | no aplica | ✅ | `getHealth` | `contrato-rest.test.ts`, `health.test.ts`, `infraestructura-real.test.ts` |
 | EP-041 | GET | `/horarios/:usuarioId` | público | público | no aplica | ✅ | `getUserSchedule` | `autenticacion-perfiles.test.ts`, `tutorias-real.test.ts` |
 | EP-042 | PUT | `/horarios/:usuarioId` | usuario | usuario | propietario por parámetro | ✅ | `replaceUserSchedule` | `autenticacion-perfiles.test.ts`, `tutorias-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-043 | PUT | `/imagen/perfil/:id` | usuario | usuario | propietario por parámetro | ✅ | `updateProfilePicture` | `transversal-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
@@ -71,14 +71,14 @@ La política esperada es manual e independiente de los routers. `Propiedad esper
 | EP-057 | PATCH | `/moderador/palabras/:id` | moderador | moderador | no aplica | ✅ | `updateRestrictedWord` | `autorizacion-endpoints.test.ts` |
 | EP-058 | GET | `/moderador/publicaciones` | moderador | moderador | no aplica | ✅ | `listPublicationsForModeration` | `autorizacion-endpoints.test.ts` |
 | EP-059 | DELETE | `/moderador/publicaciones/:id` | moderador | moderador | no aplica | ✅ | `deletePublicationModeration` | `autorizacion-endpoints.test.ts` |
-| EP-060 | PATCH | `/moderador/publicaciones/:id/bajar` | moderador | moderador | no aplica | ✅ | `takeDownPublication` | `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
+| EP-060 | PATCH | `/moderador/publicaciones/:id/bajar` | moderador | moderador | no aplica | ✅ | `takeDownPublication` | `moderacion-fail-closed.test.ts`, `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-061 | PATCH | `/moderador/publicaciones/:id/reactivar` | moderador | moderador | no aplica | ✅ | `reactivatePublication` | `moderacion-fail-closed.test.ts`, `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-062 | GET | `/moderador/usuarios` | moderador | moderador | no aplica | ✅ | `listUsersForModeration` | `autorizacion-endpoints.test.ts` |
 | EP-063 | POST | `/moderador/usuarios/:id/advertencia` | moderador | moderador | no aplica | ✅ | `warnUser` | `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-064 | PATCH | `/moderador/usuarios/:id/estado` | moderador | moderador | no aplica | ✅ | `updateUserStatus` | `autenticacion-perfiles.test.ts`, `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-065 | GET | `/notificacion` | usuario | usuario | sesión propia | ✅ | `listNotifications` | `moderacion-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
-| EP-066 | PATCH | `/notificacion/:id/estado` | usuario | usuario | propietario del recurso | ✅ | `updateNotificationState` | `autorizacion-endpoints.test.ts` |
-| EP-067 | GET | `/publicacion` | autenticado | autenticado | no aplica | ✅ | `listPublications` | `moderacion-fail-closed.test.ts`, `perfil-publicaciones-resenas-real.test.ts`, `autorizacion-endpoints.test.ts` |
+| EP-066 | PATCH | `/notificacion/:id/estado` | usuario | usuario | propietario del recurso | ✅ | `updateNotificationState` | `errores-500-zap-real.test.ts`, `autorizacion-endpoints.test.ts` |
+| EP-067 | GET | `/publicacion` | autenticado | autenticado | no aplica | ✅ | `listPublications` | `excluir-publicaciones-propias.test.ts`, `moderacion-fail-closed.test.ts`, `perfil-publicaciones-resenas-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-068 | POST | `/publicacion` | usuario | usuario | sesión propia | ✅ | `createPublication` | `moderacion-fail-closed.test.ts`, `moderacion-seguridad-real.test.ts`, `transversal-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-069 | DELETE | `/publicacion/:id` | usuario | usuario | propietario del recurso | ✅ | `deletePublication` | `errores-500-zap-real.test.ts`, `perfil-publicaciones-resenas-real.test.ts`, `transversal-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-070 | GET | `/publicacion/:id` | autenticado | autenticado | no aplica | ✅ | `getPublication` | `perfil-publicaciones-resenas-real.test.ts`, `autorizacion-endpoints.test.ts` |
@@ -86,7 +86,7 @@ La política esperada es manual e independiente de los routers. `Propiedad esper
 | EP-072 | PUT | `/publicacion/:id` | usuario | usuario | propietario del recurso | ✅ | `updatePublicationLegacy` | `contrato-rest.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-073 | PATCH | `/publicacion/:id/destacar` | usuario | usuario | propietario del recurso | ✅ | `pinPublication` | `autorizacion-endpoints.test.ts` |
 | EP-074 | PATCH | `/publicacion/:id/estado` | usuario | usuario | propietario del recurso | ✅ | `updatePublicationState` | `moderacion-seguridad-real.test.ts`, `perfil-publicaciones-resenas-real.test.ts`, `transversal-seguridad-real.test.ts`, `autorizacion-endpoints.test.ts` |
-| EP-075 | POST | `/publicacion/buscar` | autenticado | autenticado | no aplica | ✅ | `searchPublications` | `perfil-publicaciones-resenas-real.test.ts`, `autorizacion-endpoints.test.ts` |
+| EP-075 | POST | `/publicacion/buscar` | autenticado | autenticado | no aplica | ✅ | `searchPublications` | `excluir-publicaciones-propias.test.ts`, `perfil-publicaciones-resenas-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-076 | GET | `/publicacion/destacadas/user/:id` | autenticado | autenticado | no aplica | ✅ | `getPinnedUserPublications` | `autorizacion-endpoints.test.ts` |
 | EP-077 | GET | `/publicacion/user/:id` | autenticado | autenticado | no aplica | ✅ | `getUserPublications` | `perfil-publicaciones-resenas-real.test.ts`, `autorizacion-endpoints.test.ts` |
 | EP-078 | POST | `/recomendacion/evento` | usuario | usuario | sesión propia | ✅ | `registerRecommendationEvent` | `autorizacion-endpoints.test.ts` |

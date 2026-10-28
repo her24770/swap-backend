@@ -23,13 +23,17 @@ export default defineConfig({
 
     coverage: {
       provider: "v8",
-      reporter: ["text", "html"],
+      reportsDirectory: "coverage/report",
+      reportOnFailure: true,
+      reporter: ["text", "html", "json-summary"],
       include: ["src/**/*.ts"],
       exclude: [
         "src/index.ts",
         "src/**/*.test.ts",
         "src/**/*.d.ts",
       ],
+      // Línea base: 461 pruebas unitarias y de integración con Docker (24/10/2026).
+      thresholds: { lines: 59.86 },
     },
   },
 });

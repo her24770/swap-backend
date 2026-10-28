@@ -5,7 +5,12 @@ import { openApiDocument } from "../../src/openapi/openapi";
 
 vi.mock("../../src/autenticacion/rateLimiter", () => ({
     rateLimitGlobal: (_req: unknown, _res: unknown, next: () => void) => next(),
+    rateLimitOperacionCostosa: () => (_req: unknown, _res: unknown, next: () => void) => next(),
     RateLimiterNoDisponibleError: class RateLimiterNoDisponibleError extends Error {},
+}));
+
+vi.mock("../../src/observabilidad/saludDependencias", () => ({
+    comprobarDependencias: vi.fn().mockResolvedValue([]),
 }));
 
 describe("contrato REST v1", () => {
