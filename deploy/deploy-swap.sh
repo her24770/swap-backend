@@ -74,6 +74,34 @@ fi
 log() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*"; }
 existe_imagen() { docker image inspect "$1" >/dev/null 2>&1; }
 
+construir() {
+    if [ "$DESTINO" = frontend ]; then
+        "${COMPOSE[@]}" build \
+            --build-arg "BUILD_ID=$BUILD_ID" \
+            --build-arg "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH" "$@"
+    else
+        "${COMPOSE[@]}" build "$@"
+    fi
+}
+
+verificar_digest_frontend() {
+    local build_id primero segundo
+    primero="$(docker image inspect "$IMAGEN:$1" --format '{{.Id}}')"
+    build_id="$(docker run --rm --entrypoint cat "$IMAGEN:$1" .next/BUILD_ID)"
+    if [ "$build_id" != "$BUILD_ID" ]; then
+        log "BUILD_ID incorrecto: $build_id != $BUILD_ID"
+        return 1
+    fi
+    log "Verificando build reproducible del frontend (sin caché)"
+    construir --no-cache
+    segundo="$(docker image inspect "$IMAGEN:latest" --format '{{.Id}}')"
+    if [ "$primero" != "$segundo" ]; then
+        log "Build no reproducible: $primero != $segundo"
+        return 1
+    fi
+    log "Digest reproducible: $primero"
+}
+
 # Nombre publicado (vX.Y.Z) de un commit, si tiene; si no, el propio commit.
 nombre_version() {
     local nombre
@@ -255,13 +283,13 @@ if [ "$ACCION" = rollback ] || [ "$ACCION" = desplegar ]; then
         git checkout --quiet --detach "$OBJETIVO"
         export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
         export APP_VERSION="$(version_para_build "$OBJETIVO")"
-        export BUILD_ID="$APP_VERSION"
+        export BUILD_ID="$(git rev-parse "$OBJETIVO^{commit}")"
         CONSTRUIR=()
         if [ "$DESTINO" = backend ]; then
             CONSTRUIR=(api)
             git diff --quiet "$EN_USO" "$OBJETIVO" -- embeddings/ || CONSTRUIR+=(embeddings)
         fi
-        if ! "${COMPOSE[@]}" build "${CONSTRUIR[@]}"; then
+        if ! construir "${CONSTRUIR[@]}"; then
             git checkout --quiet --detach "$EN_USO"
             log "FALLÓ la construcción; producción sigue en $(nombre_version "$EN_USO") sin cambios."
             exit 1
@@ -313,7 +341,7 @@ fi
 # Todos los builds del commit usan el mismo origen temporal.
 export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
 export APP_VERSION="$(version_para_build "$ACTUAL")"
-export BUILD_ID="$APP_VERSION"
+export BUILD_ID="$(git rev-parse HEAD)"
 
 # Embeddings casi nunca cambia y la API espera a que esté sano para arrancar,
 # así que solo se reconstruye cuando cambia su código o falta su imagen (SWAP-634).
@@ -329,13 +357,14 @@ fi
 # Se construye primero: si el build falla, los contenedores actuales siguen
 # corriendo sin cambios.
 log "Construyendo imágenes: ${CONSTRUIR[*]:-todas}"
-"${COMPOSE[@]}" build "${CONSTRUIR[@]}"
+construir "${CONSTRUIR[@]}"
 docker tag "$IMAGEN:latest" "$IMAGEN:$ACTUAL"
 
 log "Levantando contenedores"
 "${COMPOSE[@]}" up -d
 
-if esperar_salud; then
+if esperar_salud \
+    && { [ "$DESTINO" != frontend ] || verificar_digest_frontend "$ACTUAL"; }; then
     guardar_estado "$ACTUAL" "$ANTERIOR"
     # Se conservan las últimas versiones; nunca se borra la actual ni la anterior.
     for v in $(versiones_disponibles | tail -n +"$((VERSIONES_A_CONSERVAR + 1))"); do
