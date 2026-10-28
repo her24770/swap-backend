@@ -25,6 +25,9 @@ en el servidor de Contabo:
      que compose lo recree y que la API espere a que vuelva a estar sano;
    - etiqueta la imagen construida con el commit desplegado y conserva las
      últimas 5 versiones;
+   - para el frontend pasa el SHA completo como `BUILD_ID`, la fecha del commit
+     como `SOURCE_DATE_EPOCH` y, después del health check, repite el build sin
+     caché y exige que ambas imágenes tengan el mismo digest;
    - espera hasta 3 minutos a que el health check responda
      (`/api/health` del backend, `/` del frontend). Si no responde, vuelve sola
      a la versión anterior y el job queda en rojo.
@@ -36,7 +39,8 @@ los datos reales). El frontend usa el `docker-compose.yml` y el `Dockerfile` que
 existen solo en el servidor (están en el `.gitignore` del repo).
 
 Antes del build manual, el dueño exporta `SOURCE_DATE_EPOCH` con la fecha del
-commit. El procedimiento y la verificación por digest están en
+commit y `BUILD_ID` con su SHA completo. El procedimiento y la verificación por
+digest están en
 [`docs/builds-reproducibles.md`](../docs/builds-reproducibles.md).
 
 El deploy también exporta `APP_VERSION`: usa el tag `vX.Y.Z` del commit o, para
