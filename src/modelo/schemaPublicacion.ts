@@ -3,7 +3,18 @@ import { arrayAcotado } from "./arrayAcotado";
 import { errorFormato, errorRequerido } from "./erroresZod";
 
 const arrayMultipart = <T extends z.ZodTypeAny>(item: T, max: number, mensaje: string) => z.preprocess(
-    (value) => typeof value === "string" ? JSON.parse(value) : value,
+    (value) => {
+        if (typeof value === "string") {
+            const trimmed = value.trim();
+            if (!trimmed) return undefined;
+            try {
+                return JSON.parse(trimmed);
+            } catch {
+                return value;
+            }
+        }
+        return value;
+    },
     arrayAcotado(item, max, mensaje).optional()
 );
 
@@ -84,7 +95,7 @@ export const schemaEditarPublicacion = z.object({
         .optional(),
 
     estado: z
-        .enum(["disponible", "vendido", "reservado", "activo", "inactivo"], {
+        .enum(["disponible", "vendido", "reservado", "activo", "inactivo", "pendiente"], {
             error: "Estado inválido para publicación.",
         })
         .optional(),
