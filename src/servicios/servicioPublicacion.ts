@@ -20,6 +20,7 @@ import { generarYGuardarEmbedding } from "./servicioEmbedding.js";
 import { moderarImagenesEnBackground } from "./servicioModerarImagenesBackground.js";
 import { eliminarImagenR2, subirImagenR2 } from "./servicioR2.js";
 import { ErrorServicio } from "./ErrorServicio.js";
+import { escribirLog } from "../observabilidad/logger.js";
 
 const MAX_IMAGENES = 5;
 
@@ -51,7 +52,11 @@ async function subirImagenes(
     const urls: string[] = [];
     const paraModerar: ImagenParaModerar[] = [];
 
-    for (const archivo of archivos.filter((item) => item.fieldname === "imagenes")) {
+    const archivosAProcesar = archivos.filter(
+        (item) => item.fieldname === "imagenes" || item.fieldname === "imagenes[]"
+    );
+
+    for (const archivo of archivosAProcesar) {
         try {
             const url = await subirImagenR2(
                 archivo.buffer,
@@ -65,7 +70,12 @@ async function subirImagenes(
             });
             urls.push(url);
             paraModerar.push({ idImagen: imagen.id_imagen, url, buffer: archivo.buffer });
-        } catch {
+        } catch (error) {
+            escribirLog("error", "publicacion.subir_imagen_error", {
+                idPublicacion,
+                mimetype: archivo.mimetype,
+                error,
+            });
             // Una imagen fallida no invalida las otras cargas, igual que en el flujo anterior.
         }
     }
@@ -80,10 +90,10 @@ function ejecutarTareasPosteriores(
     imagenes: ImagenParaModerar[],
 ): void {
     if (textoEmbedding) {
-        void generarYGuardarEmbedding(idPublicacion, textoEmbedding).catch(() => undefined);
+        void Promise.resolve(generarYGuardarEmbedding(idPublicacion, textoEmbedding)).catch(() => undefined);
     }
     if (imagenes.length > 0) {
-        void moderarImagenesEnBackground(idPublicacion, idUsuario, imagenes).catch(() => undefined);
+        void Promise.resolve(moderarImagenesEnBackground(idPublicacion, idUsuario, imagenes)).catch(() => undefined);
     }
 }
 
@@ -142,7 +152,9 @@ export async function editarPublicacion(params: EditarPublicacionParams) {
     const imagenesActuales = await buscarImagenesPorPublicacion(idPublicacion);
     const urlsEliminar = datos.imagenesEliminar ?? [];
     const imagenesRestantes = imagenesActuales.filter((img) => !urlsEliminar.includes(img.url_imagen));
-    const archivosImagen = archivos.filter((item) => item.fieldname === "imagenes");
+    const archivosImagen = archivos.filter(
+        (item) => item.fieldname === "imagenes" || item.fieldname === "imagenes[]"
+    );
     const disponibles = MAX_IMAGENES - imagenesRestantes.length;
     if (archivosImagen.length > disponibles) {
         throw new ErrorServicio(

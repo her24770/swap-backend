@@ -207,11 +207,18 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
     try {
         const idUsuario = Number(req.usuario?.sub);
         const requiereRevisionManual = Boolean(req.moderacionPendiente);
+        const archivos: Express.Multer.File[] = Array.isArray(req.files)
+            ? req.files
+            : req.files
+                ? Object.values(req.files).flat()
+                : req.file
+                    ? [req.file]
+                    : [];
 
         const resultado = await crearPublicacion({
             idUsuario,
             datos: req.body,
-            archivos: (req.files as Express.Multer.File[]) ?? [],
+            archivos,
             requiereRevisionManual,
         });
 
@@ -237,12 +244,31 @@ export async function crearPublicacionConImagen(req: Request, res: Response, nex
 
 export async function editarPublicacion(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+        escribirLog("debug", "publicacion.editar_request", {
+            idPublicacion: req.params.id,
+            body: req.body,
+            archivosRecibidos: Array.isArray(req.files)
+                ? req.files.length
+                : req.files
+                    ? Object.keys(req.files).length
+                    : req.file
+                        ? 1
+                        : 0,
+        });
+
         const idPublicacion = Number(req.params.id);
         if (isNaN(idPublicacion)) {
             errorResponse(res, "El ID de la publicacion no es valido", 400);
             return;
         }
-        const archivos = (req.files as Express.Multer.File[]) ?? [];
+        const archivos: Express.Multer.File[] = Array.isArray(req.files)
+            ? req.files
+            : req.files
+                ? Object.values(req.files).flat()
+                : req.file
+                    ? [req.file]
+                    : [];
+
         if (Object.keys(req.body).length === 0 && archivos.length === 0) {
             errorResponse(res, "Debe enviar al menos un campo o una imagen para actualizar", 400);
             return;
