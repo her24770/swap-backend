@@ -28,9 +28,9 @@ router.post("/buscar", autenticar, validar(schemaFiltrosPublicacion), obtenerPub
 router.get("/user/:id", autenticar, obtenerPublicacionesUsuario);
 router.get("/", autenticar, obtenerTodasLasPublicaciones);
 router.get("/:id", autenticar, obtenerPublicacionPorId);
-router.post("/", autenticar, soloUsuario, rateLimitOperacionCostosa("publicacion_moderada"), uploadImagen.any(), validar(schemaCrearPublicacion), moderarTexto(['titulo', 'descripcion']), moderarImagenes, crearPublicacionConImagen);
-router.patch("/:id", autenticar, soloUsuario, rateLimitOperacionCostosa("publicacion_moderada"), uploadImagen.any(), validar(schemaEditarPublicacion), moderarTexto(['titulo', 'descripcion']), moderarImagenes, editarPublicacion);
-router.put("/:id", marcarObsoleto("/api/v1/publicacion/:id"), autenticar, soloUsuario, rateLimitOperacionCostosa("publicacion_moderada"), uploadImagen.any(), validar(schemaEditarPublicacion), moderarTexto(['titulo', 'descripcion']), moderarImagenes, editarPublicacion);
+router.post("/", autenticar, soloUsuario, rateLimitOperacionCostosa("publicacion_moderada"), uploadImagen.array("imagenes", 5), validar(schemaCrearPublicacion), moderarTexto(['titulo', 'descripcion']), moderarImagenes, crearPublicacionConImagen);
+router.patch("/:id", autenticar, soloUsuario, rateLimitOperacionCostosa("publicacion_moderada"), uploadImagen.array("imagenes", 5), validar(schemaEditarPublicacion), moderarTexto(['titulo', 'descripcion']), moderarImagenes, editarPublicacion);
+router.put("/:id", marcarObsoleto("/api/v1/publicacion/:id"), autenticar, soloUsuario, rateLimitOperacionCostosa("publicacion_moderada"), uploadImagen.array("imagenes", 5), validar(schemaEditarPublicacion), moderarTexto(['titulo', 'descripcion']), moderarImagenes, editarPublicacion);
 router.patch("/:id/estado", autenticar, soloUsuario, cambiarEstadoPublicacion);
 router.delete("/:id", autenticar, soloUsuario, eliminarPublicacionConImagenes);
 router.patch("/:id/destacar", autenticar, soloUsuario, validar(schemaDestacarPublicacion), destacarPublicacion);

@@ -146,4 +146,32 @@ describe("servicioPublicacion", () => {
         );
         expect(resultado.id_publicacion).toBe(30);
     });
+
+    it("edita la publicación actualizando texto y subiendo imágenes nuevas", async () => {
+        vi.mocked(buscarPublicacionPorId).mockResolvedValue({
+            id_publicacion: 5,
+            id_usuario: 7,
+            titulo: "Título original",
+            descripcion: "Descripción original",
+        } as any);
+        vi.mocked(buscarImagenesPorPublicacion).mockResolvedValue([
+            { id_imagen: 12, id_publicacion: 5, url_imagen: "https://r2.test/subida.png" } as any,
+        ]);
+        vi.mocked(subirImagenR2).mockResolvedValue("https://r2.test/subida.png");
+        vi.mocked(guardarImagen).mockResolvedValue({ id_imagen: 12, id_publicacion: 5, url_imagen: "https://r2.test/subida.png" } as any);
+
+        const resultado = await editarPublicacion({
+            idPublicacion: 5,
+            idUsuario: 7,
+            datos: { titulo: "Título nuevo" },
+            archivos: [archivo],
+        });
+
+        expect(subirImagenR2).toHaveBeenCalled();
+        expect(guardarImagen).toHaveBeenCalled();
+        expect(resultado.urlsNuevas).toEqual(["https://r2.test/subida.png"]);
+        expect(resultado.imagenes).toEqual([
+            { id_imagen: 12, id_publicacion: 5, url_imagen: "https://r2.test/subida.png" },
+        ]);
+    });
 });
